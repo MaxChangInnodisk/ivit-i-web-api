@@ -106,6 +106,7 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
         logging.debug("Update information to uuid ({})".format(task_uuid))
         current_app.config["TASK"][task_uuid].update({    
             "application": model_cfg["application"],
+            "model": f"{model_cfg[task_framework]['model_path'].split('/')[-1]}",     # path to model
             "model_path": f"{model_cfg[task_framework]['model_path']}",     # path to model
             "label_path": f"{model_cfg[task_framework]['label_path']}",     # path to label 
             "config_path": f"{model_cfg_path}",             # path to model config
@@ -207,7 +208,7 @@ def get_tasks(need_reset=False) -> list:
             "uuid": task_uuid, 
             "status": task_status, 
             "error": task_info['error'], 
-            "model_path": task_info['model_path'] if "model_path" in task_info else None,
+            "model": task_info['model'] if "model" in task_info else None,
             "application": task_info['application'] if "application" in task_info else None,
         })
     return ret

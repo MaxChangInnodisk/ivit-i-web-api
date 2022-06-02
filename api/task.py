@@ -19,6 +19,7 @@ def task_simple_info(uuid):
     simple_config = {
         "framework": af, 
         "application": current_app.config['TASK'][uuid]['application'],
+        "model": current_app.config['TASK'][uuid]['model'],
         "name": current_app.config['TASK'][uuid]['name'], 
         "source": current_app.config['TASK'][uuid]['source'], 
         "source_type": current_app.config['TASK'][uuid]['config']['source_type'], 
