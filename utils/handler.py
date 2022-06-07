@@ -8,6 +8,7 @@ from .common import gen_uuid
 DIV = '-'*30
 APP_KEY = 'APPLICATION'
 MODEL_KEY = 'MODEL'
+MODEL_APP_KEY = 'MODEL_APP'
 SRC_KEY = "SRC"
 
 def init_task_app(task_uuid, app_cfg):
@@ -22,14 +23,23 @@ def init_task_app(task_uuid, app_cfg):
                 current_app.config[APP_KEY][app].append(task_uuid)              # update app.config['APPLICATION'][ {application}][ {UUID}] 
 
 def init_task_model(task_uuid, model_cfg):
+    """
+    Initial model and model_app in configuration
+    """
     task_framework = current_app.config['AF']
     model_name = model_cfg[task_framework]['model_path'].split('/')[-1]
-    if not ( MODEL_KEY in current_app.config.keys()):
-        current_app.config.update( {MODEL_KEY:dict()} )
-    if not (model_name in current_app.config[MODEL_KEY].keys()):
-        current_app.config[MODEL_KEY].update( {model_name:list()} )
+    for KEY in [MODEL_KEY, MODEL_APP_KEY]:
+        if not ( KEY in current_app.config.keys()):
+            current_app.config.update( {KEY:dict()} )
+        if not (model_name in current_app.config[KEY].keys()):
+            current_app.config[KEY].update( {model_name:list()} )
+    # update task uuid in model
     if not (task_uuid in current_app.config[MODEL_KEY][model_name]):
         current_app.config[MODEL_KEY][model_name].append(task_uuid)
+    # update application in model_app
+    apps = current_app.config['TASK'][task_uuid]['application']
+    apps = [ apps ] if type(apps)==str else apps
+    [ current_app.config[MODEL_APP_KEY][model_name].append(app) for app in apps if not app in current_app.config[MODEL_APP_KEY][model_name] ]      
 
 def init_task_src(task_uuid, source, source_type=None):
     """ 
