@@ -7,7 +7,7 @@ bp_utils = Blueprint('utils', __name__)
 
 @bp_utils.route("/v4l2/")
 def web_v4l2():
-    return jsonify(get_pure_jsonify(get_v4l2()))
+    return jsonify(get_v4l2())
 
 @bp_utils.route("/device/")
 def web_device_info():
