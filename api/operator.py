@@ -85,4 +85,4 @@ def remove_application():
         remove_task(task_uuid)
         return 'Remove the application ({})'.format(task_uuid), 200
     except Exception as e:
-        return 'Remove error ({})'.format(e), 200
+        return 'Remove error ({})'.format(e), 400
