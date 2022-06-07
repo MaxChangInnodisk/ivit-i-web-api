@@ -29,8 +29,8 @@ def edit_event(uuid):
     if bool(request.files):
         logging.debug("Get data ...")
         # Saving file
-        file.request.files['source']
-        file_name = secure_filename()
+        file = request.files['source']
+        file_name = secure_filename(file.filename)
         file_path = os.path.join(current_app.config["DATA"], file_name)
         file.save( file_path )
         # Update data information
