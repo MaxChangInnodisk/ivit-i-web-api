@@ -8,7 +8,10 @@ bp_operators = Blueprint('operator', __name__)
 @bp_operators.after_request
 def after_request(response):
     logging.info("Updating TASK_LIST, check in '/tasks'")
-    current_app.config["TASK_LIST"]=get_tasks()
+    try:
+        current_app.config["TASK_LIST"]=get_tasks()
+    except Exception as e:
+        logging.warning(e)
     return response
 
 @bp_operators.route("/edit/<uuid>", methods=["POST"])
@@ -53,17 +56,18 @@ def edit_event(uuid):
 def add_event():
 
     [ logging.info(cnt) for cnt in ['\n', "-"*50, 'Add an application'] ]
-
+    
     # Get data: support form data and json
     data = dict(request.form) if bool(request.form) else request.get_json()
+
     # Put framework information into data
     if 'framework' not in data.keys(): data.update( {"framework":current_app.config['AF']} )
     # Source: If got new source
     if bool(request.files):
         logging.debug("Get data ...")
         # Saving file
-        file.request.files['source']
-        file_name = secure_filename()
+        file = request.files['source']
+        file_name = secure_filename(file.filename)
         file_path = os.path.join(current_app.config["DATA"], file_name)
         file.save( file_path )
         # Update data information
@@ -79,10 +83,10 @@ def add_event():
 
 @bp_operators.route("/remove/", methods=["POST"])
 def remove_application():
-
+    data = dict(request.form) if bool(request.form) else request.get_json()
     try:
-        task_uuid = request.get_json()['uuid']
+        task_uuid = data['uuid']
         remove_task(task_uuid)
-        return 'Remove the application ({})'.format(task_uuid), 200
+        return jsonify('Remove the application ({})'.format(task_uuid)), 200
     except Exception as e:
-        return 'Remove error ({})'.format(e), 400
+        return jsonify('Remove error ({})'.format(e)), 400
