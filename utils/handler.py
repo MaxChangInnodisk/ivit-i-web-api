@@ -16,7 +16,9 @@ def init_task_app(task_uuid, app_cfg):
         # update app.config['APPLICATION'] if needed
         current_app.config.update({ APP_KEY: dict() })                            
     if app_cfg[APP_KEY.lower()] != []:
-        for app in app_cfg[APP_KEY.lower()]:
+        apps = app_cfg[APP_KEY.lower()]
+        apps = [apps] if type(apps)==str else apps
+        for app in apps:
             if not (app in current_app.config[APP_KEY]): 
                 current_app.config[APP_KEY].update( { app : list() } )          # update app.config['APPLICATION'][ {application}] 
             if not (task_uuid in current_app.config[APP_KEY][app]): 
@@ -289,20 +291,27 @@ def add_task(form):
     return init_tasks(trg_an)
 
 def remove_task(task_uuid):
-    
+    logging.warning("Delete {}".format(task_uuid))
     task_path = current_app.config['TASK'][task_uuid]['path']
     
     logging.debug(' - update APPLICATION')
-    task_application = current_app.config['TASK'][task_uuid]['application']
-    [ current_app.config['APPLICATION'][app].remove(task_uuid) for app in task_application ]
-        
+    if 'application' in current_app.config['TASK'][task_uuid]:
+        task_application = current_app.config['TASK'][task_uuid]['application']
+        if type(task_application)==str:
+            task_application = [ task_application ]
+        for app in task_application:
+            current_app.config['APPLICATION'][app].remove(task_uuid)
+    
     logging.debug(' - update SOURCE')
-    task_src = current_app.config['TASK'][task_uuid]['source']
-    current_app.config['SRC'][ task_src ]['proc'].remove(task_uuid)
+    if 'source' in current_app.config['TASK'][task_uuid]:
+        task_src = current_app.config['TASK'][task_uuid]['source']
+        current_app.config['SRC'][ task_src ]['proc'].remove(task_uuid)
 
     logging.debug(' - update MODEL')
-    task_model = current_app.config['TASK'][task_uuid]['model_path'].split('/')[-1]
-    current_app.config['MODEL'][task_model].remove(task_uuid)
+    if 'model_path' in current_app.config['TASK'][task_uuid]:
+        task_model = current_app.config['TASK'][task_uuid]['model_path'].split('/')[-1]
+        if task_model in current_app.config['MODEL']:
+            current_app.config['MODEL'][task_model].remove(task_uuid)
 
     logging.debug(' - update UUID')
     current_app.config['UUID'].pop(task_uuid, None)
