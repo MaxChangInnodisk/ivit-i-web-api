@@ -27,11 +27,11 @@ class Source():
         self.status, self.err = self.check_status()
 
         if self.status:
-            if intype in ['V4L2', 'video']:
+            if intype in ['V4L2', 'Video']:
                 self.src = cv2.VideoCapture(self.input_data)
-            elif intype=='image':
+            elif intype=='Image':
                 self.src = Img(self.input_data)            
-            elif intype=='rtsp':
+            elif intype=='Rtsp':
                 self.src = cv2.VideoCapture(self.input_data)
             else:
                 logging.error('Unexcepted input data.')
