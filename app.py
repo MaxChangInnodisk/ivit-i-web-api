@@ -107,7 +107,7 @@ def create_app():
         elif key_upper in app.config.keys():
             ret = app.config[key_upper]
         else:
-            return "Unexcepted Route ( Please check /routes )", 400
+            return f"Unexcepted Route ({key}), Please check /routes.", 400
         return jsonify( get_pure_jsonify(ret) ), 200
 
     def run_src(uuid, reload_src=False):
@@ -133,15 +133,15 @@ def create_app():
         clear_src = True
         # If any task with same source is still running, then not clear source object
         for _uuid in app.config['SRC'][src_name]["proc"]:
-            if uuid==_uuid:
-                continue
             if (_uuid in app.config['TASK'].keys()):
+                if uuid==_uuid:
+                    continue
                 if app.config['TASK'][_uuid]['status']=='run': 
                     logging.warning("Still have task store the source ... ")
                     clear_src = False
             else:
                 app.config['SRC'][src_name]["proc"].remove(_uuid)
-
+        app.config['TASK'][uuid]['status'] = 'stop'
         if clear_src:
             app.config['SRC'][src_name]['status'] = 'stop'
 
@@ -211,7 +211,7 @@ def create_app():
                     'gpu_load': ""
                 }
                 # emit( event_name, event_content, event_namespace )
-                logging.debug('Send socketio to namespace: {}'.format(namespace))
+                # logging.debug('Send socketio to namespace: {}'.format(namespace))
                 socketio.emit('images', frame_base64, namespace=namespace)#,broadcast=True)
                 socketio.emit('results', get_pure_jsonify(ret_info, json_format=False), namespace=namespace)#, broadcast=True)
                 socketio.sleep(0)
@@ -225,7 +225,7 @@ def create_app():
 
         logging.info('Stop streaming')
 
-    @app.route("/task/<uuid>/run", methods=["GET"])
+    @app.route("/task/<uuid>/run/", methods=["GET"])
     def run_task(uuid):
         # check if the task is ready to inference
         if app.config['TASK'][uuid]['status']=='error':
@@ -244,7 +244,7 @@ def create_app():
         src_status, src_err = src.get_status()
         if not src_status:
             logging.error('get source error')
-            app.config['TASK'][uuid]['err_error']=src_err
+            app.config['TASK'][uuid]['error']=src_err
             return src_err, 400
         
         # Using deep copy to avoid changing the configuration data during initailization ( init)
@@ -289,9 +289,9 @@ def create_app():
         # update list
         app.config["TASK_LIST"]=get_tasks()
 
-        return 'Run Application ({}) ! The results is display in /task/<uuid>/stream'.format(uuid), 200
+        return jsonify('Run Application ({}) ! The results is display in /task/<uuid>/stream'.format(uuid)), 200
 
-    @app.route("/task/<uuid>/stop", methods=["GET"])
+    @app.route("/task/<uuid>/stop/", methods=["GET"])
     def stop_task(uuid):
         logging.info("Stopping stream ...")
         try:
@@ -304,11 +304,11 @@ def create_app():
             logging.info( f"Stoping stream ({uuid})" )
             # update list
             app.config["TASK_LIST"]=get_tasks()
-            return "Stop {}".format(uuid), 200
+            return jsonify("Stop {}".format(uuid)), 200
         except Exception as e:
-            return f"{e}", 400
+            return jsonify(f"{e}"), 400
         
-    @app.route("/task/<uuid>/stream/start", methods=["GET"])
+    @app.route("/task/<uuid>/stream/start/", methods=["GET"])
     def start_stream(uuid):      
 
         af = app.config['AF']
@@ -333,7 +333,7 @@ def create_app():
             logging.info('Stream is running')
             return jsonify('Stream is running'), 200
 
-    @app.route("/task/<uuid>/stream/stop", methods=["GET"])
+    @app.route("/task/<uuid>/stream/stop/", methods=["GET"])
     def stop_stream(uuid):
 
         if app.config['TASK'][uuid]['status']!='error':
@@ -341,11 +341,14 @@ def create_app():
             if app.config['TASK'][uuid]['stream']!=None:
                 # if app.config['TASK'][uuid]['stream'].is_alive():
                 try:
-                    app.config['TASK'][uuid]['stream'].join()
+                    logging.warning('Stopping stream ...')
+                    if app.config['TASK'][uuid]['stream'].is_alive():
+                        app.config['TASK'][uuid]['stream'].join()
                 except Exception as e:
                     logging.warning(e)
+                    return jsonify("Stop stream error"), 400
                 app.config['TASK'][uuid]['stream']=None
-        return jsonify('Stop source ... ')
+            return jsonify('Stop stream success ! '), 200
 
     return app, socketio
 
