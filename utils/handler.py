@@ -157,7 +157,7 @@ def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
     af = current_app.config['AF']
     # Pasre the old verions of task.json and model_config file
     [ src_an, src_path ] = [ current_app.config['TASK'][src_uuid][_key] for _key in ['name', 'path'] ]
-    trg_path = src_path.replace(src_an, trg_an)
+    trg_path = src_path.replace(src_an, trg_an, 1)
 
     ret, (org_app_cfg_path, org_model_cfg_path, app_cfg, model_cfg), err = parse_task_info(src_an, pure_content=True)
     
@@ -169,13 +169,13 @@ def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
         current_app.config['UUID'].pop(src_uuid, None)
         current_app.config['TASK'].pop(src_uuid, None)
 
-    app_cfg_path = org_app_cfg_path.replace(src_an, trg_an)
-    model_cfg_path = org_model_cfg_path.replace(src_an, trg_an)
+    app_cfg_path = org_app_cfg_path.replace(src_an, trg_an, 1)
+    model_cfg_path = org_model_cfg_path.replace(src_an, trg_an, 1)
     [ logging.debug(f' - update {key}: {org} -> {trg}') for (key, org, trg) in [ ("app_path", org_app_cfg_path, app_cfg_path), ("model_path", org_model_cfg_path, model_cfg_path) ] ]
 
     # Update app information
     logging.debug('Update information in {}'.format(app_cfg_path))
-    app_cfg["prim"]["model_json"] = app_cfg["prim"]["model_json"].replace(src_an, trg_an)
+    app_cfg["prim"]["model_json"] = app_cfg["prim"]["model_json"].replace(src_an, trg_an, 1)
     for key in ['name', 'application', 'source', 'source_type']:
         # the source key is different with configuration ( source )
         logging.debug(f' - update ({key}): {app_cfg[key]} -> {form[key]}')
@@ -185,7 +185,7 @@ def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
     logging.debug('Update information in {}'.format(model_cfg_path))
     for key, val in model_cfg[af].items():
         if key in ['model_path', 'label_path']: 
-            model_cfg[af][key] = val.replace(src_an, trg_an) 
+            model_cfg[af][key] = val.replace(src_an, trg_an, 1) 
         if key in ['device', 'thres']:
             model_cfg[af][key] = form[key]  
         logging.debug(f' - update ({key}): {val} -> { model_cfg[af][key] if key in model_cfg[af] else val}')
