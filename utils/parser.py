@@ -1,7 +1,7 @@
 import os, logging, json
 from typing import Tuple
 from flask import current_app
-
+import numpy as np
 DIV = "-"*3 + "\n"
 FRAMEWORK_LIST = ['tensorrt', 'openvino' ]
 
