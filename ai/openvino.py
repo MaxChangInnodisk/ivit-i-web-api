@@ -1,5 +1,4 @@
 import sys, os, time, copy, logging
-import numpy as np
 from flask import Blueprint, current_app
 sys.path.append(os.getcwd())
 try:
@@ -47,11 +46,10 @@ def vino_inference(frame, uuid, model_conf, trg, runtime, draw, palette, ret_dra
         info.pop('frame', None) # original
         info.pop('output_transform', None)    
         
-        logging.debug('parse the results')
-        
         if not ('detections' in info.keys()):
             logging.error('unexcepted key {}, should be "detections" in openvino'.format(info.keys()))
         else:
+            logging.debug('parse the results')
             # the detection key in openvino is detections, but in the web API must be dets
             info.update( {'dets': info['detections']} )
             info.pop('detections', None)
@@ -66,6 +64,6 @@ def vino_inference(frame, uuid, model_conf, trg, runtime, draw, palette, ret_dra
                     logging.debug('not classification and object detection')
     else:
         logging.debug(f'no results here, return (False, null info, the original frame)')
-
+    logging.debug('Inference ... Done !')
     return ret, info, frame
    
