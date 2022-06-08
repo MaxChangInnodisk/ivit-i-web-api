@@ -36,6 +36,6 @@ def gen_uuid(name:str, len:int=8) -> str:
     return str(uuid.uuid4())[:len]
 
 def get_v4l2() -> list:
-    ret = subprocess.run("ls /dev/video*",  text=True, shell=True, stdout=subprocess.PIPE).stdout
+    ret = subprocess.run("ls /dev/video*", shell=True, stdout=subprocess.PIPE, encoding='utf8').stdout
     ret_list = ret.strip().split('\n')
     return ret_list
