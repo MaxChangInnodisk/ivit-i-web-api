@@ -45,7 +45,7 @@ class Source():
 
     def check_status(self):
         status, err_msg = True, ""
-        if self.intype in ['video', 'image', 'V4L2']:
+        if self.intype in ['Video', 'Image', 'V4L2']:
             # check file exist
             if not os.path.exists(self.input_data):
                 status = False
