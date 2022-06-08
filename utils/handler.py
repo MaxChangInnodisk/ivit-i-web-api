@@ -9,69 +9,94 @@ DIV = '-'*30
 APP_KEY = 'APPLICATION'
 MODEL_KEY = 'MODEL'
 MODEL_APP_KEY = 'MODEL_APP'
+APP_MODEL_KEY = 'APP_MODEL'
 SRC_KEY = "SRC"
 
-def init_task_app(task_uuid, app_cfg):
-    if not ( APP_KEY in current_app.config ):
-        # update app.config['APPLICATION'] if needed
-        current_app.config.update({ APP_KEY: dict() })                            
-    if app_cfg[APP_KEY.lower()] != []:
-        apps = app_cfg[APP_KEY.lower()]
-        apps = [apps] if type(apps)==str else apps
-        for app in apps:
-            if not (app in current_app.config[APP_KEY]): 
-                current_app.config[APP_KEY].update( { app : list() } )          # update app.config['APPLICATION'][ {application}] 
-            if not (task_uuid in current_app.config[APP_KEY][app]): 
-                current_app.config[APP_KEY][app].append(task_uuid)              # update app.config['APPLICATION'][ {application}][ {UUID}] 
-
-def init_task_model(task_uuid, model_cfg):
+def init_task_app(task_uuid):
     """
-    Initial model and model_app in configuration
+    Initial application , app_model in configuration
+        - application: relationship between the application and the task ( uuid ) 
+        - app_model: relationship between the application and the model 
+    """
+    # initialize 
+    task_app_key = APP_KEY.lower()
+    task_apps = current_app.config['TASK'][task_uuid]['application']
+    info_table = {
+        APP_KEY: task_uuid,
+        APP_MODEL_KEY: current_app.config['TASK'][task_uuid]['model']
+    } 
+    
+    # create key in config if needed
+    for KEY in [APP_KEY, APP_MODEL_KEY]:
+        if not ( KEY in current_app.config ):
+            current_app.config.update({ KEY: dict() })    
+
+    # update information in app.config[...]
+    if (task_apps != []) or (task_apps != None) or (task_apps != ""):
+        # capture the application information and make sure list and string both are work like a charm
+        apps = [task_apps] if type(task_apps)==str else task_apps
+        for app in apps:
+            # update each KEY about application
+            for KEY in [APP_KEY, APP_MODEL_KEY]:
+                if not (app in current_app.config[KEY]): 
+                    current_app.config[KEY].update( { app : list() } )    
+                # update infomration
+                info = info_table[KEY]
+                if not (info in current_app.config[ KEY ][app]): 
+                    current_app.config[ KEY ][app].append(info)
+           
+def init_task_model(task_uuid):
+    """
+    Initial model , model_app in configuration
+        - model: relationship between the model and the task ( uuid ) 
+        - model_app: relationship between the model and the application
     """
     task_framework = current_app.config['AF']
-    model_name = model_cfg[task_framework]['model_path'].split('/')[-1]
+    task_model = current_app.config['TASK'][task_uuid]['model']
+    task_apps = current_app.config['TASK'][task_uuid]['application']
+    # update the key in config
     for KEY in [MODEL_KEY, MODEL_APP_KEY]:
         if not ( KEY in current_app.config.keys()):
             current_app.config.update( {KEY:dict()} )
-        if not (model_name in current_app.config[KEY].keys()):
-            current_app.config[KEY].update( {model_name:list()} )
+        if not (task_model in current_app.config[KEY].keys()):
+            current_app.config[KEY].update( {task_model:list()} )
     # update task uuid in model
-    if not (task_uuid in current_app.config[MODEL_KEY][model_name]):
-        current_app.config[MODEL_KEY][model_name].append(task_uuid)
+    if not (task_uuid in current_app.config[MODEL_KEY][task_model]):
+        current_app.config[MODEL_KEY][task_model].append(task_uuid)
     # update application in model_app
-    apps = current_app.config['TASK'][task_uuid]['application']
-    apps = [ apps ] if type(apps)==str else apps
-    [ current_app.config[MODEL_APP_KEY][model_name].append(app) for app in apps if not app in current_app.config[MODEL_APP_KEY][model_name] ]      
+    apps = [ task_apps ] if type(task_apps)==str else task_apps
+    for app in apps:
+        if not app in current_app.config[MODEL_APP_KEY][task_model]:
+            current_app.config[MODEL_APP_KEY][task_model].append(app)     
 
-def init_task_src(task_uuid, source, source_type=None):
+def init_task_src(task_uuid):
     """ 
-    Initialize Source: 
+    Initialize Source
         1. Update to app.config['SRC']
         2. Append the uuid into app.config['SRC'][{source}]["proc"]         # means process
         3. Check is the source is exist ( support v4l2 and any file, but excepted rtsp ... )
     """
-    
+    # get source and source type
+    [ source, source_type ] = [ current_app.config['TASK'][task_uuid][key] for key in ['source', 'source_type'] ]
+    # update information
     if not (source in current_app.config[SRC_KEY].keys()):
-        logging.info("Update source information")
-        # Update information
+        logging.debug("Update source information")
         current_app.config[SRC_KEY].update({ 
             f"{source}" : { 
                 "status": "stop",
                 "proc": [],
-                "type": source_type if source_type != None else check_src_type(source),
+                "type": source_type,
                 "object": None,
                 "detail": "",
-            }
-        })
-    else:
-        logging.info("Source is already exists ({})".format(source))
+            }})
     # Add process into config
     if not ( task_uuid in current_app.config['SRC'][ source ]['proc'] ):
         logging.debug("Update process into source config")
         current_app.config[SRC_KEY][ source ]['proc'].append(task_uuid)
-    
     # Clear process which unused
-    [ current_app.config[SRC_KEY][ source ]['proc'].remove(uuid) for uuid in current_app.config[SRC_KEY][ source ]['proc'] if not (uuid in current_app.config['UUID']) ]
+    for uuid in current_app.config[SRC_KEY][ source ]['proc']:
+        if not (uuid in current_app.config['UUID']):
+            current_app.config[SRC_KEY][ source ]['proc'].remove(uuid)
     
 def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
     """ 
@@ -108,14 +133,11 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
             "error": err,
     }})
     
-    # If initialize success 
-    #   * parse the category and application
-    #   * model have to relative with application
-    #   * so, we have to capture the model information, which model is been used by which uuid.
+    # If initialize success
     if task_status != "error":
-
         # Update information
         logging.debug("Update information to uuid ({})".format(task_uuid))
+
         current_app.config["TASK"][task_uuid].update({    
             "application": model_cfg["application"],
             "model": f"{model_cfg[task_framework]['model_path'].split('/')[-1]}",     # path to model
@@ -124,7 +146,7 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
             "config_path": f"{model_cfg_path}",             # path to model config
             "device": f"{model_cfg[task_framework]['device']}",
             "source" : f"{app_cfg['source']}",
-            "source_type": f"{app_cfg['source_type'] if 'source_type' in app_cfg.keys() else None}",
+            "source_type": f"{app_cfg['source_type'] if 'source_type' in app_cfg.keys() else check_src_type(app_cfg['source'])}",
             "output": None,
             "api" : None,       # api
             "runtime" : None,   # model or trt_obj
@@ -138,15 +160,11 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
         })
         
         # Create new source if source is not in global variable
-        init_task_src(   task_uuid, 
-                    app_cfg['source'], 
-                    app_cfg['source_type'] if 'source_type' in app_cfg.keys() else None   )
-        
-        # Update the application mapping table: find which UUID is using the application
-        init_task_app( task_uuid,  app_cfg ) 
-
+        init_task_src(   task_uuid )
         # Update the model list which could compare to the uuid who using this model
-        init_task_model( task_uuid, model_cfg )
+        init_task_model( task_uuid )   
+        # Update the application mapping table: find which UUID is using the application
+        init_task_app( task_uuid ) 
 
         logging.info('Create the global variable for "{}" (uuid: {}) '.format(name, task_uuid))
     else:
