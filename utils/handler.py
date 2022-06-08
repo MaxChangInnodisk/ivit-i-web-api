@@ -124,6 +124,7 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
             "config_path": f"{model_cfg_path}",             # path to model config
             "device": f"{model_cfg[task_framework]['device']}",
             "source" : f"{app_cfg['source']}",
+            "source_type": f"{app_cfg['source_type'] if 'source_type' in app_cfg.keys() else None}",
             "output": None,
             "api" : None,       # api
             "runtime" : None,   # model or trt_obj
