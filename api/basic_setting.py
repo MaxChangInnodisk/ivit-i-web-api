@@ -10,4 +10,3 @@ class basic_setting(object):
     SRC=dict()
     ALLOWED_HOSTS = ['*']
     RE_SRC='0',
-    AF='tensorrt'
