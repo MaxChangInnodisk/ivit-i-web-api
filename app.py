@@ -20,11 +20,7 @@ from init_i.web.utils import get_address, get_tasks, get_pure_jsonify
 from init_i.web.api import basic_setting, bp_utils, bp_tasks, bp_tests, bp_operators
 # ------------------------------------------------------------------------------------------
 from init_i.web.ai.pipeline import Source
-try:
-    from init_i.web.ai.tensorrt import trt_init as init
-    from init_i.web.ai.tensorrt import trt_inference as do_inference
-except Exception as e:
-    raise Exception(e)
+from init_i.web.ai.get_api import get_api
 DIV = "*"*20
 def create_app():
     
@@ -110,80 +106,80 @@ def create_app():
             return f"Unexcepted Route ({key}), Please check /routes.", 400
         return jsonify( get_pure_jsonify(ret) ), 200
 
-    def run_src(uuid, reload_src=False):
-        src_name = app.config['TASK'][uuid]['source']
-
-        # if source is None then create a new source
+    def run_src(task_uuid, reload_src=False):
+        """ setup the source object and run """
+        # get the target source name
+        src_name = app.config['TASK'][task_uuid]['source']
+        # if source is None or reload_src==True then create a new source
         if (app.config['SRC'][src_name]['object']==None) or reload_src:
             app.config['SRC'][src_name]['object'] = Source(src_name, app.config['SRC'][src_name]['type'])
             logging.info('Initialize a new source.')
-        
+        # setup status and error message in source config
         status, err = app.config['SRC'][src_name]['object'].get_status()
-        
-        logging.debug('Checking running source status and err: {}, {}'.format(status, err))
-        
-        app.config['SRC'][src_name]['status'] = 'run' if status else 'error'
-        app.config['SRC'][src_name]['error'] = err
-        logging.info('Set the status of source to `run`.')
+        app.config['SRC'][src_name]['status'], app.config['SRC'][src_name]['error'] = 'run' if status else 'error', err
+        # return object
+        return app.config['SRC'][src_name]['object']
 
-    def stop_src(uuid, rel=False):
-
-        # Check all application is stop
-        src_name = app.config['TASK'][uuid]['source']
-        clear_src = True
-        # If any task with same source is still running, then not clear source object
+    def stop_src(task_uuid, rel=False):
+        """ stop the source and release it if needed, but if the source still be accesed by process, then it won't be stopped. """
+        # initialize
+        src_name, stop_flag, access_proc = app.config['TASK'][task_uuid]['source'], True, []
+        # checking all process
         for _uuid in app.config['SRC'][src_name]["proc"]:
-            if (_uuid in app.config['TASK'].keys()):
-                if uuid==_uuid:
-                    continue
-                if app.config['TASK'][_uuid]['status']=='run': 
-                    logging.warning("Still have task store the source ... ")
-                    clear_src = False
+            if _uuid in app.config['TASK'].keys():
+                # if any task with same source is still running, then set stop_flag to False
+                if ( task_uuid!=_uuid) and (app.config['TASK'][_uuid]['status']=='run'): 
+                    access_proc.append(_uuid)
+                    stop_flag = False           
             else:
+                # clean unused uuid
                 app.config['SRC'][src_name]["proc"].remove(_uuid)
-        app.config['TASK'][uuid]['status'] = 'stop'
-        if clear_src:
+        # clear source object
+        if stop_flag:
+            logging.info('Stopping source object ...')
             app.config['SRC'][src_name]['status'] = 'stop'
-
             if app.config['SRC'][src_name]['object'] != None: 
-                app.config['SRC'][src_name]['object'].release() if rel else app.config['SRC'][src_name]['object'].stop()
-            if rel:
-                app.config['SRC'][src_name]['object'] = None
+                # need release source
+                if rel:
+                    logging.warning('Release source ...')
+                    app.config['SRC'][src_name]['object'].release() 
+                    app.config['SRC'][src_name]['object'] = None 
+                else:
+                    app.config['SRC'][src_name]['object'].stop()
             logging.info('Stop the source.')
         else:
-            logging.info(f'The {src_name} is still been accessed ...')
+            logging.warning("Stop failed, source ({}) accessed by {} ".format(src_name, access_proc))
+        
+    def get_src(task_uuid, reload_src=False):
+        """ get source object """
+        return run_src(task_uuid, reload_src)
 
-    def get_src(uuid, init=False, reload_src=False):
-        if init: run_src(uuid, reload_src)
-        src_object = app.config['SRC'][ app.config['TASK'][uuid]['source'] ]['object']
-        logging.warning(type(src_object))
-        return src_object
-
-    def stream(uuid, src, namespace):
+    def stream_task(task_uuid, src, namespace, infer_function):
         '''Stream event: sending 'image' and 'result' to '/app/<uuid>/stream' via socketio'''
         ret_info, info = dict(), None
         # get all the ai inference objects
-        [ model_conf, trg, runtime, draw, palette ] = [ app.config['TASK'][uuid][key] for key in ['config', 'api', 'runtime', 'draw_tools', 'palette'] ]
+        do_inference = infer_function
+        [ model_conf, trg, runtime, draw, palette ] = [ app.config['TASK'][task_uuid][key] for key in ['config', 'api', 'runtime', 'draw_tools', 'palette'] ]
         # deep copy the config to avoid changing the old one when do inference
         temp_model_conf = copy.deepcopy(model_conf)
         # start looping
         try:
-            while(app.config['SRC'][app.config['TASK'][uuid]['source']]['status']=='run'):
+            while(app.config['SRC'][app.config['TASK'][task_uuid]['source']]['status']=='run'):
                 # logging.debug('get frame')
                 t1 = time.time()
                 ret_frame, frame = src.get_frame()
-                app.config['TASK'][uuid]['frame_index'] += 1
+                app.config['TASK'][task_uuid]['frame_index'] += 1
                 # If no frame, wait a new frame when source type is rtsp and video
                 if not ret_frame: 
                     logging.debug('Reconnect source ... ')
                     if src.get_type().lower() in ['rtsp', 'video']:
-                        src = get_src(uuid, init=True, reload_src=True) 
+                        src = get_src(task_uuid, reload_src=True) 
                         continue
                     else:
                         err_msg ="Couldn't get the frame data."
-                        app.config['SRC'][ app.config['TASK'][uuid]['source'] ]['error']= err_msg
-                        app.config['TASK'][uuid]['error']= err_msg
-                        app.config['TASK'][uuid]['status']= 'error'
+                        app.config['SRC'][ app.config['TASK'][task_uuid]['source'] ]['error']= err_msg
+                        app.config['TASK'][task_uuid]['error']= err_msg
+                        app.config['TASK'][task_uuid]['status']= 'error'
                         break
                 # Check is all ai object is exist
                 # logging.debug('check object')
@@ -191,9 +187,9 @@ def create_app():
                     logging.error('None in [ temp_model_conf, trg, runtime, draw, palette ]')
                     break
                 
-                # logging.debug('do inference ( frame:{} ) '.format(app.config['TASK'][uuid]['frame_index']))
+                # logging.debug('do inference ( frame:{} ) '.format(app.config['TASK'][task_uuid]['frame_index']))
                 t2 = time.time()
-                ret, info, _frame = do_inference( frame, uuid, temp_model_conf, trg, runtime, draw, palette, ret_draw=True ) 
+                ret, info, _frame = do_inference( frame, task_uuid, temp_model_conf, trg, runtime, draw, palette, ret_draw=True ) 
                 frame = _frame if ret else frame
     
                 # logging.debug('convert to base64')
@@ -202,11 +198,11 @@ def create_app():
                 
                 # logging.debug('update information')
                 ret_info = {
-                    'idx': app.config['TASK'][uuid]['frame_index'],
+                    'idx': app.config['TASK'][task_uuid]['frame_index'],
                     'detections': info["dets"] if info is not None else None,
                     'inference': round((t3-t2)*1000, 3),
                     'fps': int(1/( time.time() - t1 )),
-                    'live_time': int((time.time() - app.config['TASK'][uuid]['start_time'])),
+                    'live_time': int((time.time() - app.config['TASK'][task_uuid]['start_time'])),
                     'gpu_temp': "",
                     'gpu_load': ""
                 }
@@ -217,13 +213,12 @@ def create_app():
                 socketio.sleep(0)
 
                 # logging.debug('Updaet live time')
-                app.config['TASK'][uuid]['live_time'] = int((time.time() - app.config['TASK'][uuid]['start_time'])) 
+                app.config['TASK'][task_uuid]['live_time'] = int((time.time() - app.config['TASK'][task_uuid]['start_time'])) 
             
             logging.info('Stop streaming')
         except Exception as e:
             logging.error('Stream Error: {}'.format(e))
 
-        logging.info('Stop streaming')
 
     @app.route("/task/<uuid>/run/", methods=["GET"])
     def run_task(uuid):
@@ -231,28 +226,26 @@ def create_app():
         if app.config['TASK'][uuid]['status']=='error':
             return 'The task is not ready, here is the error messages: {}'.format( 
                 app.config['TASK'][uuid]['error'] ), 400
-
         if app.config['TASK'][uuid]['status']=='run':
             return 'The task is still running ... ', 200
-
-        # get target platform and initailize AI model
-        af = app.config['TASK'][uuid]['framework']
-        tag = app.config['TASK'][uuid]['config']['tag']
         
         # create a source object if it is not exist
-        src = get_src(uuid, init=True)        
+        src = get_src(uuid)        
         src_status, src_err = src.get_status()
         if not src_status:
             logging.error('get source error')
             app.config['TASK'][uuid]['error']=src_err
             return src_err, 400
         
-        # Using deep copy to avoid changing the configuration data during initailization ( init)
+        # avoid changing the configuration data during initailization ( init)
         temp_config = copy.deepcopy(app.config['TASK'][uuid]['config']) 
-        # store object in app.config
         
-        # if using openvino and tag is pose we have to send a 
-        ai_objects = init(temp_config, src.get_frame()[1]) if af=='openvino' and tag=='pose' else init(temp_config)
+        # get ai objects
+        init, do_inference = get_api()
+        if (app.config['TASK'][uuid]['framework']=='openvino') and (app.config['TASK'][uuid]['config']['tag']=='pose'):
+            ai_objects = init(temp_config, src.get_frame()[1]) 
+        else:
+            ai_objects = init(temp_config)
         
         # if no object then return error message
         # ai_objects = error message if initialize failed
@@ -269,15 +262,6 @@ def create_app():
         # send socketio and update app.config
         app.config['TASK'][uuid]['status'] = "run"
         
-        # create stream object
-        if app.config['TASK'][uuid]['stream']==None:
-
-            app.config['TASK'][uuid]['stream'] = threading.Thread(
-                target=stream, 
-                args=(uuid, src, f'/task/{uuid}/stream' ), 
-                name=f"{uuid}")
-            app.config['TASK'][uuid]['stream'].daemon = True
-
         # set initialize time
         app.config['TASK'][uuid]['start_time']=time.time()
         app.config['TASK'][uuid]['live_time']=0
@@ -293,45 +277,53 @@ def create_app():
 
     @app.route("/task/<uuid>/stop/", methods=["GET"])
     def stop_task(uuid):
-        logging.info("Stopping stream ...")
+        """ Stop the task: release source, set relative object to None, set task status to stop, reload task list """
         try:
+            logging.info("Stopping task ...")
+            # stop source and release source
             stop_src(uuid, rel=True)
-            for key in ['api', 'runtime', 'palette']:
-                logging.debug(" - setting {} to None".format(key))
+            # set relative object to None
+            for key in ['api', 'runtime', 'palette', 'stream']:
+                logging.debug(" - setting app.config[TASK][<uuid>][{}] to None".format(key))
                 app.config['TASK'][uuid][key] = None
-            
+            # set the status of task to 'stop'
             app.config['TASK'][uuid]['status']="stop"
-            logging.info( f"Stoping stream ({uuid})" )
             # update list
             app.config["TASK_LIST"]=get_tasks()
-            return jsonify("Stop {}".format(uuid)), 200
+            # msg
+            msg = f"Stop the task ({uuid})"
+            logging.info( msg )
+            return jsonify( msg ), 200
+
         except Exception as e:
             return jsonify(f"{e}"), 400
         
     @app.route("/task/<uuid>/stream/start/", methods=["GET"])
     def start_stream(uuid):      
 
-        af = app.config['AF']
         [ logging.info(cnt) for cnt in [DIV, f'Start stream ... destination of socketio event: "/task/{uuid}/stream"', DIV] ]
 
-        if app.config['TASK'][uuid]['stream'] == None:
-            logging.info('Create a new thread')
-            app.config['TASK'][uuid]['stream'] = threading.Thread(  
-                target=stream,
-                args=(uuid, get_src(uuid, init=True), f'/task/{uuid}/stream'), 
-                name=f"{uuid}"
+        # create stream object
+        _, do_inference = get_api()
+        if app.config['TASK'][uuid]['stream']==None:
+            app.config['TASK'][uuid]['stream'] = threading.Thread(
+                target=stream_task, 
+                args=(uuid, get_src(uuid), f'/task/{uuid}/stream', do_inference ), 
+                name=f"{uuid}",
             )
-        if not app.config['TASK'][uuid]['stream'].is_alive():
-            try:
-                app.config['TASK'][uuid]['stream'].start()
-                logging.info('Stream is created')
-                return jsonify('Stream is created')
-            except Exception as e:
-                logging.error('Start thread error: {}'.format(e))
-                return jsonify('Start thread error: {}'.format(e)), 500
-        else:
+            app.config['TASK'][uuid]['stream'].daemon = True
+        # check if thread is alive
+        if app.config['TASK'][uuid]['stream'].is_alive():
             logging.info('Stream is running')
             return jsonify('Stream is running'), 200
+        try:
+            app.config['TASK'][uuid]['stream'].start()
+            logging.info('Stream is created')
+            return jsonify('Stream is created'), 200
+        except Exception as e:
+            logging.error('Start thread error: {}'.format(e))
+            return jsonify('Start thread error: {}'.format(e)), 400
+
 
     @app.route("/task/<uuid>/stream/stop/", methods=["GET"])
     def stop_stream(uuid):
@@ -342,12 +334,10 @@ def create_app():
                 # if app.config['TASK'][uuid]['stream'].is_alive():
                 try:
                     logging.warning('Stopping stream ...')
-                    if app.config['TASK'][uuid]['stream'].is_alive():
-                        app.config['TASK'][uuid]['stream'].join()
+                    app.config['TASK'][uuid]['stream'].join()
                 except Exception as e:
                     logging.warning(e)
-                    return jsonify("Stop stream error"), 400
-                app.config['TASK'][uuid]['stream']=None
+            app.config['TASK'][uuid]['stream']=None
             return jsonify('Stop stream success ! '), 200
 
     return app, socketio
