@@ -18,11 +18,6 @@ def after_request(response):
 def edit_event(uuid):
     """
     """
-    # Check the task is ready
-    if current_app.config['TASK'][uuid]['status']=="error":
-        msg = "The task could not be edit."
-        logging.error(msg)
-        return msg, 400
     # Get data: support form data and json
     data = dict(request.form) if bool(request.form) else request.get_json()
 
