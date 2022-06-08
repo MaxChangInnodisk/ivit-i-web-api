@@ -115,17 +115,17 @@ def check_src_type(src:str) -> str:
     
     ret = ""
     map_table = {
-        "camera":['dev', 'video'],
-        "video":['mp4', 'avi'],
-        "image":['jpg', 'png'],
-        "rtsp":['rtsp'],
+        "V4l2":['dev', 'video'],
+        "Video":['mp4', 'avi'],
+        "Image":['jpg', 'png'],
+        "RTSP":['rtsp'],
     }
 
     for key, val in map_table.items():
         for ext in val:
             if ext in src:
                 ret = key
-
+    logging.debug("The source type is {}".format(ret))
     return ret
 
 def check_json(s):
