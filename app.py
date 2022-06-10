@@ -16,8 +16,8 @@ eventlet.monkey_patch()
 # init_i 
 sys.path.append(os.getcwd())
 from init_i.utils.logger import config_logger
-from init_i.web.utils import get_address, get_tasks, get_pure_jsonify
-from init_i.web.api import basic_setting, bp_utils, bp_tasks, bp_tests, bp_operators
+from init_i.web.tools import get_address, get_tasks, get_pure_jsonify
+from init_i.web.api import basic_setting, bp_system, bp_tasks, bp_operators
 # ------------------------------------------------------------------------------------------
 from init_i.web.ai.pipeline import Source
 from init_i.web.ai.get_api import get_api
@@ -50,8 +50,7 @@ def create_app():
     # register blueprint
     app.register_blueprint(bp_tasks)        # captrue the info of tasks
     app.register_blueprint(bp_operators)    # operate the task
-    app.register_blueprint(bp_utils)        # some utils, like 'v4l2', 'device' ... etc
-    app.register_blueprint(bp_tests)        # just for test
+    app.register_blueprint(bp_system)        # some utils, like 'v4l2', 'device' ... etc
     
     # check data folder is exsit
     if not (os.path.exists(app.config["DATA"])):

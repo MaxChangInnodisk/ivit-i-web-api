@@ -1,6 +1,6 @@
 import logging, copy, sys, os
 from flask import Blueprint, abort, jsonify, current_app, request
-from init_i.web.utils import get_address, get_gpu_info, get_v4l2, edit_task, add_task, get_tasks, remove_task
+from init_i.web.tools import get_address, get_gpu_info, get_v4l2, edit_task, add_task, get_tasks, remove_task
 from werkzeug.utils import secure_filename
 
 bp_operators = Blueprint('operator', __name__)

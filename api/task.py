@@ -1,6 +1,6 @@
 import logging, copy
 from flask import Blueprint, abort, jsonify, current_app
-from init_i.web.utils import get_address, get_gpu_info, get_v4l2, get_pure_jsonify
+from init_i.web.tools import get_address, get_gpu_info, get_v4l2, get_pure_jsonify
 
 bp_tasks = Blueprint('task', __name__)
 
