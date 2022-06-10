@@ -50,13 +50,13 @@ def trt_inference(frame, uuid, model_conf, trg, runtime, draw, palette, ret_draw
     finally:
         if ret:
             # do something if inference success  ...
-            for idx, det in enumerate(info['dets']):
+            for idx, det in enumerate(info['detections']):
                 # clear the items of human pose 
                 [ det.pop(key, None) for key in ['peaks', 'drawer', 'objects'] ]
                 # convert bounding box from float to int
                 for key in ['xmin', 'xmax', 'ymin', 'ymax']:
                     det[key] = int(float(det[key])) if det[key]!=None else det[key]
                 # update detections
-                info['dets'][idx] = det
+                info['detections'][idx] = det
 
         return ret, info, frame

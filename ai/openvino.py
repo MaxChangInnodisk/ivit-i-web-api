@@ -50,16 +50,16 @@ def vino_inference(frame, uuid, model_conf, trg, runtime, draw, palette, ret_dra
             logging.error('unexcepted key {}, should be "detections" in openvino'.format(info.keys()))
         else:
             logging.debug('parse the results')
-            # the detection key in openvino is detections, but in the web API must be dets
-            info.update( {'dets': info['detections']} )
+            # the detection key in openvino is detections, but in the web API must be detections
+            info.update( {'detections': info['detections']} )
             info.pop('detections', None)
 
-            for idx, det in enumerate(info['dets']): 
+            for idx, det in enumerate(info['detections']): 
                 if model_conf['tag'] in ['cls', 'obj']:
                     # convert bounding box from float to int
                     for key in ['xmin', 'xmax', 'ymin', 'ymax']:
                         det[key] = int(float(det[key])) if det[key]!=None else det[key]
-                    info['dets'][idx]=det
+                    info['detections'][idx]=det
                 else:
                     logging.debug('not classification and object detection')
     else:

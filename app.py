@@ -199,7 +199,7 @@ def create_app():
                 # logging.debug('update information')
                 ret_info = {
                     'idx': app.config['TASK'][task_uuid]['frame_index'],
-                    'detections': info["dets"] if info is not None else None,
+                    'detections': info["detections"] if info is not None else None,
                     'inference': round((t3-t2)*1000, 3),
                     'fps': int(1/( time.time() - t1 )),
                     'live_time': int((time.time() - app.config['TASK'][task_uuid]['start_time'])),
