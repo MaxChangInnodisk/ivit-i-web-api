@@ -1,7 +1,7 @@
 class basic_setting(object):
     JSONIFY_PRETTYPRINT_REGULAR=True
     JSON_SORT_KEYS=False
-    TASK_ROOT="./app"
+    TASK_ROOT="./task"
     TASK_CFG_NAME="task.json"
     TASK=dict()
     TASK_LIST=dict()
