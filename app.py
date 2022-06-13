@@ -1,7 +1,7 @@
 # ------------------------------------------------------------------------------------------
 # common module
 import cv2, time, logging, shutil, subprocess, base64, threading, os, sys, copy, json
-
+# ------------------------------------------------------------------------------------------
 # flask basic, socketio, filename and docs ( flasgger )
 from flask import Flask, Blueprint, jsonify, request, render_template, url_for, redirect, abort
 from flask_socketio import SocketIO
@@ -12,7 +12,7 @@ from flask_cors import CORS as cors
 # green flask and application
 import eventlet
 eventlet.monkey_patch()  
-
+# ------------------------------------------------------------------------------------------
 # init_i 
 sys.path.append(os.getcwd())
 from init_i.utils.logger import config_logger
@@ -21,7 +21,11 @@ from init_i.web.api import basic_setting, bp_system, bp_tasks, bp_operators
 # ------------------------------------------------------------------------------------------
 from init_i.web.ai.pipeline import Source
 from init_i.web.ai.get_api import get_api
+from init_i.app.handler import get_application
+# ------------------------------------------------------------------------------------------
 DIV = "*"*20
+# ------------------------------------------------------------------------------------------
+
 def create_app():
     
     # initialize
@@ -161,6 +165,14 @@ def create_app():
         [ model_conf, trg, runtime, draw, palette ] = [ app.config['TASK'][task_uuid][key] for key in ['config', 'api', 'runtime', 'draw_tools', 'palette'] ]
         # deep copy the config to avoid changing the old one when do inference
         temp_model_conf = copy.deepcopy(model_conf)
+
+        has_application=True
+        try:
+            application = get_application(temp_model_conf)
+        except Exception as e:
+            logging.error(e)
+            has_application=False
+        
         # start looping
         try:
             while(app.config['SRC'][app.config['TASK'][task_uuid]['source']]['status']=='run'):
@@ -188,9 +200,17 @@ def create_app():
                 
                 # logging.debug('do inference ( frame:{} ) '.format(app.config['TASK'][task_uuid]['frame_index']))
                 t2 = time.time()
-                ret, info, _frame = do_inference( frame, task_uuid, temp_model_conf, trg, runtime, draw, palette, ret_draw=True ) 
-                frame = _frame if ret else frame
+                ret, info, _frame = do_inference(   
+                    frame, task_uuid, temp_model_conf, 
+                    trg, runtime, draw, palette, ret_draw=(not has_application) ) 
     
+                # add application
+                if ret:
+                    if has_application:
+                        frame = application(frame, info)
+                    else:
+                        frame = _frame
+
                 # logging.debug('convert to base64')
                 t3 = time.time()
                 frame_base64 = base64.encodebytes(cv2.imencode('.jpg', frame)[1].tobytes()).decode("utf-8")
