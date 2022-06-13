@@ -45,7 +45,7 @@ def trt_inference(frame, uuid, model_conf, trg, runtime, draw, palette, ret_draw
 
     except Exception as e:
         ret = False
-        err_msg(e)
+        logging.error(e)
         
     finally:
         if ret:
