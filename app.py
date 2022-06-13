@@ -204,12 +204,9 @@ def create_app():
                     frame, task_uuid, temp_model_conf, 
                     trg, runtime, draw, palette, ret_draw=(not has_application) ) 
     
-                # add application
+                # replace the frame generated from application function
                 if ret:
-                    if has_application:
-                        frame = application(frame, info)
-                    else:
-                        frame = _frame
+                    frame = application(frame, info) if has_application else _frame
 
                 # logging.debug('convert to base64')
                 t3 = time.time()
