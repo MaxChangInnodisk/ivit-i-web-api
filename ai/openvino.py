@@ -35,32 +35,35 @@ def vino_init(prim_conf, first_frame=None):
 def vino_inference(frame, uuid, model_conf, trg, runtime, draw, palette, ret_draw=True):
     
     ret, info = False, None
-    logging.debug('before inference')
-    info = trg.inference(runtime, frame, model_conf)
     
-    if info is not None:
-        
-        logging.debug('got results, draw the detections')
-        frame = draw.draw_detections(info, palette, model_conf)
-        ret = True
-        info.pop('frame', None) # original
-        info.pop('output_transform', None)    
-        
-        if not ('detections' in info.keys()):
-            logging.error('unexcepted key {}, should be "detections" in openvino'.format(info.keys()))
-        else:
-            logging.debug('parse the results')
+    try:
+        info = trg.inference(runtime, frame, model_conf)
             
-            for idx, det in enumerate(info['detections']): 
-                if model_conf['tag'] in ['cls', 'obj']:
-                    # convert bounding box from float to int
-                    for key in ['xmin', 'xmax', 'ymin', 'ymax']:
-                        det[key] = int(float(det[key])) if det[key]!=None else det[key]
-                    info['detections'][idx]=det
+        if info is not None:
+                
+                if ret_draw:
+                    frame = draw.draw_detections(info, palette, model_conf)
+                ret = True
+                info.pop('frame', None) # original
+                info.pop('output_transform', None)    
+                
+                if not ('detections' in info.keys()):
+                    logging.error('unexcepted key {}, should be "detections" in openvino'.format(info.keys()))
                 else:
-                    logging.debug('not classification and object detection')
-    else:
-        logging.debug(f'no results here, return (False, null info, the original frame)')
-    logging.debug('Inference ... Done !')
+                    logging.debug('parse the results')
+                    
+                    for idx, det in enumerate(info['detections']): 
+                        if model_conf['tag'] in ['cls', 'obj']:
+                            # convert bounding box from float to int
+                            for key in ['xmin', 'xmax', 'ymin', 'ymax']:
+                                det[key] = int(float(det[key])) if det[key]!=None else det[key]
+                            info['detections'][idx]=det
+                        else:
+                            logging.debug('not classification and object detection')
+    
+    except Exception as e:
+        ret = False
+        logging.error(e)
+
     return ret, info, frame
    
