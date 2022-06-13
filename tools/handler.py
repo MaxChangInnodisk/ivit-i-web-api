@@ -20,7 +20,7 @@ def init_task_app(task_uuid):
     """
     # initialize 
     task_app_key = APP_KEY.lower()
-    task_apps = current_app.config['TASK'][task_uuid]['application']
+    task_apps = current_app.config['TASK'][task_uuid]['application']['name']
     info_table = {
         APP_KEY: task_uuid,
         APP_MODEL_KEY: current_app.config['TASK'][task_uuid]['model']
@@ -53,7 +53,7 @@ def init_task_model(task_uuid):
     """
     task_framework = current_app.config['AF']
     task_model = current_app.config['TASK'][task_uuid]['model']
-    task_apps = current_app.config['TASK'][task_uuid]['application']
+    task_apps = current_app.config['TASK'][task_uuid]['application']['name']
     # update the key in config
     for KEY in [MODEL_KEY, MODEL_APP_KEY]:
         if not ( KEY in current_app.config.keys()):
@@ -138,8 +138,12 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
         # Update information
         logging.debug("Update information to uuid ({})".format(task_uuid))
 
+        # Double check application
+        application_pattern = { "name": model_cfg["application"] } if type(model_cfg["application"])==str else model_cfg["application"]
+            
+
         current_app.config["TASK"][task_uuid].update({    
-            "application": model_cfg["application"],
+            "application": application_pattern,
             "model": f"{model_cfg[task_framework]['model_path'].split('/')[-1]}",     # path to model
             "model_path": f"{model_cfg[task_framework]['model_path']}",     # path to model
             "label_path": f"{model_cfg[task_framework]['label_path']}",     # path to label 
@@ -160,11 +164,20 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
         })
         
         # Create new source if source is not in global variable
-        init_task_src(   task_uuid )
+        try:
+            init_task_src(   task_uuid )
+        except Exception as e:
+            logging.error(e)
         # Update the model list which could compare to the uuid who using this model
-        init_task_model( task_uuid )   
+        try:
+            init_task_model( task_uuid )   
+        except Exception as e:
+            logging.error(e)
         # Update the application mapping table: find which UUID is using the application
-        init_task_app( task_uuid ) 
+        try:
+            init_task_app( task_uuid ) 
+        except Exception as e:
+            logging.error(e)
 
         logging.info('Create the global variable for "{}" (uuid: {}) '.format(name, task_uuid))
     else:
@@ -315,7 +328,7 @@ def remove_task(task_uuid):
     
     logging.debug(' - update APPLICATION')
     if 'application' in current_app.config['TASK'][task_uuid]:
-        task_application = current_app.config['TASK'][task_uuid]['application']
+        task_application = current_app.config['TASK'][task_uuid]['application']['name']
         if type(task_application)==str:
             task_application = [ task_application ]
         for app in task_application:
