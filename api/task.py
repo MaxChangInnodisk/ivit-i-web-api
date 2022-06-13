@@ -18,14 +18,14 @@ def task_simple_info(uuid):
     af = current_app.config['TASK'][uuid]["framework"]
     simple_config = {
         "framework": af, 
-        "application": current_app.config['TASK'][uuid]['application'],
-        "model": current_app.config['TASK'][uuid]['model'],
-        "name": current_app.config['TASK'][uuid]['name'], 
-        "source": current_app.config['TASK'][uuid]['source'], 
-        "source_type": current_app.config['TASK'][uuid]['config']['source_type'], 
-        "device": current_app.config['TASK'][uuid]['device'] ,
-        "thres": current_app.config['TASK'][uuid]['config'][af]['thres'],
-        "status": current_app.config['TASK'][uuid]['status'],
+        "application": current_app.config['TASK'][uuid]['application'] if 'application' in current_app.config['TASK'][uuid] else None,
+        "model": current_app.config['TASK'][uuid]['model'] if 'model' in current_app.config['TASK'][uuid] else None,
+        "name": current_app.config['TASK'][uuid]['name'] if 'name' in current_app.config['TASK'][uuid] else None, 
+        "source": current_app.config['TASK'][uuid]['source'] if 'source' in current_app.config['TASK'][uuid] else None, 
+        "source_type": current_app.config['TASK'][uuid]['config']['config'] if 'application' in current_app.config['TASK'][uuid] else None, 
+        "device": current_app.config['TASK'][uuid]['device'] if 'device' in current_app.config['TASK'][uuid] else None ,
+        "status": current_app.config['TASK'][uuid]['status'] if 'status' in current_app.config['TASK'][uuid] else None,
+        "thres": current_app.config['TASK'][uuid]['config'][af]['thres'] if 'config' in current_app.config['TASK'][uuid] else None,
     }
     return jsonify(simple_config), 200
 
