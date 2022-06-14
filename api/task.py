@@ -22,7 +22,7 @@ def task_simple_info(uuid):
         "model": current_app.config['TASK'][uuid]['model'] if 'model' in current_app.config['TASK'][uuid] else None,
         "name": current_app.config['TASK'][uuid]['name'] if 'name' in current_app.config['TASK'][uuid] else None, 
         "source": current_app.config['TASK'][uuid]['source'] if 'source' in current_app.config['TASK'][uuid] else None, 
-        "source_type": current_app.config['TASK'][uuid]['config']['config'] if 'application' in current_app.config['TASK'][uuid] else None, 
+        "source_type": current_app.config['TASK'][uuid]['config']['source_type'] if 'source_type' in current_app.config['TASK'][uuid] else None, 
         "device": current_app.config['TASK'][uuid]['device'] if 'device' in current_app.config['TASK'][uuid] else None ,
         "status": current_app.config['TASK'][uuid]['status'] if 'status' in current_app.config['TASK'][uuid] else None,
         "thres": current_app.config['TASK'][uuid]['config'][af]['thres'] if 'config' in current_app.config['TASK'][uuid] else None,
