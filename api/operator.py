@@ -33,6 +33,7 @@ def edit_event(uuid):
         file.save( file_path )
         # Update data information
         data["source"]=file_path
+        
     # Set the format of thres to float
     data["thres"]=float( data["thres"] )
     # Check
@@ -74,7 +75,11 @@ def add_event():
         task_status, task_uuid, task_info = add_task(data)
         return jsonify( "Add successed ( {}:{} )".format( data["name"], task_uuid ) ), 200
     except Exception as e:
-        return jsonify( "Add error ( {} )".format(e) ), 400
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            msg = 'Add Error: \n{}\n{} ({}:{})'.format(exc_type, exc_obj, fname, exc_tb.tb_lineno)
+            logging.error(msg)
+            return jsonify(msg), 400
 
 @bp_operators.route("/remove/", methods=["POST"])
 def remove_application():
