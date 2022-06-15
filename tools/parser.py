@@ -42,8 +42,12 @@ def parse_task_info(path:str, pure_content:bool=False) -> Tuple[bool, tuple, str
     
     # checking the application path
     if os.path.exists(task_cfg_path):
+        
         task_cfg = load_json(task_cfg_path)
         framework = task_cfg["framework"]
+        logging.debug(task_cfg)
+        if task_cfg=="":
+            logging.error("Configuration Error, please check again ...")
 
         # capturing the model config path
         if "prim" in task_cfg.keys():
