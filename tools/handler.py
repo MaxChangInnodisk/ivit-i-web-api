@@ -140,7 +140,6 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
 
         # Double check application
         application_pattern = { "name": model_cfg["application"] } if type(model_cfg["application"])==str else model_cfg["application"]
-            
 
         current_app.config["TASK"][task_uuid].update({    
             "application": application_pattern,
@@ -186,46 +185,59 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
     return (task_status, task_uuid, current_app.config['TASK'][task_uuid])
 
 def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
-    af = current_app.config['AF']
-    # Pasre the old verions of task.json and model_config file
-    [ src_an, src_path ] = [ current_app.config['TASK'][src_uuid][_key] for _key in ['name', 'path'] ]
-    trg_path = src_path.replace(src_an, trg_an, 1)
+    try:
+        af = current_app.config['AF']
+        # Pasre the old verions of task.json and model_config file
+        [ src_an, src_path ] = [ current_app.config['TASK'][src_uuid][_key] for _key in ['name', 'path'] ]
+        trg_path = src_path.replace(src_an, trg_an, 1)
 
-    ret, (org_app_cfg_path, org_model_cfg_path, app_cfg, model_cfg), err = parse_task_info(src_an, pure_content=True)
-    
-    if need_copy:
-        shutil.copytree(src_path, trg_path)    
-    else:
-        shutil.move(src_path, trg_path)
-        # Clear the UUID and TASK information
-        current_app.config['UUID'].pop(src_uuid, None)
-        current_app.config['TASK'].pop(src_uuid, None)
+        ret, (org_app_cfg_path, org_model_cfg_path, app_cfg, model_cfg), err = parse_task_info(src_an, pure_content=True)
+        
+        if need_copy:
+            shutil.copytree(src_path, trg_path)    
+        else:
+            shutil.move(src_path, trg_path)
+            # Clear the UUID and TASK information
+            current_app.config['UUID'].pop(src_uuid, None)
+            current_app.config['TASK'].pop(src_uuid, None)
 
-    app_cfg_path = org_app_cfg_path.replace(src_an, trg_an, 1)
-    model_cfg_path = org_model_cfg_path.replace(src_an, trg_an, 1)
-    [ logging.debug(f' - update {key}: {org} -> {trg}') for (key, org, trg) in [ ("app_path", org_app_cfg_path, app_cfg_path), ("model_path", org_model_cfg_path, model_cfg_path) ] ]
+        app_cfg_path = org_app_cfg_path.replace(src_an, trg_an, 1)
+        model_cfg_path = org_model_cfg_path.replace(src_an, trg_an, 1)
+        [ logging.debug(f' - update {key}: {org} -> {trg}') for (key, org, trg) in [ ("app_path", org_app_cfg_path, app_cfg_path), ("model_path", org_model_cfg_path, model_cfg_path) ] ]
 
-    # Update app information
-    logging.debug('Update information in {}'.format(app_cfg_path))
-    app_cfg["prim"]["model_json"] = app_cfg["prim"]["model_json"].replace(src_an, trg_an, 1)
-    for key in ['name', 'application', 'source', 'source_type']:
-        # the source key is different with configuration ( source )
-        logging.debug(f' - update ({key}): {app_cfg[key]} -> {form[key]}')
-        app_cfg[key] = form[ key ]
-    
-    # Update model information
-    logging.debug('Update information in {}'.format(model_cfg_path))
-    for key, val in model_cfg[af].items():
-        if key in ['model_path', 'label_path']: 
-            model_cfg[af][key] = val.replace(src_an, trg_an, 1) 
-        if key in ['device', 'thres']:
-            model_cfg[af][key] = form[key]  
-        logging.debug(f' - update ({key}): {val} -> { model_cfg[af][key] if key in model_cfg[af] else val}')
-    
-    # Update json file
-    write_json(app_cfg_path, app_cfg)
-    write_json(model_cfg_path, model_cfg)
+        # Update app information
+        logging.debug('Update information in {}'.format(app_cfg_path))
+        app_cfg["prim"]["model_json"] = app_cfg["prim"]["model_json"].replace(src_an, trg_an, 1)
+        for key in ['name', 'source', 'source_type']:
+            # the source key is different with configuration ( source )
+            logging.debug(f' - update ({key}): {app_cfg[key]} -> {form[key]}')
+            app_cfg[key] = form[ key ]
+        
+        # Update application with correct pattern
+        app_cfg['application'] = { "name": form["application"] }
 
+        
+        # Update model information
+        logging.debug('Update information in {}'.format(model_cfg_path))
+        for key, val in model_cfg[af].items():
+            if key in ['model_path', 'label_path']: 
+                model_cfg[af][key] = val.replace(src_an, trg_an, 1) 
+            if key in ['device', 'thres']:
+                model_cfg[af][key] = form[key]  
+            logging.debug(f' - update ({key}): {val} -> { model_cfg[af][key] if key in model_cfg[af] else val}')
+        
+        # Update json file
+        write_json(app_cfg_path, app_cfg)
+        write_json(model_cfg_path, model_cfg)
+    except Exception as e:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+        msg = 'Modify JSON Error: \n{}\n{} ({}:{})'.format(exc_type, exc_obj, fname, exc_tb.tb_lineno)
+        logging.error(msg)
+        raise Exception(msg)
+        # logging.raiseExceptions(msg)
+
+        
 def get_tasks(need_reset=False) -> list:
     """ 
     取得所有 APP：這邊會先進行 INIT 接著在透過 ready 這個 KEY 取得是否可以運行，最後回傳 ready, failed 兩個 List 
