@@ -170,7 +170,10 @@ def create_app():
         try:
             application = get_application(temp_model_conf)
         except Exception as e:
-            logging.error(e)
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            msg = 'Application Error: \n{}\n{} ({}:{})'.format(exc_type, exc_obj, fname, exc_tb.tb_lineno)
+            logging.error(msg)
             has_application=False
         
         # start looping
@@ -235,7 +238,7 @@ def create_app():
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-            msg = 'Stream Error: \n{}\n{} ({})'.format(exc_type, fname, exc_tb.tb_lineno)
+            msg = 'Stream Error: \n{}\n{} ({}:{})'.format(exc_type, exc_obj, fname, exc_tb.tb_lineno)
             logging.error(msg)
             return jsonify(msg), 400
 
