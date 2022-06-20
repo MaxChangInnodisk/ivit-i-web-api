@@ -74,6 +74,11 @@ class Source():
     
     def get_frame(self):
         return self.src.read()
+    
+    def get_shape(self):
+        w, h = self.src.get(cv2.CAP_PROP_FRAME_WIDTH), self.src.get(cv2.CAP_PROP_FRAME_HEIGHT)  
+        logging.debug("The source width: {}, height: {}".format(w, h))
+        return ( int(w), int(h) )
 
 if __name__ == "__main__":
     logging.info('Testing source.py')
