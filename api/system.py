@@ -35,3 +35,16 @@ def web_source():
         return pure_src_config, 200
     except Exception as e:
         return e, 400
+
+@bp_system.route("/log")
+def get_log():
+    data = []
+    logging.debug("Log path: {}".format(current_app.config['LOGGER']))
+    with open( current_app.config['LOGGER'], newline='') as f:
+        for line in f.readlines():
+            data.append( line.rstrip("\n") )
+    
+    if len(data) >= 1000:
+        data = data[(len(data)-1000):]
+
+    return jsonify( data ), 200
