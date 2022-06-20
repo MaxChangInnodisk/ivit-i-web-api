@@ -171,7 +171,7 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
             "fps": None,
             "stream": None 
         })
-        
+
         # Create new source if source is not in global variable
         try:
             init_task_src(   task_uuid )
