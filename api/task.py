@@ -29,6 +29,17 @@ def task_simple_info(uuid):
     }
     return jsonify(simple_config), 200
 
+@bp_tasks.route("/task/<uuid>/labels/")
+@bp_tasks.route("/task/<uuid>/label/")
+def task_label(uuid):
+    try:
+        label_list = []
+        with open( current_app.config["TASK"][uuid]['label_path'], 'r') as f:
+            [ label_list.append( line.rstrip("\n") ) for line in f.readlines() ]
+        return jsonify( label_list ), 200
+    except Exception as e:
+        return jsonify( e ), 400
+
 @bp_tasks.route("/task/<uuid>/<key>/")
 def task_status(uuid, key):
     trg_key, org_key_list = None, current_app.config['TASK'][uuid].keys()
@@ -39,3 +50,4 @@ def task_status(uuid, key):
         return jsonify("Unexcepted key ({})".format(org_key_list)), 400
     else:
         return jsonify(current_app.config['TASK'][uuid][trg_key]), 200
+
