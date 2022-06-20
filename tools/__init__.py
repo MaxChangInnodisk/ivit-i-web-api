@@ -1,6 +1,6 @@
 from .common import get_gpu_info, get_v4l2, get_address
 from .parser import load_json, get_pure_jsonify
-from .handler import get_tasks, init_tasks, parse_task_info, gen_uuid, init_task_src, edit_task, add_task, remove_task
+from .handler import get_tasks, init_tasks, parse_task_info, gen_uuid, init_task_src, edit_task, add_task, remove_task, import_task
 
 
 # Fix some module
@@ -18,5 +18,6 @@ __all__ =   [
     "edit_task",
     "add_task",
     "remove_task",
-    "get_pure_jsonify"
+    "get_pure_jsonify",
+    "import_task"
 ]
