@@ -1,4 +1,4 @@
-import sys, os, shutil, time, logging, copy
+import sys, os, shutil, time, logging, copy, json
 from typing import Tuple
 from flask import current_app
 
@@ -10,6 +10,7 @@ APP_KEY = 'APPLICATION'
 MODEL_KEY = 'MODEL'
 MODEL_APP_KEY = 'MODEL_APP'
 APP_MODEL_KEY = 'APP_MODEL'
+TAG_APP = 'TAG_APP'
 SRC_KEY = "SRC"
 
 def init_task_app(task_uuid):
@@ -27,7 +28,7 @@ def init_task_app(task_uuid):
     } 
     
     # create key in config if needed
-    for KEY in [APP_KEY, APP_MODEL_KEY]:
+    for KEY in [APP_KEY, APP_MODEL_KEY, TAG_APP]:
         if not ( KEY in current_app.config ):
             current_app.config.update({ KEY: dict() })    
 
@@ -44,6 +45,14 @@ def init_task_app(task_uuid):
                 info = info_table[KEY]
                 if not (info in current_app.config[ KEY ][app]): 
                     current_app.config[ KEY ][app].append(info)
+    
+    # update tag in TAG_APP 
+    if "config" in current_app.config["TASK"][task_uuid]:
+        tag = current_app.config["TASK"][task_uuid]["config"]["tag"]
+        if not ( tag in current_app.config[TAG_APP] ):
+            current_app.config[TAG_APP].update( { tag: list() } )
+        if not ( task_apps in current_app.config[TAG_APP][tag] ):
+            current_app.config[TAG_APP][tag].append(task_apps)
            
 def init_task_model(task_uuid):
     """
@@ -67,7 +76,8 @@ def init_task_model(task_uuid):
     apps = [ task_apps ] if type(task_apps)==str else task_apps
     for app in apps:
         if not app in current_app.config[MODEL_APP_KEY][task_model]:
-            current_app.config[MODEL_APP_KEY][task_model].append(app)     
+            current_app.config[MODEL_APP_KEY][task_model].append(app)  
+       
 
 def init_task_src(task_uuid):
     """ 
@@ -194,6 +204,8 @@ def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
         ret, (org_app_cfg_path, org_model_cfg_path, app_cfg, model_cfg), err = parse_task_info(src_an, pure_content=True)
         
         if need_copy:
+            # Copy file from the other folder which has same model_path
+            logging.debug('Copy all files from the same application folder')
             shutil.copytree(src_path, trg_path)    
         else:
             shutil.move(src_path, trg_path)
@@ -316,9 +328,6 @@ def add_task(form):
     else:
         logging.info('The new application path: {}'.format(task_path))
 
-    # Copy file from the other folder which has same model_path
-    logging.info('Copy all files from the same application folder')
-
     src_uuid = current_app.config['MODEL'][form['model']][0] if form['model'] in current_app.config['MODEL'].keys() else None
             
     if src_uuid==None:
@@ -370,3 +379,108 @@ def remove_task(task_uuid):
         logging.warning('Folder is not found')
 
     return True
+
+def import_task(form):
+    """
+    新增新的應用
+    1. 根據選擇的 Application，去複製對應的模型、標籤、配置檔案
+    2. 修改配置檔案的內容
+    ---
+    Form 
+    Key: name, path, model_path, label_path, config_path, json_path, tag, application, device, source, thres, source_type
+    """
+    
+    # get task_name and task_path
+    framework = current_app.config['AF']
+    task_name = form['name']
+    src_path = form["path"]
+    src_config_path = form["config_path"]
+    src_json_path = form["json_path"]
+
+    task_path = os.path.join( current_app.config['TASK_ROOT'] , task_name )
+
+    if form["model_path"]=="":
+        logging.warning("Something went wrong in model_path, auto search again ...")
+        for f in os.listdir(src_path):
+            name, ext = os.path.splitext(f)
+            if ext in ['.trt', '.engine']:
+                form["model_path"] = f
+                logging.debug("Find the model path ({})".format(form["model_path"]))
+
+    task_model_path = os.path.join( task_path, form["model_path"].split("/")[-1] )
+    task_label_path = os.path.join( task_path, form["label_path"].split("/")[-1] )
+    
+    model_config_path = os.path.join( task_path, "{}.json".format( os.path.splitext(form["model_path"].split("/")[-1])[0] ))
+    task_config_path = os.path.join( task_path, "task.json")
+
+    task_tag = form["tag"]
+    task_application = form["application"]
+    task_device = form["device"]
+    task_source = form["source"]
+    task_source_type = form["source_type"]
+    task_thres = float(form["thres"])
+
+    # create the folder for new task
+    if os.path.exists(task_path):
+        msg="Task is already exist !!! ({})".format(task_path)
+        raise Exception(msg)
+    else:
+        os.makedirs(task_path)
+        logging.info('The new task path: {}'.format(task_path))
+
+    # move the file and rename
+    os.rename( form["model_path"], task_model_path )
+    os.rename( form["label_path"], task_label_path )
+    
+    # generate model config json
+    try:
+        if task_tag == "cls":
+            from init_i.cls.config_template import TEMPLATE as model_config
+        elif task_tag == "darknet":
+            from init_i.darknet.config_template import TEMPLATE as model_config
+
+        model_config["tag"] = task_tag
+        model_config[framework]["model_path"] = task_model_path
+        model_config[framework]["label_path"] = task_label_path
+        model_config[framework]["device"] = task_device
+        model_config[framework]["thres"] = task_thres
+
+        with open( src_json_path, "r" ) as f:
+            train_config = json.load(f)
+
+        h, w, c = train_config["model_config"]["input_shape"][:]
+        model_config[framework]["input_size"] = "{},{},{}".format( c, h, w )
+        
+        if "process_mode" in train_config["train_config"]["datagenerator"]:
+            model_config[framework]["preprocess"] = train_config["train_config"]["datagenerator"]["preprocess_mode"]
+        else:
+            model_config[framework]["preprocess"] = "caffe"
+
+        with open( model_config_path, "w" ) as out_file:
+            json.dump( model_config, out_file )
+    
+    except Exception as e:
+        raise Exception(e)
+
+    # generate task config json
+    task_config = {
+        "framework": framework,
+        "name": task_name,
+        "source": task_source,
+        "source_type": task_source_type,
+        "application": {
+            "name": task_application
+        },
+        "prim": {
+            "model_json": model_config_path
+        }
+    }
+
+    with open( task_config_path, "w") as out_file:
+        json.dump( task_config, out_file)
+    
+    # remove temperate file
+    shutil.rmtree( src_path )
+
+    return init_tasks( task_name )
+    
