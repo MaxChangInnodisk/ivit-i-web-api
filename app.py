@@ -186,6 +186,7 @@ def create_app():
                 t1 = time.time()
                 ret_frame, frame = src.get_frame()
                 app.config['TASK'][task_uuid]['frame_index'] += 1
+
                 # If no frame, wait a new frame when source type is rtsp and video
                 if not ret_frame: 
                     logging.debug('Reconnect source ... ')
@@ -198,6 +199,7 @@ def create_app():
                         app.config['TASK'][task_uuid]['error']= err_msg
                         app.config['TASK'][task_uuid]['status']= 'error'
                         break
+                
                 # Check is all ai object is exist
                 # logging.debug('check object')
                 if (None in [ temp_model_conf, trg, runtime, draw, palette ]):
@@ -206,17 +208,19 @@ def create_app():
                 
                 # logging.debug('do inference ( frame:{} ) '.format(app.config['TASK'][task_uuid]['frame_index']))
                 t2 = time.time()
-                ret, info, _frame = do_inference(   
-                    frame, task_uuid, temp_model_conf, 
+                org_frame = frame.copy()
+
+                ret, info, frame_draw = do_inference(   
+                    org_frame, task_uuid, temp_model_conf, 
                     trg, runtime, draw, palette, ret_draw=(not has_application) ) 
     
                 # replace the frame generated from application function
-                if ret:
-                    frame = application(frame, info) if has_application else _frame
+                if ret and has_application:
+                    frame_draw = application(org_frame, info)
 
                 # logging.debug('convert to base64')
                 t3 = time.time()
-                frame_base64 = base64.encodebytes(cv2.imencode('.jpg', frame)[1].tobytes()).decode("utf-8")
+                frame_base64 = base64.encodebytes(cv2.imencode('.jpg', frame_draw)[1].tobytes()).decode("utf-8")
                 
                 # logging.debug('update information')
                 ret_info = {
