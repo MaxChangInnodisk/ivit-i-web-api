@@ -389,6 +389,8 @@ def import_task(form):
     Form 
     Key: name, path, model_path, label_path, config_path, json_path, tag, application, device, source, thres, source_type
     """
+    # model extension for double check
+    MODEL_EXT = [ '.trt', '.engine', '.xml' ] 
     
     # get task_name and task_path
     framework = current_app.config['AF']
@@ -399,11 +401,12 @@ def import_task(form):
 
     task_path = os.path.join( current_app.config['TASK_ROOT'] , task_name )
 
+    # something, we could not store the model_path
     if form["model_path"]=="":
         logging.warning("Something went wrong in model_path, auto search again ...")
         for f in os.listdir(src_path):
             name, ext = os.path.splitext(f)
-            if ext in ['.trt', '.engine']:
+            if ext in MODEL_EXT:
                 form["model_path"] = f
                 logging.debug("Find the model path ({})".format(form["model_path"]))
 
@@ -432,33 +435,64 @@ def import_task(form):
     os.rename( form["model_path"], task_model_path )
     os.rename( form["label_path"], task_label_path )
     
+    # if is openvino model, we have to copy the .bin and .mapping file
+    if current_app.config["AF"] == "openvino":
+        org_path, trg_path = os.path.splitext(form["model_path"])[0], os.path.splitext(task_model_path)[0]
+        ext_list = [ ".bin", ".mapping"]
+        for ext in ext_list:
+            org_file_path = "{}{}".format(org_path, ext)
+            trg_file_path = "{}{}".format(trg_path, ext)
+            os.rename( org_file_path, trg_file_path )
+    
     # generate model config json
     try:
-        if task_tag == "cls":
-            from init_i.cls.config_template import TEMPLATE as model_config
-        elif task_tag == "darknet":
-            from init_i.darknet.config_template import TEMPLATE as model_config
-
+        # if you have different key in configuration, you have to add 
+        logging.debug("Generate Model Config ... ")
+        logging.debug("Detect TAG: {}".format(task_tag))
+        try:
+            if task_tag == "cls":
+                from init_i.cls.config_template import TEMPLATE as model_config
+            elif task_tag == "darknet":
+                from init_i.darknet.config_template import TEMPLATE as model_config
+            elif task_tag == "obj":
+                from init_i.obj.config_template import TEMPLATE as model_config
+        except Exception as e:
+            logging.error(e)
+            
+        # modify the content
         model_config["tag"] = task_tag
         model_config[framework]["model_path"] = task_model_path
         model_config[framework]["label_path"] = task_label_path
         model_config[framework]["device"] = task_device
         model_config[framework]["thres"] = task_thres
 
+        # log the training config to caputre the input_shape and preprocess
         with open( src_json_path, "r" ) as f:
             train_config = json.load(f)
 
+        # update input shape
         h, w, c = train_config["model_config"]["input_shape"][:]
         model_config[framework]["input_size"] = "{},{},{}".format( c, h, w )
         
-        if "process_mode" in train_config["train_config"]["datagenerator"]:
+        # update preprocess
+        if "process_mode" in train_config["train_config"]["datagenerator"] and framework != "openvino":
             model_config[framework]["preprocess"] = train_config["train_config"]["datagenerator"]["preprocess_mode"]
         else:
+            # if no preprocess than set to caffe
             model_config[framework]["preprocess"] = "caffe"
 
+        # update anchor
+        anchor_key = "anchors"
+        if anchor_key in train_config:
+            anchors = [ float(anchor.strip(" "))  for anchor in train_config[anchor_key].split(",") ]
+            logging.debug("Update anchor: {}".format(anchors))
+            model_config[framework][anchor_key] = anchors
+            model_config[framework]["architecture_type"] = "yolov4"
+
+        # write information into model config file
         with open( model_config_path, "w" ) as out_file:
             json.dump( model_config, out_file )
-    
+
     except Exception as e:
         raise Exception(e)
 
