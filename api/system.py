@@ -14,7 +14,13 @@ def web_device_info():
     if current_app.config["PLATFORM"]=="nvidia":
         return jsonify(get_gpu_info())
     else:
-        return jsonify("Intel device")
+        ret = {
+            "CPU": {
+                "id": 0,
+                "name": "CPU"
+            }
+        }
+        return jsonify(ret)
 
 @bp_system.route("/source")
 def web_source():
