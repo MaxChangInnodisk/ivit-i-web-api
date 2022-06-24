@@ -1,10 +1,11 @@
+from pyexpat import model
 import sys, os, shutil, time, logging, copy, json
 from typing import Tuple
 from flask import current_app
 
 from .parser import parse_task_info, write_json, check_src_type
 from .common import gen_uuid
-from init_i.app.handler import get_tag_app_list
+from init_i.app.handler import get_tag_app_list, get_app_list
 
 DIV = '-'*30
 APP_KEY = 'APPLICATION'
@@ -13,6 +14,8 @@ MODEL_APP_KEY = 'MODEL_APP'
 APP_MODEL_KEY = 'APP_MODEL'
 TAG_APP = 'TAG_APP'
 SRC_KEY = "SRC"
+
+
 
 def init_task_app(task_uuid):
     """
@@ -242,7 +245,10 @@ def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
         logging.debug('Update information in {}'.format(model_cfg_path))
         for key, val in model_cfg[af].items():
             if key in ['model_path', 'label_path']: 
-                model_cfg[af][key] = val.replace(src_an, trg_an, 1) 
+                if model_cfg["tag"]=='pose' and key=="label_path":
+                    pass
+                else:
+                    model_cfg[af][key] = val.replace(src_an, trg_an, 1) 
             if key in ['device', 'thres']:
                 model_cfg[af][key] = form[key]  
             logging.debug(f' - update ({key}): {val} -> { model_cfg[af][key] if key in model_cfg[af] else val}')
