@@ -113,6 +113,8 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
     """
     [ logging.info(cnt) for cnt in [ DIV, f"[{index:02}] Start to initialize application ({name})"] ]
 
+    # Name
+    name = name
     # UUID
     task_path = os.path.join( current_app.config["TASK_ROOT"], name )
     task_uuid = gen_uuid(name=name, len=8)
@@ -223,19 +225,18 @@ def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
         logging.debug('Update information in {}'.format(app_cfg_path))
         form["thres"] = float(form["thres"])
         app_cfg["prim"]["model_json"] = app_cfg["prim"]["model_json"].replace(src_an, trg_an, 1)
+        
         for key in ['name', 'source', 'source_type']:
             # the source key is different with configuration ( source )
             logging.debug(f' - update ({key}): {app_cfg[key]} -> {form[key]}')
-            
-            # if name include space, replace to underline
-            app_cfg[key] = form[ key ].strip().replace(" ", "_")
+            app_cfg[key] = form[ key ]
         
         # Update application with correct pattern
         tag_app_list = current_app.config[TAG_APP] if not ( TAG_APP in current_app.config ) else get_tag_app_list()
         available_app_list = [ app for app in tag_app_list.values() ]
 
         app_name = form["application"]
-        app_cfg['application'] = { "name": app_name if app_name in available_app_list else "" }
+        app_cfg['application'] = { "name": app_name if app_name in available_app_list else "default" }
 
         # Update model information
         logging.debug('Update information in {}'.format(model_cfg_path))
@@ -403,7 +404,7 @@ def import_task(form):
     
     # get task_name and task_path
     framework = current_app.config['AF']
-    task_name = form['name'].strip().replace(" ", "_")
+    task_name = form['name'].strip()
     src_path = form["path"]
     src_config_path = form["config_path"]
     src_json_path = form["json_path"]
@@ -427,6 +428,7 @@ def import_task(form):
 
     task_tag = form["tag"]
     task_application = form["application"]
+
     task_device = form["device"]
     task_source = form["source"]
     task_source_type = form["source_type"]
