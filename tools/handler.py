@@ -281,20 +281,29 @@ def get_tasks(need_reset=False) -> list:
             except Exception as e:
                 raise Exception(e)
 
-    for task_uuid in current_app.config['UUID']:
-        task_info = current_app.config['TASK'][task_uuid]
-        task_status = task_info['status']
-        # parse ready and failed applications
-        ret["ready" if task_status!="error" else "failed"].append({
-            "tag": task_info['tag'],
-            "framework": task_info['framework'], 
-            "name": task_info['name'], 
-            "uuid": task_uuid, 
-            "status": task_status, 
-            "error": task_info['error'], 
-            "model": task_info['model'] if "model" in task_info else None,
-            "application": task_info['application'] if "application" in task_info else None,
-        })
+    try:
+        for task_uuid in current_app.config['UUID']:
+            task_info = current_app.config['TASK'][task_uuid]
+            
+            task_status = task_info['status']
+            # parse ready and failed applications
+            ret["ready" if task_status!="error" else "failed"].append({
+                "tag": task_info['tag'] if 'tag' in task_info else "",
+                "framework": task_info['framework'], 
+                "name": task_info['name'], 
+                "uuid": task_uuid, 
+                "status": task_status, 
+                "error": task_info['error'], 
+                "model": task_info['model'] if "model" in task_info else None,
+                "application": task_info['application'] if "application" in task_info else None,
+            })
+
+    except Exception as e:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+        msg = 'Stream Error: \n{}\n{} ({}:{})'.format(exc_type, exc_obj, fname, exc_tb.tb_lineno)
+        logging.error(msg)
+
     return ret
 
 def edit_task(form, src_uuid):
