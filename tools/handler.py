@@ -4,6 +4,7 @@ from flask import current_app
 
 from .parser import parse_task_info, write_json, check_src_type
 from .common import gen_uuid
+from init_i.app.handler import get_tag_app_list
 
 DIV = '-'*30
 APP_KEY = 'APPLICATION'
@@ -46,14 +47,8 @@ def init_task_app(task_uuid):
                 if not (info in current_app.config[ KEY ][app]): 
                     current_app.config[ KEY ][app].append(info)
     
-    # update tag in TAG_APP 
-    if "config" in current_app.config["TASK"][task_uuid]:
-        tag = current_app.config["TASK"][task_uuid]["config"]["tag"]
-        if not ( tag in current_app.config[TAG_APP] ):
-            current_app.config[TAG_APP].update( { tag: list() } )
-        if not ( task_apps in current_app.config[TAG_APP][tag] ):
-            current_app.config[TAG_APP][tag].append(task_apps)
-           
+    current_app.config[TAG_APP] = get_tag_app_list()
+
 def init_task_model(task_uuid):
     """
     Initial model , model_app in configuration
@@ -61,6 +56,7 @@ def init_task_model(task_uuid):
         - model_app: relationship between the model and the application
     """
     task_framework = current_app.config['AF']
+    task_tag = current_app.config['TASK'][task_uuid]['tag']
     task_model = current_app.config['TASK'][task_uuid]['model']
     task_apps = current_app.config['TASK'][task_uuid]['application']['name']
     # update the key in config
@@ -74,11 +70,15 @@ def init_task_model(task_uuid):
         current_app.config[MODEL_KEY][task_model].append(task_uuid)
     # update application in model_app
     apps = [ task_apps ] if type(task_apps)==str else task_apps
-    for app in apps:
-        if not app in current_app.config[MODEL_APP_KEY][task_model]:
-            current_app.config[MODEL_APP_KEY][task_model].append(app)  
-       
+    
+    tag_app_list = current_app.config[TAG_APP] if not ( TAG_APP in current_app.config ) else get_tag_app_list()
+    available_app_list = [ app for app in tag_app_list.values() ]
 
+    # available_app_list
+    for app in tag_app_list[task_tag]:
+        if not app in current_app.config[MODEL_APP_KEY][task_model]:
+            current_app.config[MODEL_APP_KEY][task_model].append( app )
+       
 def init_task_src(task_uuid):
     """ 
     Initialize Source
@@ -152,6 +152,7 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
         application_pattern = { "name": model_cfg["application"] } if type(model_cfg["application"])==str else model_cfg["application"]
 
         current_app.config["TASK"][task_uuid].update({    
+            "tag": model_cfg["tag"],
             "application": application_pattern,
             "model": f"{model_cfg[task_framework]['model_path'].split('/')[-1]}",     # path to model
             "model_path": f"{model_cfg[task_framework]['model_path']}",     # path to model
@@ -202,7 +203,8 @@ def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
         trg_path = src_path.replace(src_an, trg_an, 1)
 
         ret, (org_app_cfg_path, org_model_cfg_path, app_cfg, model_cfg), err = parse_task_info(src_an, pure_content=True)
-        
+
+        # Check is Add or Edit        
         if need_copy:
             # Copy file from the other folder which has same model_path
             logging.debug('Copy all files from the same application folder')
@@ -213,22 +215,28 @@ def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
             current_app.config['UUID'].pop(src_uuid, None)
             current_app.config['TASK'].pop(src_uuid, None)
 
+        # Get path
         app_cfg_path = org_app_cfg_path.replace(src_an, trg_an, 1)
         model_cfg_path = org_model_cfg_path.replace(src_an, trg_an, 1)
         [ logging.debug(f' - update {key}: {org} -> {trg}') for (key, org, trg) in [ ("app_path", org_app_cfg_path, app_cfg_path), ("model_path", org_model_cfg_path, model_cfg_path) ] ]
 
         # Update app information
         logging.debug('Update information in {}'.format(app_cfg_path))
+        form["thres"] = float(form["thres"])
         app_cfg["prim"]["model_json"] = app_cfg["prim"]["model_json"].replace(src_an, trg_an, 1)
         for key in ['name', 'source', 'source_type']:
             # the source key is different with configuration ( source )
             logging.debug(f' - update ({key}): {app_cfg[key]} -> {form[key]}')
+            
             app_cfg[key] = form[ key ]
         
         # Update application with correct pattern
-        app_cfg['application'] = { "name": form["application"] }
+        tag_app_list = current_app.config[TAG_APP] if not ( TAG_APP in current_app.config ) else get_tag_app_list()
+        available_app_list = [ app for app in tag_app_list.values() ]
 
-        
+        app_name = form["application"]
+        app_cfg['application'] = { "name": app_name if app_name in available_app_list else "" }
+
         # Update model information
         logging.debug('Update information in {}'.format(model_cfg_path))
         for key, val in model_cfg[af].items():
@@ -271,6 +279,7 @@ def get_tasks(need_reset=False) -> list:
         task_status = task_info['status']
         # parse ready and failed applications
         ret["ready" if task_status!="error" else "failed"].append({
+            "tag": task_info['tag'],
             "framework": task_info['framework'], 
             "name": task_info['name'], 
             "uuid": task_uuid, 
