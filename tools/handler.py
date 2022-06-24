@@ -47,7 +47,8 @@ def init_task_app(task_uuid):
                 if not (info in current_app.config[ KEY ][app]): 
                     current_app.config[ KEY ][app].append(info)
     
-    current_app.config[TAG_APP] = get_tag_app_list()
+    if not bool(current_app.config[TAG_APP]):
+        current_app.config[TAG_APP] = get_tag_app_list()
 
 def init_task_model(task_uuid):
     """
@@ -66,19 +67,17 @@ def init_task_model(task_uuid):
         if not (task_model in current_app.config[KEY].keys()):
             current_app.config[KEY].update( {task_model:list()} )
     # update task uuid in model
+    
     if not (task_uuid in current_app.config[MODEL_KEY][task_model]):
         current_app.config[MODEL_KEY][task_model].append(task_uuid)
-    # update application in model_app
-    apps = [ task_apps ] if type(task_apps)==str else task_apps
-    
-    tag_app_list = current_app.config[TAG_APP] if not ( TAG_APP in current_app.config ) else get_tag_app_list()
-    available_app_list = [ app for app in tag_app_list.values() ]
 
-    # available_app_list
+    # update application in model_app
+    tag_app_list = current_app.config[TAG_APP] if ( TAG_APP in current_app.config ) else get_tag_app_list()
+
     for app in tag_app_list[task_tag]:
-        if not app in current_app.config[MODEL_APP_KEY][task_model]:
+        if not (app in current_app.config[MODEL_APP_KEY][task_model]):
             current_app.config[MODEL_APP_KEY][task_model].append( app )
-       
+    
 def init_task_src(task_uuid):
     """ 
     Initialize Source
@@ -228,7 +227,8 @@ def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
             # the source key is different with configuration ( source )
             logging.debug(f' - update ({key}): {app_cfg[key]} -> {form[key]}')
             
-            app_cfg[key] = form[ key ]
+            # if name include space, replace to underline
+            app_cfg[key] = form[ key ].strip().replace(" ", "_")
         
         # Update application with correct pattern
         tag_app_list = current_app.config[TAG_APP] if not ( TAG_APP in current_app.config ) else get_tag_app_list()
@@ -403,7 +403,7 @@ def import_task(form):
     
     # get task_name and task_path
     framework = current_app.config['AF']
-    task_name = form['name']
+    task_name = form['name'].strip().replace(" ", "_")
     src_path = form["path"]
     src_config_path = form["config_path"]
     src_json_path = form["json_path"]
