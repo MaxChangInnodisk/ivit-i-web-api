@@ -167,11 +167,13 @@ def create_app():
         # deep copy the config to avoid changing the old one when do inference
         temp_model_conf = copy.deepcopy(model_conf)
 
-        has_application=True
+        has_application=False
         try:
             application = get_application(temp_model_conf)
             if application == None:
                 has_application = False
+            else:
+                has_application = True
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
@@ -215,7 +217,7 @@ def create_app():
                     trg, runtime, draw, palette, ret_draw=(not has_application) ) 
     
                 # replace the frame generated from application function
-                if ret and has_application:
+                if ret and has_application :
                     frame_draw = application(org_frame, info)
 
                 # logging.debug('convert to base64')
