@@ -236,7 +236,8 @@ def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
         
         # Update application with correct pattern
         tag_app_list = current_app.config[TAG_APP] if not ( TAG_APP in current_app.config ) else get_tag_app_list()
-        available_app_list = [ app for app in tag_app_list.values() ]
+        
+        available_app_list = [ app for apps in tag_app_list.values() for app in apps  ]
 
         app_name = form["application"]
         app_cfg['application'] = { "name": app_name if app_name in available_app_list else "default" }
