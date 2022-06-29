@@ -251,6 +251,16 @@ def create_app():
             logging.error(msg)
             return jsonify(msg), 400
 
+
+    @app.route("/task/<uuid>/get_frame")
+    def get_first_frame(uuid):
+        src = get_src(uuid)
+        ret_frame = src.get_first_frame()
+        h,w,c = ret_frame.shape
+        frame_base64 = base64.encodebytes(cv2.imencode('.jpg', ret_frame)[1].tobytes()).decode("utf-8")
+        # return '<img src="data:image/jpeg;base64,{}">'.format(frame_base64)
+        return jsonify( { "image":frame_base64 , "height": h, "width": w} )
+
     @app.route("/task/<uuid>/run/", methods=["GET"])
     def run_task(uuid):
         # check if the task is ready to inference

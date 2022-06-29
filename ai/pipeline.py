@@ -22,6 +22,7 @@ class Source():
     def __init__(self, input_data, intype):
 
         self.src = None
+        self.first_frame, self.first_frame_ready = None, False
         self.input_data = input_data.rstrip().replace('\n', '').replace(' ', '')
         self.intype = intype
         self.status, self.err = self.check_status()
@@ -50,8 +51,22 @@ class Source():
             if not os.path.exists(self.input_data):
                 status = False
                 err_msg = "Could not find data ({})".format(self.input_data)
-        
+
         return status, err_msg
+
+    def get_first_frame(self):
+        # check data
+        if not self.first_frame_ready:
+            ret, frame = self.src.read()
+            if ret==None:
+                logging.warning("Could not get first frame ... ")
+                self.first_frame=None
+            else:
+                logging.info("Get first frame ! use get_first_frame() to get the first frame")
+                self.first_frame=frame
+                self.first_frame_ready = True
+
+        return self.first_frame
 
     def get_status(self):            
         return self.status, self.err
