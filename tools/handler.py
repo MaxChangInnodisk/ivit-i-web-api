@@ -239,8 +239,36 @@ def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
         
         available_app_list = [ app for apps in tag_app_list.values() for app in apps  ]
 
-        app_name = form["application"]
-        app_cfg['application'] = { "name": app_name if app_name in available_app_list else "default" }
+        # check if dictionary in string
+        dict_app = False
+        try:
+            logging.warning("Dict in application")
+            form["application"] = json.loads(form["application"])
+            dict_app = True
+        except:
+            form["application"] = form["application"]
+
+        if not dict_app:
+            logging.info("detect string application")
+            app_name = form["application"]
+            app_cfg['application'] = { "name": app_name if app_name in available_app_list else "default" }
+        else:
+            logging.debug(form["application"])
+            if "name" in form["application"]:
+                app_name = form["application"]["name"]
+                app_cfg['application'] = { "name": app_name if app_name in available_app_list else "default" }
+
+            if "area_points" in form["application"]:
+                logging.debug("Found area_points")
+                form["application"]["area_points"] = json.loads(form["application"]["area_points"])
+                app_cfg['application'].update( { "area_points": form["application"]["area_points"] } )
+            
+            if "depend_on" in form["application"]:
+                logging.debug("Found depend_on")
+                form["application"]["depend_on"] = json.loads(form["application"]["depend_on"])
+                app_cfg['application'].update( { "depend_on": form["application"]["depend_on"] } )
+
+            logging.info(form["application"])
 
         # Update model information
         logging.debug('Update information in {}'.format(model_cfg_path))
