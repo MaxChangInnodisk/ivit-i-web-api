@@ -70,6 +70,7 @@ def add_event():
         file.save( file_path )
         # Update data information
         data["source"]=file_path
+    
     # Check
     [ logging.debug(cnt) for cnt in ['Check configuration data', '-'*50, data]]
     # Add event
@@ -295,3 +296,4 @@ def remove_application():
         return jsonify('Remove the application ({})'.format(task_uuid)), 200
     except Exception as e:
         return jsonify('Remove error ({})'.format(e)), 400
+
