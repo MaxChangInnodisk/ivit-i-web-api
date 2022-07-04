@@ -251,6 +251,28 @@ def create_app():
             logging.error(msg)
             return jsonify(msg), 400
 
+    @app.route("/update_src/", methods=["POST"])
+    def update_src():
+        
+        # Get data: support form data and json
+        data = dict(request.form) if bool(request.form) else request.get_json()
+
+        # Source: If got new source
+        if bool(request.files):
+            # Saving file
+            file = request.files['source']
+            file_name = secure_filename(file.filename)
+            file_path = os.path.join(app.config["DATA"], file_name)
+            file.save( file_path )
+            # Update data information
+            data["source"]=file_path
+
+        src = Source(input_data=data["source"], intype=data["source_type"])
+        ret_frame = src.get_first_frame()
+        h,w,c = ret_frame.shape
+        frame_base64 = base64.encodebytes(cv2.imencode('.jpg', ret_frame)[1].tobytes()).decode("utf-8")
+        
+        return jsonify( { "image":frame_base64 , "height": h, "width": w} )
 
     @app.route("/task/<uuid>/get_frame")
     def get_first_frame(uuid):
