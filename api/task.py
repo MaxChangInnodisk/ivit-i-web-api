@@ -50,4 +50,3 @@ def task_status(uuid, key):
         return jsonify("Unexcepted key ({})".format(org_key_list)), 400
     else:
         return jsonify(current_app.config['TASK'][uuid][trg_key]), 200
-
