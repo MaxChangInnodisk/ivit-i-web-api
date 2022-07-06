@@ -248,27 +248,33 @@ def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
         except:
             form["application"] = form["application"]
 
+        app_key = "application"
         if not dict_app:
             logging.info("detect string application")
-            app_name = form["application"]
-            app_cfg['application'] = { "name": app_name if app_name in available_app_list else "default" }
+            app_name = form[app_key]
+            app_cfg[app_key] = { "name": app_name if app_name in available_app_list else "default" }
         else:
-            logging.debug(form["application"])
-            if "name" in form["application"]:
-                app_name = form["application"]["name"]
-                app_cfg['application'] = { "name": app_name if app_name in available_app_list else "default" }
 
-            if "area_points" in form["application"]:
-                logging.debug("Found area_points")
-                form["application"]["area_points"] = json.loads(form["application"]["area_points"])
-                app_cfg['application'].update( { "area_points": form["application"]["area_points"] } )
+            trg_key = "name"
+            if trg_key in form[app_key]:
+                app_name = form[app_key][trg_key]
+                app_cfg['application'] = { trg_key: app_name if app_name in available_app_list else "default" }
+
+            trg_key = "area_points"
+            if trg_key in form[app_key]:
+                form[app_key][trg_key] = json.loads(form[app_key][trg_key])
+                if form[app_key][trg_key] != []:
+                    logging.debug("Found area_points")
+                    app_cfg['application'].update( { trg_key: form[app_key][trg_key] } )
             
-            if "depend_on" in form["application"]:
-                logging.debug("Found depend_on")
-                form["application"]["depend_on"] = json.loads(form["application"]["depend_on"])
-                app_cfg['application'].update( { "depend_on": form["application"]["depend_on"] } )
+            trg_key = "depend_on"
+            if trg_key in form[app_key]:
+                form[app_key][trg_key] = json.loads(form[app_key][trg_key])
+                if form[app_key][trg_key] != []:
+                    logging.debug("Found depend_on")
+                    app_cfg['application'].update( { trg_key: form[app_key][trg_key] } )
 
-            logging.info(form["application"])
+        logging.warning("Update Application Setting: {}".format(app_cfg['application']))
 
         # Update model information
         logging.debug('Update information in {}'.format(model_cfg_path))
@@ -471,8 +477,6 @@ def import_task(form):
     task_config_path = os.path.join( task_path, "task.json")
 
     task_tag = form["tag"]
-    task_application = form["application"]
-
     task_device = form["device"]
     task_source = form["source"]
     task_source_type = form["source_type"]
@@ -552,22 +556,65 @@ def import_task(form):
         raise Exception(e)
 
     # generate task config json
-    task_config = {
-        "framework": framework,
-        "name": task_name,
-        "source": task_source,
-        "source_type": task_source_type,
-        "application": {
-            "name": task_application
-        },
-        "prim": {
-            "model_json": model_config_path
+    try:
+        task_config = {
+            "framework": framework,
+            "name": task_name,
+            "source": task_source,
+            "source_type": task_source_type,
+            "application": { },
+            "prim": {
+                "model_json": model_config_path
+            }
         }
-    }
 
-    with open( task_config_path, "w") as out_file:
-        json.dump( task_config, out_file)
-    
+        # check if dictionary in string
+        dict_app = False
+        try:
+            logging.warning("Dict in application")
+            form["application"] = json.loads(form["application"])
+            dict_app = True
+        except:
+            form["application"] = form["application"]
+
+        # update application
+        tag_app_list = current_app.config[TAG_APP] if ( TAG_APP in current_app.config ) else get_tag_app_list()
+        available_app_list = [ app for apps in tag_app_list.values() for app in apps  ]
+        
+        app_key = "application"
+        if not dict_app:
+            logging.info("detect string application")
+            app_name = form[app_key]
+            task_config['application'].update({ trg_key: app_name if app_name in available_app_list else "default" })
+        else:
+
+            trg_key = "name"
+            if trg_key in form[app_key]:
+                app_name = form[app_key][trg_key]
+                task_config['application'].update({ trg_key: app_name if app_name in available_app_list else "default" })
+
+            trg_key = "area_points"
+            if trg_key in form[app_key]:
+                form[app_key][trg_key] = json.loads(form[app_key][trg_key])
+                if form[app_key][trg_key] != []:
+                    logging.debug("Found area_points")
+                    task_config['application'].update( { trg_key: form[app_key][trg_key] } )
+            
+            trg_key = "depend_on"
+            if trg_key in form[app_key]:
+                form[app_key][trg_key] = json.loads(form[app_key][trg_key])
+                if form[app_key][trg_key] != []:
+                    logging.debug("Found depend_on")
+                    task_config['application'].update( { trg_key: form[app_key][trg_key] } )
+
+        logging.warning("Update Application Setting: {}".format(task_config['application']))
+
+        # write task config
+        with open( task_config_path, "w") as out_file:
+            json.dump( task_config, out_file)
+    except Exception as e:
+        raise Exception(e)
+
     # remove temperate file
     shutil.rmtree( src_path )
 
