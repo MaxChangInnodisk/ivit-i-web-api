@@ -134,9 +134,11 @@ def import_extract_event():
     task_name = os.path.splitext(file_name)[0]
     logging.info("Capture file ({})".format(file_name))
 
-    # create temp folder
-    if not os.path.exists( current_app.config["TEMP_PATH"] ):
-        os.mkdir( current_app.config["TEMP_PATH"] )
+    # clear && create temp folder
+    temp_path = current_app.config["TEMP_PATH"]
+    if os.path.exists(temp_path):
+        shutil.rmtree( temp_path )
+    os.mkdir( current_app.config["TEMP_PATH"] )
     
     # combine path: ./temp/aaa.zip -> temp/aaa/ -> temp/aaa/export
     zip_path = os.path.join(current_app.config["TEMP_PATH"], file_name) # temp/aaa.zip
