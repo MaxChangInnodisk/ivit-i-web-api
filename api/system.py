@@ -1,7 +1,8 @@
-import json
-import logging, subprocess
-from flask import Blueprint, abort, jsonify, current_app
+import logging, subprocess, json, os
+
+from flask import Blueprint, abort, jsonify, current_app, request
 from init_i.web.tools import get_address, get_gpu_info, get_v4l2, get_pure_jsonify
+from init_i.web.tools.common import handle_exception
 
 bp_system = Blueprint('system', __name__)
 
@@ -54,3 +55,26 @@ def get_log():
         data = data[(len(data)-1000):]
 
     return jsonify( data ), 200
+
+@bp_system.route("/read_file/", methods=["POST"])
+def read_file():
+    """
+    Read Text and JSON file.
+    """
+    data = request.get_json()
+    path = data["path"]
+    try:
+        ret_data = []
+        name, ext = os.path.splitext(path)
+        if ext == '.txt':
+            with open( path, 'r') as f:
+                for line in f.readlines():
+                    ret_data.append(line.strip('\n'))
+        if ext == '.json':
+            with open( path, 'r') as f:
+                ret_data = json.load(f)
+        
+        return jsonify( ret_data ), 200
+    except Exception as e:
+        handle_exception(error=e, title="Could not load application ... set app to None", exit=False)
+        return "Erro in read file", 400
