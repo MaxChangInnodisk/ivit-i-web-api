@@ -1,19 +1,30 @@
 import logging, copy
 from flask import Blueprint, abort, jsonify, current_app
+from flasgger import swag_from
+
 from init_i.web.tools import get_address, get_gpu_info, get_v4l2, get_pure_jsonify
 
 bp_tasks = Blueprint('task', __name__)
 
+yaml_path = "/workspace/init_i/web/docs/task"
+
 @bp_tasks.route("/task/")
-@bp_tasks.route("/tasks/")
+@swag_from("{}/{}".format(yaml_path, "task.yml"))
 def entrance():
     return jsonify(current_app.config["TASK_LIST"]), 200
 
+@bp_tasks.route("/uuid/")
+@swag_from("{}/{}".format(yaml_path, "uuid.yml"))
+def get_uuid():
+    return jsonify( current_app.config["UUID"] ), 200
+
 @bp_tasks.route("/task/<uuid>/")
+@swag_from("{}/{}".format(yaml_path, "task_info.yml"))
 def task_info(uuid):
     return jsonify(get_pure_jsonify(current_app.config['TASK'][uuid])), 200
 
 @bp_tasks.route("/task/<uuid>/info/")
+@swag_from("{}/{}".format(yaml_path, "task_simple_info.yml"))
 def task_simple_info(uuid):
     af = current_app.config['TASK'][uuid]["framework"]
     simple_config = {
@@ -29,8 +40,8 @@ def task_simple_info(uuid):
     }
     return jsonify(simple_config), 200
 
-@bp_tasks.route("/task/<uuid>/labels/")
 @bp_tasks.route("/task/<uuid>/label/")
+@swag_from("{}/{}".format(yaml_path, "task_label.yml"))
 def task_label(uuid):
     try:
         label_list = []

@@ -1,0 +1,43 @@
+Return the relation between application and model
+---
+tags:
+  - application
+responses:
+  200:
+    name: data
+    type: object
+    description: "A dictionary of the mapping table means the available application in each model"
+    schema:    
+      example:
+        {
+          "resnet_v1_50_inference.xml": [
+            "default"
+          ],
+          "yolo-v3-tf.xml": [
+            "counting",
+            "tracking",
+            "moving_direction",
+            "area_detection",
+            "heatmap",
+            "default"
+          ],
+          "human-pose-estimation-0007.xml": [
+            "default"
+          ],
+          "semantic-segmentation-adas-0001.xml": [
+            "default"
+          ],
+          "yolo-v4-tf.xml": [
+            "counting",
+            "tracking",
+            "moving_direction",
+            "area_detection",
+            "heatmap",
+            "default"
+          ]
+        }
+  400:
+    schema:
+      type: string
+      description : error message
+      example: "{ error message }"

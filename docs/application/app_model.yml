@@ -1,0 +1,41 @@
+Return the relation between application and model
+---
+tags:
+  - application
+responses:
+  200:
+    name: data
+    type: object
+    description: "A dictionary means which model is using the application"
+    schema:    
+      example:
+        {
+          "default": [
+            "resnet_v1_50_inference.xml",
+            "human-pose-estimation-0007.xml",
+            "yolo-v4-tf.xml"
+          ],
+          "area_detection": [
+            "yolo-v3-tf.xml"
+          ],
+          "tracking": [
+            "yolo-v3-tf.xml"
+          ],
+          "direction": [
+            "yolo-v3-tf.xml"
+          ],
+          "counting": [
+            "yolo-v3-tf.xml"
+          ],
+          "heatmap": [
+            "yolo-v3-tf.xml"
+          ],
+          "segmentation": [
+            "semantic-segmentation-adas-0001.xml"
+          ]
+        }
+  400:
+    schema:
+      type: string
+      description : error message
+      example: "{ error message }"

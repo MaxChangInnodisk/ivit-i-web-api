@@ -1,0 +1,20 @@
+Capture the uuid mapping table which key is <UUID> and value is task name
+---
+tags:
+  - task
+responses:
+  200:
+    schema:
+      type: object
+      example:
+        {
+          "42a4f076": "classificaiton_sample",
+          "feca49fe": "road_shoulder_detection",
+          "a4ff423a": "tracking_car",
+          "ec267f07": "traffic_direction",
+          "fda45c1d": "objectdetection_sample",
+          "04b55374": "person_density",
+          "48d09e14": "humanpose_sample_ae",
+          "c1bfee21": "segmentation_sample",
+          "1b5cac97": "retail_product_detection",
+        }

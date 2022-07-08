@@ -242,36 +242,49 @@ def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
         # check if dictionary in string
         dict_app = False
         try:
-            logging.warning("Dict in application")
             form["application"] = json.loads(form["application"])
             dict_app = True
+            logging.info("Application is an string json ... ")
         except:
             form["application"] = form["application"]
+            logging.info("Application is an dictionary")
 
         app_key = "application"
+        
         if not dict_app:
-            logging.info("detect string application")
             app_name = form[app_key]
             app_cfg[app_key] = { "name": app_name if app_name in available_app_list else "default" }
+
         else:
 
             trg_key = "name"
             if trg_key in form[app_key]:
                 app_name = form[app_key][trg_key]
-                app_cfg['application'] = { trg_key: app_name if app_name in available_app_list else "default" }
+                if app_name in available_app_list:
+                    
+                    app_cfg['application'] = { trg_key: app_name }
+                else:
+                    logging.warning("Could not found application ({}) in available list ({})".format(app_name, available_app_list))
+                    app_cfg['application'] = { trg_key: "default" } 
 
             trg_key = "area_points"
             if trg_key in form[app_key]:
-                form[app_key][trg_key] = json.loads(form[app_key][trg_key])
+                if type(form[app_key][trg_key])==str:
+                    form[app_key][trg_key] = json.loads(form[app_key][trg_key])
+
                 if form[app_key][trg_key] != []:
                     logging.debug("Found area_points")
                     app_cfg['application'].update( { trg_key: form[app_key][trg_key] } )
-            
+
             trg_key = "depend_on"
             if trg_key in form[app_key]:
-                form[app_key][trg_key] = json.loads(form[app_key][trg_key])
+                
+                if type(form[app_key][trg_key])==str:
+                    form[app_key][trg_key] = json.loads(form[app_key][trg_key])
+
+                logging.debug("Found depend_on ... {}".format( form[app_key][trg_key]))
                 if form[app_key][trg_key] != []:
-                    logging.debug("Found depend_on")
+                    logging.debug("Update depend_on ... ")
                     app_cfg['application'].update( { trg_key: form[app_key][trg_key] } )
 
         logging.warning("Update Application Setting: {}".format(app_cfg['application']))

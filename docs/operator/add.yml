@@ -1,0 +1,71 @@
+Add AI task
+---
+tags:
+  - operator
+
+parameters:
+  - in: body
+    name: data
+    description: "The information to send"
+    schema:
+      type: object
+      properties:
+        
+        "name":
+          type: string
+          example: test
+        
+        "application":
+          type: object
+          properties:
+            "name": 
+              type: string
+              required: true
+              example: "default"
+            "depend_on":
+              type: array
+              required: false
+              items:
+                type: string
+              example: [ "person", "car" ]
+            "area_points":
+              type: array
+              required: false
+              items:
+                type: array
+                items:
+                  type: int
+              example: [ [ [0, 0], [1, 2] ] ]
+        
+        "model":
+          type: string
+          example: "yolo-v3-tf.xml"
+
+        "device":
+          type: string
+          example: "CPU"
+        
+        "source_type":
+          type: string
+          enum: [ "Image", "Video", "RTSP", "V4L2"]
+          default: "V4L2"
+
+        "source":
+          type: string
+          example: "/dev/video0"
+        
+        "thres":
+          type: float
+          example: 0.7
+
+responses:
+  200:
+    schema:
+      type: string
+      description: success message
+      example: "{ success message }"
+  400:
+    schema:
+      type: string
+      description : error message
+      example: "{ error message }"

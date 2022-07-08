@@ -1,0 +1,13 @@
+Capture the usb camera which mount on /dev/video<N>, N is a integer
+---
+tags:
+  - system
+responses:
+  200:
+    description: A list of usb camera
+    schema:
+      type: array
+      items:
+      schema:
+        type: string
+      example: ["/dev/video0", "/dev/video1"]

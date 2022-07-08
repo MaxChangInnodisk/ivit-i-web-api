@@ -4,8 +4,11 @@ import logging, copy, sys, os
 from flask import Blueprint, abort, jsonify, current_app, request
 from init_i.web.tools import get_address, get_gpu_info, get_v4l2, edit_task, add_task, get_tasks, remove_task, import_task, get_pure_jsonify
 from werkzeug.utils import secure_filename
+from flasgger import swag_from
 
 bp_operators = Blueprint('operator', __name__)
+
+yaml_path = "/workspace/init_i/web/docs/operator"
 
 @bp_operators.after_request
 def after_request(response):
@@ -17,9 +20,8 @@ def after_request(response):
     return response
 
 @bp_operators.route("/edit/<uuid>", methods=["POST"])
+@swag_from("{}/{}".format(yaml_path, "edit.yml"))
 def edit_event(uuid):
-    """
-    """
     # Get data: support form data and json
     data = dict(request.form) if bool(request.form) else request.get_json()
 
@@ -51,6 +53,7 @@ def edit_event(uuid):
         return "Edit error: {} ({})".format(e, fname), 400
 
 @bp_operators.route("/add/", methods=["POST"])
+@swag_from("{}/{}".format(yaml_path, "add.yml"))
 def add_event():
 
     [ logging.info(cnt) for cnt in ['\n', "-"*50, 'Add an application'] ]
@@ -84,18 +87,17 @@ def add_event():
             logging.error(msg)
             return jsonify(msg), 400
 
-
-
 @bp_operators.route("/import_1/", methods=["POST"])
+@swag_from("{}/{}".format(yaml_path, "extract_zip.yml"))
 def import_extract_event():
-    """
-    1. download compress file
-    2. uncompress it and check is 'Classification' or 'Object Detection' ( subprocess.run )
-    3. convert model ( background : subprocess.Popen )
-    4. return information and successs code
-    ---
-    Provide web api to check file is convert
-    """
+    # """
+    # 1. download compress file
+    # 2. uncompress it and check is 'Classification' or 'Object Detection' ( subprocess.run )
+    # 3. convert model ( background : subprocess.Popen )
+    # 4. return information and successs code
+    # ---
+    # Provide web api to check file is convert
+    # """
     [ logging.info(cnt) for cnt in ['\n', "-"*50, 'Extract ZIP from Trainning Tool'] ]
 
     # define key
@@ -237,11 +239,13 @@ def import_extract_event():
 
 
 @bp_operators.route("/import_proc/", methods=["GET"])
+@swag_from("{}/{}".format(yaml_path, "import_proc.yml"))
 def import_process_default_event():
     ret = copy.deepcopy(current_app.config["IMPORT_PROC"])
     return jsonify( get_pure_jsonify( ret ) )
 
 @bp_operators.route("/import_proc/<task_name>/status", methods=["GET"])
+@swag_from("{}/{}".format(yaml_path, "import_proc_status.yml"))
 def import_process_event(task_name):
     proc = current_app.config["IMPORT_PROC"][task_name]["proc"]
     if proc!=None:
@@ -255,6 +259,7 @@ def import_process_event(task_name):
     return jsonify( ret )
 
 @bp_operators.route("/import_2/", methods=["POST"])
+@swag_from("{}/{}".format(yaml_path, "import.yml"))
 def import_event():
 
     [ logging.info(cnt) for cnt in ['\n', "-"*50, 'Import an application'] ]
@@ -290,6 +295,7 @@ def import_event():
 
 
 @bp_operators.route("/remove/", methods=["POST"])
+@swag_from("{}/{}".format(yaml_path, "remove.yml"))
 def remove_application():
     data = dict(request.form) if bool(request.form) else request.get_json()
     try:

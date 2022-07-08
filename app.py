@@ -47,9 +47,16 @@ def create_app():
         app.config['HOST']=addr
         logging.info('Update HOST to {}'.format(addr))
 
+    # update api docs
+    app.config['SWAGGER'] = {
+        'title': 'iVIT-I',
+        'uiversion': 3
+    }
+
     cors(app)                                                                   # share resource
     socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins='*')   # define socket
     swagger = Swagger(app)                                                      # define web api docs
+
 
     # register blueprint
     app.register_blueprint(bp_tasks)        # captrue the info of tasks
@@ -65,7 +72,7 @@ def create_app():
     @app.before_first_request
     @app.route("/reset/")
     def first_time():
-        """ loading the tasks at first time or need to reset, the uuid and relatived information will be generated at same time."""
+        # """ loading the tasks at first time or need to reset, the uuid and relatived information will be generated at same time."""
         logging.info("Start to initialize task and generate uuid for each task ... ")
         
         [ app.config[key].clear() for key in [ "TASK", "UUID", "TASK_LIST", "APPLICATION" ] if key in app.config ]
@@ -84,7 +91,7 @@ def create_app():
 
     @app.route("/", methods=["GET"])
     def index():
-        """ return task list """
+        # """ return task list """
         return jsonify(app.config["TASK_LIST"])
 
     @app.route("/routes/", methods=["GET", "POST"])
@@ -111,7 +118,7 @@ def create_app():
         return jsonify( get_pure_jsonify(ret) ), 200
 
     def run_src(task_uuid, reload_src=False):
-        """ setup the source object and run """
+        # """ setup the source object and run """
         # get the target source name
         src_name = app.config['TASK'][task_uuid]['source']
         # if source is None or reload_src==True then create a new source
@@ -340,7 +347,7 @@ def create_app():
 
     @app.route("/task/<uuid>/stop/", methods=["GET"])
     def stop_task(uuid):
-        """ Stop the task: release source, set relative object to None, set task status to stop, reload task list """
+        # """ Stop the task: release source, set relative object to None, set task status to stop, reload task list """
         try:
             logging.info("Stopping task ...")
             # stop source and release source

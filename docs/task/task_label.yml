@@ -1,0 +1,40 @@
+Get the list of labels
+---
+tags:
+  - task
+produces: application/json
+parameters:
+  - name: uuid
+    in: path
+    type: string
+    required: true
+responses:
+  200:
+    description: A list of labels
+    schema:
+      type: array
+      items:
+        type: string
+      example:
+        [
+          "road",
+          "sidewalk",
+          "building",
+          "wall",
+          "fence",
+          "pole",
+          "traffic light",
+          "traffic sign",
+          "vegetation",
+          "terrain",
+          "sky",
+          "person",
+          "rider",
+          "car",
+          "truck",
+          "bus",
+          "train",
+          "motorcycle",
+          "bicycle",
+          "ego-vehicle",
+        ]

@@ -1,0 +1,80 @@
+Get the simple information of AI Tasks
+---
+tags:
+  - task
+produces: application/json
+parameters:
+  - name: uuid
+    in: path
+    type: string
+    required: true
+responses:
+  200:
+    description: The information of the AI task with dictionaray format
+    schema:
+      type: object
+      properties:
+        name:
+          type: string
+          description: the name of AI task
+          example: "classificaiton_sample"
+
+        model:
+          type: string
+          description: the name of AI model
+          example: "resnet_v1_50_inference"
+
+        framework:
+          type: string
+          description: the AI framework
+          example: "openvino"
+
+        application:
+          type: object
+          description: the application setting
+          properties:
+            name:
+              type: string
+              enum:
+                [
+                  "counting",
+                  "tracking",
+                  "move_direction",
+                  "heatmap",
+                  "area_detection",
+                ]
+              example: "counting"
+            depend_on:
+              type: array
+              items:
+                type: string
+              example: ["person", "car"]
+
+        source:
+          type: [string, file]
+          description: the source content, depend on the source type
+          example: "data/cat.jpg"
+
+        source_type:
+          type: string
+          description: the source type
+          enum: ["Image", "Video", "RTSP", "V4L2"]
+          example: "Image"
+
+        device:
+          type: string
+          description: the device
+          enum: ["CPU", "GPU", "MYRID"]
+          default: "CPU"
+          example: "CPU"
+
+        status:
+          type: string
+          description: the task's status
+          enum: ["run", "stop", "error"]
+          example: "stop"
+
+        thres:
+          type: float
+          description: the threshold of AI inference
+          example: 0.98

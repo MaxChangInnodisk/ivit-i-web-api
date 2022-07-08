@@ -1,0 +1,22 @@
+Capture the import process status
+---
+tags:
+  - operator
+parameters:
+  - in: path
+    name: task_name
+    description: process name could be captured from the import_1 web api.
+    type: string
+    required: true
+    default: "  "
+responses:
+  200:
+    schema:
+      type: string
+      description: success message
+      example: "done"
+  400:
+    schema:
+      type: string
+      description : error message
+      example: "{ error message }"

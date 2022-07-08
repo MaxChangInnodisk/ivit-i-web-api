@@ -1,0 +1,43 @@
+Capture the source information
+---
+tags:
+  - system
+responses:
+  200:
+    description: An object of source
+    schema:
+      type: object
+      properties:
+        source_name:
+          type: object
+          properties:
+            status:
+              type: string
+            proc:
+              type: array
+              items:
+                type: string
+            "type":
+              type: string
+            object:
+              description: "The type of source object to check is the source stored"
+            detail:
+      example:
+        {
+          "data/cat.jpg":
+            {
+              "status": "stop",
+              "proc": ["16a39094"],
+              "type": "Image",
+              "object": "<class 'NoneType'>",
+              "detail": "",
+            },
+          "/workspace/data/car.mp4":
+            {
+              "status": "stop",
+              "proc": ["eb294aa6"],
+              "type": "Video",
+              "object": "<class 'NoneType'>",
+              "detail": "",
+            },
+        }

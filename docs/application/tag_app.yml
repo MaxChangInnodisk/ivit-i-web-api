@@ -1,0 +1,35 @@
+Return the relation with tag and application
+---
+tags:
+  - application
+responses:
+  200:
+    name: data
+    type: object
+    description: "A dictionary of the mapping table means the available application in each model"
+    schema:    
+      example:
+        {
+          "cls": [
+            "default"
+          ],
+          "seg": [
+            "default"
+          ],
+          "obj": [
+            "counting",
+            "tracking",
+            "moving_direction",
+            "area_detection",
+            "heatmap",
+            "default"
+          ],
+          "pose": [
+            "default"
+          ]
+        }
+  400:
+    schema:
+      type: string
+      description : error message
+      example: "{ error message }"

@@ -1,12 +1,18 @@
 import logging, subprocess, json, os
 
 from flask import Blueprint, abort, jsonify, current_app, request
+from flasgger import swag_from
+
+
 from init_i.web.tools import get_address, get_gpu_info, get_v4l2, get_pure_jsonify
 from init_i.web.tools.common import handle_exception
 
 bp_system = Blueprint('system', __name__)
 
+yaml_path = "/workspace/init_i/web/docs/system"
+
 @bp_system.route("/v4l2/")
+@swag_from("{}/{}".format(yaml_path, "v4l2.yml"))
 def web_v4l2():
     return jsonify(get_v4l2())
 
@@ -24,6 +30,7 @@ def web_device_info():
         return jsonify(ret)
 
 @bp_system.route("/source")
+@swag_from("{}/{}".format(yaml_path, "source.yml"))
 def web_source():
     # return jsonify( get_pure_jsonify(current_app.config["SRC"]) )
     temp_src_config = dict()
@@ -44,6 +51,7 @@ def web_source():
         return e, 400
 
 @bp_system.route("/log")
+@swag_from("{}/{}".format(yaml_path, "log.yml"))
 def get_log():
     data = []
     logging.debug("Log path: {}".format(current_app.config['LOGGER']))
@@ -57,11 +65,13 @@ def get_log():
     return jsonify( data ), 200
 
 @bp_system.route("/read_file/", methods=["POST"])
+@swag_from("{}/{}".format(yaml_path, "read_file.yml"))
 def read_file():
-    """
-    Read Text and JSON file.
-    """
+    # """
+    # Read Text and JSON file.
+    # """
     data = request.get_json()
+    logging.debug(data)
     path = data["path"]
     try:
         ret_data = []

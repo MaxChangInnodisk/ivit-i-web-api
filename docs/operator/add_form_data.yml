@@ -1,0 +1,76 @@
+Add AI task
+---
+tags:
+  - operator
+
+produces: application/json
+
+parameters:
+  - in: formData
+    name: "name"
+    required: true
+    type: string
+    default: test
+
+  - in: formData    
+    name: "application"
+    required: true
+    type: object
+    schema:
+      type: object
+      properties:
+        name: 
+          type: string
+        depend_on:
+          type: array
+        area_points:
+          type: array
+      example:
+        {
+          "name": "default",
+          "depend_on": [ "person", "car" ],
+          "area_points": [ [ [0,0], [1,2] ] ]
+        }
+    
+  
+  - in: formData
+    name: "model"
+    type: string
+    required: true
+    default: "yolo-v3-tf.xml"
+
+  - in: formData
+    name: "device"
+    type: string
+    default: "CPU"
+    required: true
+
+  - in: formData
+    name: "source_type"
+    required: true
+    type: string
+    enum: [ "Image", "Video", "RTSP", "V4L2"]
+    default: "V4L2"
+
+  - in: formData
+    name: "source"
+    required: true
+    type: string
+    default: "/dev/video0"
+  
+  - in: formData
+    name: "thres"
+    required: true
+    default: 0.7
+
+responses:
+  200:
+    schema:
+      type: string
+      description: success message
+      example: "{ success message }"
+  400:
+    schema:
+      type: string
+      description : error message
+      example: "{ error message }"

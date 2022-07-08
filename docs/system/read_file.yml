@@ -1,0 +1,23 @@
+Parse the JSON or TXT file and get the content
+---
+tags:
+  - system
+
+parameters:
+  - in: body
+    name: data
+    required: true
+    schema:
+      type: object
+      description: "Path to JSON file or TXT file"
+      properties:
+        path:
+          type: string
+          example: "init-i.json"
+
+responses:
+  200:
+    description: success message
+  400:
+    description: error message
+    
