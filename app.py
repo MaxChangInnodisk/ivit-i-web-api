@@ -32,11 +32,11 @@ def create_app():
     app = Flask(__name__)
     
     # loading configuration
-    if not ('INIT_I' in os.environ.keys()):
-        raise KeyError("Could not find the environ \"INIT_I\", please setup the custom setting path: $ export INIT_I=/workspace/init-i.json")
+    if not ('IVIT_I' in os.environ.keys()):
+        raise KeyError("Could not find the environ \"IVIT_I\", please setup the custom setting path: $ export IVIT_I=/workspace/ivit-i.json")
     else:
         app.config.from_object(basic_setting)
-        app.config.from_file( os.environ["INIT_I"], load=json.load )
+        app.config.from_file( os.environ["IVIT_I"], load=json.load )
 
     # define logger
     config_logger(log_name=app.config['LOGGER'], write_mode='a', level='debug', clear_log=True)
@@ -418,5 +418,5 @@ if __name__ == "__main__":
     socketio.run(app, host=app.config['HOST'], port=app.config['PORT'], debug=app.config['DEBUG'])
 
 else:
-    # export INIT_I=/workspace/init-i.json
+    # export IVIT_I=/workspace/ivit-i.json
     app, socketio = create_app()

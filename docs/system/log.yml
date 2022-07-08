@@ -11,7 +11,7 @@ responses:
       example:
         [
           "22-07-07 16:27:37 [INFO] Create logger.(root) (logger.py:35)",
-          "22-07-07 16:27:37 [INFO] Enabled stream and file mode.(init-i-web.log) (logger.py:36)",
+          "22-07-07 16:27:37 [INFO] Enabled stream and file mode.(ivit-i-web.log) (logger.py:36)",
           "22-07-07 16:27:37 [INFO] Update HOST to 172.16.92.130 (app.py:48)",
           "22-07-07 16:27:37 [INFO] Start to initialize task and generate uuid for each task ...  (app.py:69)",
           "22-07-07 16:27:37 [INFO] ------------------------------ (handler.py:117)",

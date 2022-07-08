@@ -13,7 +13,7 @@ parameters:
       properties:
         path:
           type: string
-          example: "init-i.json"
+          example: "ivit-i.json"
 
 responses:
   200:
