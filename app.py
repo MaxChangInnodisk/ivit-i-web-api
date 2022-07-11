@@ -48,15 +48,14 @@ def create_app():
         logging.info('Update HOST to {}'.format(addr))
 
     # update api docs
-    app.config['SWAGGER'] = {
-        'title': 'iVIT-I',
-        'uiversion': 3
-    }
-
+    # app.config['SWAGGER'] = {
+    #     'title': 'iVIT-I',
+    #     'uiversion': 3
+    # }
+    
     cors(app)                                                                   # share resource
     socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins='*')   # define socket
-    swagger = Swagger(app)                                                      # define web api docs
-
+    swagger = Swagger(app)                                                      # define web api docs    
 
     # register blueprint
     app.register_blueprint(bp_tasks)        # captrue the info of tasks
