@@ -13,15 +13,15 @@ from flask_cors import CORS as cors
 import eventlet
 eventlet.monkey_patch()  
 # ------------------------------------------------------------------------------------------
-# init_i 
+# ivit_i 
 sys.path.append(os.getcwd())
-from init_i.utils.logger import config_logger
-from init_i.web.tools import get_address, get_tasks, get_pure_jsonify
-from init_i.web.api import basic_setting, bp_system, bp_tasks, bp_operators, bp_application
+from ivit_i.utils.logger import config_logger
+from ivit_i.web.tools import get_address, get_tasks, get_pure_jsonify
+from ivit_i.web.api import basic_setting, bp_system, bp_tasks, bp_operators, bp_application
 # ------------------------------------------------------------------------------------------
-from init_i.web.ai.pipeline import Source
-from init_i.web.ai.get_api import get_api
-from init_i.app.handler import get_application
+from ivit_i.web.ai.pipeline import Source
+from ivit_i.web.ai.get_api import get_api
+from ivit_i.app.handler import get_application
 # ------------------------------------------------------------------------------------------
 DIV = "*"*20
 # ------------------------------------------------------------------------------------------

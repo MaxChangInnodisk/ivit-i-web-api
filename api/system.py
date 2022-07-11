@@ -4,12 +4,12 @@ from flask import Blueprint, abort, jsonify, current_app, request
 from flasgger import swag_from
 
 
-from init_i.web.tools import get_address, get_gpu_info, get_v4l2, get_pure_jsonify
-from init_i.web.tools.common import handle_exception
+from ivit_i.web.tools import get_address, get_gpu_info, get_v4l2, get_pure_jsonify
+from ivit_i.web.tools.common import handle_exception
 
 bp_system = Blueprint('system', __name__)
 
-yaml_path = "/workspace/init_i/web/docs/system"
+yaml_path = "/workspace/ivit_i/web/docs/system"
 
 @bp_system.route("/v4l2/")
 @swag_from("{}/{}".format(yaml_path, "v4l2.yml"))

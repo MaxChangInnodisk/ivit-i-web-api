@@ -2,13 +2,13 @@ import shutil
 import subprocess as sb
 import logging, copy, sys, os
 from flask import Blueprint, abort, jsonify, current_app, request
-from init_i.web.tools import get_address, get_gpu_info, get_v4l2, edit_task, add_task, get_tasks, remove_task, import_task, get_pure_jsonify
+from ivit_i.web.tools import get_address, get_gpu_info, get_v4l2, edit_task, add_task, get_tasks, remove_task, import_task, get_pure_jsonify
 from werkzeug.utils import secure_filename
 from flasgger import swag_from
 
 bp_operators = Blueprint('operator', __name__)
 
-yaml_path = "/workspace/init_i/web/docs/operator"
+yaml_path = "/workspace/ivit_i/web/docs/operator"
 
 @bp_operators.after_request
 def after_request(response):

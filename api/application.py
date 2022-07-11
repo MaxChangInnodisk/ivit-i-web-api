@@ -2,7 +2,7 @@ from flask import Blueprint, abort, jsonify, current_app
 from flasgger import swag_from
 
 bp_application = Blueprint('application', __name__)
-yaml_path = "/workspace/init_i/web/docs/application"
+yaml_path = "/workspace/ivit_i/web/docs/application"
 
 
 @bp_application.route("/tag_app/")

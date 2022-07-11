@@ -2,7 +2,7 @@ import sys, os, time, copy, logging
 from flask import Blueprint, current_app
 sys.path.append(os.getcwd())
 try:
-    from init_i.utils import Draw as vino_draw
+    from ivit_i.utils import Draw as vino_draw
 except Exception as e:
     logging.error(e)
 # ------------------------------------------------------------------------
@@ -12,13 +12,13 @@ def vino_init(prim_conf, first_frame=None):
     logging.info('Init OpenVINO')
     try:
         if 'obj' in prim_conf['tag']:
-            from init_i.obj import ObjectDetection as trg
+            from ivit_i.obj import ObjectDetection as trg
         if "cls" in prim_conf['tag']:
-            from init_i.cls import Classification as trg
+            from ivit_i.cls import Classification as trg
         if "seg" in prim_conf['tag']:
-            from init_i.seg import Segmentation as trg
+            from ivit_i.seg import Segmentation as trg
         if "pose" in prim_conf['tag']:
-            from init_i.pose import Pose as trg
+            from ivit_i.pose import Pose as trg
         
         trg = trg()
         model, color_palette = trg.load_model(prim_conf, first_frame) if "pose" in prim_conf['tag'] else trg.load_model(prim_conf)

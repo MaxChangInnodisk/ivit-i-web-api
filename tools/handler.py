@@ -5,7 +5,7 @@ from flask import current_app
 
 from .parser import parse_task_info, write_json, check_src_type
 from .common import gen_uuid
-from init_i.app.handler import get_tag_app_list, get_app_list
+from ivit_i.app.handler import get_tag_app_list, get_app_list
 
 DIV = '-'*30
 APP_KEY = 'APPLICATION'
@@ -523,11 +523,11 @@ def import_task(form):
         logging.debug("Detect TAG: {}".format(task_tag))
         try:
             if task_tag == "cls":
-                from init_i.cls.config_template import TEMPLATE as model_config
+                from ivit_i.cls.config_template import TEMPLATE as model_config
             elif task_tag == "darknet":
-                from init_i.darknet.config_template import TEMPLATE as model_config
+                from ivit_i.darknet.config_template import TEMPLATE as model_config
             elif task_tag == "obj":
-                from init_i.obj.config_template import TEMPLATE as model_config
+                from ivit_i.obj.config_template import TEMPLATE as model_config
         except Exception as e:
             logging.error(e)
             

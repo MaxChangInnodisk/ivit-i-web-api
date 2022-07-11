@@ -2,11 +2,11 @@ import logging, copy
 from flask import Blueprint, abort, jsonify, current_app
 from flasgger import swag_from
 
-from init_i.web.tools import get_address, get_gpu_info, get_v4l2, get_pure_jsonify
+from ivit_i.web.tools import get_address, get_gpu_info, get_v4l2, get_pure_jsonify
 
 bp_tasks = Blueprint('task', __name__)
 
-yaml_path = "/workspace/init_i/web/docs/task"
+yaml_path = "/workspace/ivit_i/web/docs/task"
 
 @bp_tasks.route("/task/")
 @swag_from("{}/{}".format(yaml_path, "task.yml"))
