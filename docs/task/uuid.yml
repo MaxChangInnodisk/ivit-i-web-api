@@ -8,7 +8,7 @@ responses:
       type: object
       example:
         {
-          "42a4f076": "classificaiton_sample",
+          "42a4f076": "classification_sample",
           "feca49fe": "road_shoulder_detection",
           "a4ff423a": "tracking_car",
           "ec267f07": "traffic_direction",

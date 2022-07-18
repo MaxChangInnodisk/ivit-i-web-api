@@ -17,7 +17,7 @@ responses:
         name:
           type: string
           description: the name of AI task
-          example: "classificaiton_sample"
+          example: "classification_sample"
 
         model:
           type: string

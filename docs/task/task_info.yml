@@ -15,17 +15,17 @@ responses:
       type: object
       example:
         {
-          "name": "classificaiton_sample",
+          "name": "classification_sample",
           "framework": "openvino",
-          "path": "./task/classificaiton_sample",
+          "path": "./task/classification_sample",
           "status": "stop",
           "error": "",
           "tag": "cls",
           "application": { "name": "default" },
           "model": "resnet_v1_50_inference.xml",
-          "model_path": "./task/classificaiton_sample/model/resnet_v1_50_inference.xml",
-          "label_path": "./task/classificaiton_sample/model/imagenet.names",
-          "config_path": "./task/classificaiton_sample/classification.json",
+          "model_path": "./task/classification_sample/model/resnet_v1_50_inference.xml",
+          "label_path": "./task/classification_sample/model/imagenet.names",
+          "config_path": "./task/classification_sample/classification.json",
           "device": "CPU",
           "source": "data/cat.jpg",
           "source_type": "Image",
@@ -37,8 +37,8 @@ responses:
               "tag": "cls",
               "openvino":
                 {
-                  "model_path": "./task/classificaiton_sample/model/resnet_v1_50_inference.xml",
-                  "label_path": "./task/classificaiton_sample/model/imagenet.names",
+                  "model_path": "./task/classification_sample/model/resnet_v1_50_inference.xml",
+                  "label_path": "./task/classification_sample/model/imagenet.names",
                   "loop": false,
                   "output": false,
                   "device": "CPU",
@@ -56,9 +56,9 @@ responses:
               "source": "data/cat.jpg",
               "prim":
                 {
-                  "model_json": "./task/classificaiton_sample/classification.json",
+                  "model_json": "./task/classification_sample/classification.json",
                 },
-              "name": "classificaiton_sample",
+              "name": "classification_sample",
               "source_type": "Image",
             },
           "draw_tools": null,
