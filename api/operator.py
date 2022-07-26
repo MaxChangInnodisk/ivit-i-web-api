@@ -2,125 +2,180 @@ import shutil
 import subprocess as sb
 import logging, copy, sys, os
 from flask import Blueprint, abort, jsonify, current_app, request
-from ivit_i.web.tools import get_address, get_gpu_info, get_v4l2, edit_task, add_task, get_tasks, remove_task, import_task, get_pure_jsonify
+from ivit_i.web.api.application import YAML_PATH
+
+from ..tools.handler import edit_task, add_task, get_tasks, remove_task, import_task
+from ..tools.parser import get_pure_jsonify
+from ..tools.common import handle_exception
+
 from werkzeug.utils import secure_filename
 from flasgger import swag_from
 
+# Define API Docs path
+YAML_PATH       = "/workspace/ivit_i/web/docs/operator"
+
+# Define app config key
+AF              = "AF"
+TASK_LIST       = "TASK_LIST"
+DATA            = "DATA"
+TEMP_PATH       = "TEMP_PATH"
+PROC            = "proc"
+IMPORT_PROC     = "IMPORT_PROC"
+TRT             = "tensorrt" 
+
+# Define key for request data
+FRAMEWORK_KEY   = "framework"
+SOURCE_KEY      = "source"
+THRES_KEY       = "thres"
+
+# Define key for ZIP file from iVIT-T
+LABEL_NAME      = "classes"
+CLS             = "cls"
+OBJ             = "obj"
+DARKNET         = "darknet"
+CLASSIFICATION_KEY  = "classification"
+YOLO_KEY            = "yolo"
+
+# Define extension for ZIP file form iVIT-T
+DARK_LABEL_EXT  = CLS_LABEL_EXT = ".txt"        # txt is the category list
+DARK_JSON_EXT   = CLS_JSON_EXT  = ".json"       # json is for basic information like input_shape, preprocess
+
+## Darknet format for tensorrt
+DARK_MODEL_EXT  = ".weights"    
+DARK_CFG_EXT    = ".cfg"
+
+## onnx format for tensorrt
+CLS_MODEL_EXT   = ".onnx"
+
+## ir model for openvino
+IR_MODEL_EXT    = ".xml"
+
 bp_operators = Blueprint('operator', __name__)
 
-yaml_path = "/workspace/ivit_i/web/docs/operator"
+def get_request_file(save_file=False):
+    """
+    Get request file
+     - Argument
+        - save_file
+            - type: bool
+            - desc: set True if need to save file
+     - Output
+        - file name/path
+            - type: String
+            - desc: return file path if save_file is True, on the other hand, return name
+    """
+    
+    file        = request.files[SOURCE_KEY]
+    file_name   = secure_filename(file.filename)
+    
+    if save_file:
+        try:
+            file_path = os.path.join(current_app.config[DATA], secure_filename(file_name))
+            file.save( file_path )
+        except Exception as e:
+            err = handle_exception(e, "Error when saving file ...")
+            abort(404, {'message': err } )
+
+        return file_path
+    
+    return file_name
+
+def get_request_data():
+    """ Get data form request and parse content. """
+    # Support form data and json
+    data = dict(request.form) if bool(request.form) else request.get_json()
+
+    # Put framework information into data
+    if FRAMEWORK_KEY not in data.keys(): 
+        data.update( { FRAMEWORK_KEY : current_app.config['AF'] } )
+
+    # Source: If got new source
+    if bool(request.files):
+        file_path = get_request_file(save_file=True)
+        data[SOURCE_KEY] = file_path
+        logging.debug("Get data ({})".format(data[SOURCE_KEY]))
+        
+    # Set the format of thres to float
+    data[THRES_KEY]=float( data[THRES_KEY] )
+    
+    # Print out to check information
+    print_data(data)
+
+    return data
+
+def print_title(title):
+    logging.info( "{}\n{}".format('-' * 3, title) )
+
+def print_data(data, title='Check request data'):
+    logging.debug(title)
+    [ logging.debug(" - {}: {}".format(key, data)) for key, val in data.items() ]
 
 @bp_operators.after_request
 def after_request(response):
+    """ When we finish each operation, we have to update the TASK_LIST to get the newest list. """
     logging.info("Updating TASK_LIST, check in '/tasks'")
+
     try:
-        current_app.config["TASK_LIST"]=get_tasks()
+        current_app.config[TASK_LIST]=get_tasks()
+
     except Exception as e:
-        logging.warning(e)
+        err = handle_exception(e)
+
     return response
 
 @bp_operators.route("/edit/<uuid>", methods=["POST"])
-@swag_from("{}/{}".format(yaml_path, "edit.yml"))
+@swag_from("{}/{}".format(YAML_PATH, "edit.yml"))
 def edit_event(uuid):
-    # Get data: support form data and json
-    data = dict(request.form) if bool(request.form) else request.get_json()
 
-    # Put framework information into data
-    if 'framework' not in data.keys(): data.update( {"framework":current_app.config['AF']} )
-    # Source: If got new source
-    if bool(request.files):
-        logging.debug("Get data ...")
-        # Saving file
-        file = request.files['source']
-        file_name = secure_filename(file.filename)
-        file_path = os.path.join(current_app.config["DATA"], file_name)
-        file.save( file_path )
-        # Update data information
-        data["source"]=file_path
-        
-    # Set the format of thres to float
-    data["thres"]=float( data["thres"] )
-    # Check
-    [ logging.debug(cnt) for cnt in ['Check configuration data', '-'*50, data]]
-    # Edit task
+    print_title("Edit {}".format(uuid))
+    
+    # Get Data and Check
+    data = get_request_data()
+    
+    # Edit Event
     try:
         edit_task(data, uuid)
         return "Edit successed ( {}:{} )".format(uuid, current_app.config['UUID'][uuid]), 200
+
     except Exception as e:
-        exc_type, exc_obj, exc_tb = sys.exc_info()
-        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        logging.error(e)
-        return "Edit error: {} ({})".format(e, fname), 400
+        return handle_exception(e, "Edit error"), 400
 
 @bp_operators.route("/add/", methods=["POST"])
-@swag_from("{}/{}".format(yaml_path, "add.yml"))
+@swag_from("{}/{}".format(YAML_PATH, "add.yml"))
 def add_event():
 
-    [ logging.info(cnt) for cnt in ['\n', "-"*50, 'Add an application'] ]
+    print_title("Add Event")
     
-    # Get data: support form data and json
-    data = dict(request.form) if bool(request.form) else request.get_json()
+    # Get Data and Check
+    data = get_request_data()
 
-    # Put framework information into data
-    if 'framework' not in data.keys(): data.update( {"framework":current_app.config['AF']} )
-    # Source: If got new source
-    if bool(request.files):
-        logging.debug("Get data ...")
-        # Saving file
-        file = request.files['source']
-        file_name = secure_filename(file.filename)
-        file_path = os.path.join(current_app.config["DATA"], file_name)
-        file.save( file_path )
-        # Update data information
-        data["source"]=file_path
-    
-    # Check
-    [ logging.debug(cnt) for cnt in ['Check configuration data', '-'*50, data]]
     # Add event
     try:
         task_status, task_uuid, task_info = add_task(data)
         return jsonify( "Add successed ( {}:{} )".format( data["name"], task_uuid ) ), 200
+
     except Exception as e:
-            exc_type, exc_obj, exc_tb = sys.exc_info()
-            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-            msg = 'Add Error: \n{}\n{} ({}:{})'.format(exc_type, exc_obj, fname, exc_tb.tb_lineno)
-            logging.error(msg)
-            return jsonify(msg), 400
+        return handle_exception(e, "Add error"), 400
 
 @bp_operators.route("/import_1/", methods=["POST"])
-@swag_from("{}/{}".format(yaml_path, "extract_zip.yml"))
+@swag_from("{}/{}".format(YAML_PATH, "extract_zip.yml"))
 def import_extract_event():
-    # """
-    # 1. download compress file
-    # 2. uncompress it and check is 'Classification' or 'Object Detection' ( subprocess.run )
-    # 3. convert model ( background : subprocess.Popen )
-    # 4. return information and successs code
-    # ---
-    # Provide web api to check file is convert
-    # """
-    [ logging.info(cnt) for cnt in ['\n', "-"*50, 'Extract ZIP from Trainning Tool'] ]
+    """
+    1. download compress file
+    2. uncompress it and check is 'Classification' or 'Object Detection' ( subprocess.run )
+    3. convert model ( background : subprocess.Popen )
+    4. return information and successs code
+    ---
+    Provide web api to check file is convert
+    """
+    print_title("Import Event (1) - Extract ZIP from Trainning Tool")
 
-    # define key
-    LABEL_NAME = "classes"
-    DARK_LABEL_EXT = CLS_LABEL_EXT = ".txt"     # txt is the category list
-    DARK_JSON_EXT = CLS_JSON_EXT = ".json"      # json is for basic information like input_shape, preprocess
-
-    # darknet format for tensorrt
-    DARK_MODEL_EXT = ".weights"    
-    DARK_CFG_EXT = ".cfg"
-
-    # onnx format for tensorrt
-    CLS_MODEL_EXT = ".onnx"
-
-    # ir model for openvino
-    IR_MODEL_EXR = ".xml"
-
-    # define the mapping table
+    # Define the mapping table
     MAP = {
-        "classification": "cls",
-        "yolo": "darknet" if current_app.config['AF'] == "tensorrt" else "obj"
+        CLASSIFICATION_KEY  : CLS,
+        YOLO_KEY            : DARKNET if current_app.config[AF] == TRT else OBJ
     }
-
+    
     # initialize parameters
     trg_tag = ""
     org_model_path = ""
@@ -131,19 +186,19 @@ def import_extract_event():
     meta_data = []
     
     # get file
-    file = request.files['source']
+    file = request.files[SOURCE_KEY]
     file_name = secure_filename(file.filename)
     task_name = os.path.splitext(file_name)[0]
     logging.info("Capture file ({})".format(file_name))
 
     # clear && create temp folder
-    temp_path = current_app.config["TEMP_PATH"]
+    temp_path = current_app.config[TEMP_PATH]
     if os.path.exists(temp_path):
         shutil.rmtree( temp_path )
-    os.mkdir( current_app.config["TEMP_PATH"] )
+    os.mkdir( current_app.config[TEMP_PATH] )
     
     # combine path: ./temp/aaa.zip -> temp/aaa/ -> temp/aaa/export
-    zip_path = os.path.join(current_app.config["TEMP_PATH"], file_name) # temp/aaa.zip
+    zip_path = os.path.join(current_app.config[TEMP_PATH], file_name) # temp/aaa.zip
     task_dir = os.path.dirname( zip_path )                              # temp/
     task_path = os.path.join( task_dir, task_name )                     # temp/aaa
 
@@ -169,7 +224,7 @@ def import_extract_event():
         fpath = os.path.join(task_path, fname)
         name, ext = os.path.splitext(fpath)
 
-        if ext in [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXR ]:
+        if ext in [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXT ]:
             logging.debug("Detected {}: {}".format("Model", fpath))
             org_model_path = fpath
         elif ext in [ DARK_LABEL_EXT, CLS_LABEL_EXT ]:
@@ -181,7 +236,6 @@ def import_extract_event():
             
             # update tag name via json file name 
             trg_tag = MAP[name.split('/')[-1]]
-            
             
         elif ext in [ DARK_CFG_EXT ]:
             logging.debug("Detected {}: {}".format("Config", fpath))
@@ -199,7 +253,7 @@ def import_extract_event():
         trg_model_path = "{}.trt".format( pure_model_name )
 
         # define command line for convert
-        if trg_tag == "cls":    
+        if trg_tag == CLS:    
             cmd = [ "trtexec", 
                     "--onnx={}".format(os.path.realpath(org_model_path)), 
                     "--saveEngine={}".format(os.path.realpath(trg_model_path)) ]
@@ -214,7 +268,7 @@ def import_extract_event():
         trg_model_path = org_model_path
 
     # update in web api
-    key = "IMPORT_PROC"
+    key = IMPORT_PROC
     if not ( key in current_app.config ):
         current_app.config.update( {key:dict()})
     if not ( task_name in current_app.config[key] ):
@@ -237,71 +291,53 @@ def import_extract_event():
 
     return jsonify( ret ), 200
 
-
 @bp_operators.route("/import_proc/", methods=["GET"])
-@swag_from("{}/{}".format(yaml_path, "import_proc.yml"))
+@swag_from("{}/{}".format(YAML_PATH, "import_proc.yml"))
 def import_process_default_event():
-    ret = copy.deepcopy(current_app.config["IMPORT_PROC"])
+    ret = copy.deepcopy(current_app.config[IMPORT_PROC])
     return jsonify( get_pure_jsonify( ret ) )
 
 @bp_operators.route("/import_proc/<task_name>/status", methods=["GET"])
-@swag_from("{}/{}".format(yaml_path, "import_proc_status.yml"))
+@swag_from("{}/{}".format(YAML_PATH, "import_proc_status.yml"))
 def import_process_event(task_name):
-    proc = current_app.config["IMPORT_PROC"][task_name]["proc"]
+    proc = current_app.config[IMPORT_PROC][task_name][PROC]
     if proc!=None:
         try:
             ret = "running" if proc.poll() is None else "done"
         except Exception as e:
-            logging.error(e)
+            handle_exception(e)
             ret = "done"
     else:
         ret = "done"
     return jsonify( ret )
 
 @bp_operators.route("/import_2/", methods=["POST"])
-@swag_from("{}/{}".format(yaml_path, "import.yml"))
+@swag_from("{}/{}".format(YAML_PATH, "import.yml"))
 def import_event():
 
-    [ logging.info(cnt) for cnt in ['\n', "-"*50, 'Import an application'] ]
+    print_title("Import Event (2) - Import a Task")
     
-    # Get data: support form data and json
-    data = dict(request.form) if bool(request.form) else request.get_json()
+    # Get Data and Check
+    data = get_request_data()
 
-    # Put framework information into data
-    if 'framework' not in data.keys(): data.update( {"framework":current_app.config['AF']} )
-    # Source: If got new source
-    if bool(request.files):
-        logging.debug("Get data ...")
-        # Saving file
-        file = request.files['source']
-        file_name = secure_filename(file.filename)
-        file_path = os.path.join(current_app.config["DATA"], file_name)
-        file.save( file_path )
-        # Update data information
-        data["source"]=file_path
-    # Check
-    [ logging.debug(cnt) for cnt in ['Check configuration data', '-'*50, data]]
-    
     # Import event
     try:
         task_status, task_uuid, task_info = import_task(data)
         return jsonify( "Import successed ( {}:{} )".format( data["name"], task_uuid ) ), 200
     except Exception as e:
-            exc_type, exc_obj, exc_tb = sys.exc_info()
-            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-            msg = 'Import Error: \n{}\n{} ({}:{})'.format(exc_type, exc_obj, fname, exc_tb.tb_lineno)
-            logging.error(msg)
-            return jsonify(msg), 400
+        return handle_exception(e, "Import error"), 400
 
 
 @bp_operators.route("/remove/", methods=["POST"])
-@swag_from("{}/{}".format(yaml_path, "remove.yml"))
+@swag_from("{}/{}".format(YAML_PATH, "remove.yml"))
 def remove_application():
+    
     data = dict(request.form) if bool(request.form) else request.get_json()
+    
     try:
-        task_uuid = data['uuid']
-        remove_task(task_uuid)
-        return jsonify('Remove the application ({})'.format(task_uuid)), 200
+        remove_task(data['uuid'])
+        return jsonify('Remove the application ({})'.format(data['uuid'])), 200
+
     except Exception as e:
-        return jsonify('Remove error ({})'.format(e)), 400
+        return handle_exception(e, "Remove error"), 400
 
