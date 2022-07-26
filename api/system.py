@@ -1,38 +1,49 @@
 import logging, subprocess, json, os
-
 from flask import Blueprint, abort, jsonify, current_app, request
 from flasgger import swag_from
 
+from ..tools.parser import get_pure_jsonify
+from ..tools.common import get_v4l2, handle_exception
 
-from ivit_i.web.tools import get_address, get_gpu_info, get_v4l2, get_pure_jsonify
-from ivit_i.web.tools.common import handle_exception
+YAML_PATH   = "/workspace/ivit_i/web/docs/system"
+PLATFORM    = "PLATFORM"
+NV          = "nvidia"
+INTEL       = "intel"
+XLNX        = "xilinx"
+LOGGER      = "LOGGER"
+TXT_EXT     = ".txt"
+JSON_EXT    = ".json"
 
 bp_system = Blueprint('system', __name__)
 
-yaml_path = "/workspace/ivit_i/web/docs/system"
-
 @bp_system.route("/v4l2/")
-@swag_from("{}/{}".format(yaml_path, "v4l2.yml"))
+@swag_from("{}/{}".format(YAML_PATH, "v4l2.yml"))
 def web_v4l2():
     return jsonify(get_v4l2())
 
 @bp_system.route("/device/")
 def web_device_info():
-    if current_app.config["PLATFORM"]=="nvidia":
-        return jsonify(get_gpu_info())
-    else:
-        ret = {
-            "CPU": {
-                "id": 0,
-                "name": "CPU"
-            }
-        }
-        return jsonify(ret)
+    """ Get available devices """
+    ret = None
+
+    if current_app.config[PLATFORM] == NV:
+        from ..tools.common import get_nv_info
+        ret = get_nv_info()
+        
+    elif current_app.config[PLATFORM] == INTEL:
+        from ..tools.common import get_intel_info
+        ret = get_intel_info()
+
+    elif current_app.config[PLATFORM] == XLNX:
+        from ..tools.common import get_xlnx_info
+        ret = get_xlnx_info()
+
+    return jsonify(ret)
 
 @bp_system.route("/source")
-@swag_from("{}/{}".format(yaml_path, "source.yml"))
+@swag_from("{}/{}".format(YAML_PATH, "source.yml"))
 def web_source():
-    # return jsonify( get_pure_jsonify(current_app.config["SRC"]) )
+    
     temp_src_config = dict()
     for dev, cnt in current_app.config['SRC'].items():
         temp_src_config[dev] = dict()
@@ -44,18 +55,19 @@ def web_source():
                     temp_src_config[dev][key] = None
             else:
                 temp_src_config[dev].update( {key:val} )
+    
     try:
         pure_src_config = get_pure_jsonify( temp_src_config )
         return pure_src_config, 200
     except Exception as e:
-        return e, 400
+        return handle_exception(e, "Get source error"), 400
 
 @bp_system.route("/log")
-@swag_from("{}/{}".format(yaml_path, "log.yml"))
+@swag_from("{}/{}".format(YAML_PATH, "log.yml"))
 def get_log():
     data = []
-    logging.debug("Log path: {}".format(current_app.config['LOGGER']))
-    with open( current_app.config['LOGGER'], newline='') as f:
+    logging.debug("Log path: {}".format(current_app.config[LOGGER]))
+    with open( current_app.config[LOGGER], newline='') as f:
         for line in f.readlines():
             data.append( line.rstrip("\n") )
     
@@ -65,26 +77,23 @@ def get_log():
     return jsonify( data ), 200
 
 @bp_system.route("/read_file/", methods=["POST"])
-@swag_from("{}/{}".format(yaml_path, "read_file.yml"))
+@swag_from("{}/{}".format(YAML_PATH, "read_file.yml"))
 def read_file():
-    # """
-    # Read Text and JSON file.
-    # """
+    """ Read Text and JSON file. """
     data = request.get_json()
-    logging.debug(data)
+    # logging.debug(data)
     path = data["path"]
     try:
         ret_data = []
         name, ext = os.path.splitext(path)
-        if ext == '.txt':
+        if ext == TXT_EXT:
             with open( path, 'r') as f:
                 for line in f.readlines():
                     ret_data.append(line.strip('\n'))
-        if ext == '.json':
+        if ext == JSON_EXT:
             with open( path, 'r') as f:
                 ret_data = json.load(f)
         
         return jsonify( ret_data ), 200
     except Exception as e:
-        handle_exception(error=e, title="Could not load application ... set app to None", exit=False)
-        return "Erro in read file", 400
+        return handle_exception(error=e, title="Could not load application ... set app to None", exit=False), 400
