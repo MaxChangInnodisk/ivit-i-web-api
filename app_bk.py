@@ -17,7 +17,7 @@ eventlet.monkey_patch()
 sys.path.append(os.getcwd())
 from ivit_i.utils.logger import config_logger
 from ivit_i.web.tools import get_address, get_tasks, get_pure_jsonify
-from ivit_i.web.api import basic_setting, bp_system, bp_tasks, bp_operators, bp_application
+from ivit_i.web.api import config, bp_system, bp_tasks, bp_operators, bp_application
 # ------------------------------------------------------------------------------------------
 from ivit_i.web.ai.pipeline import Source
 from ivit_i.web.ai.get_api import get_api
@@ -35,7 +35,7 @@ def create_app():
     if not ('IVIT_I' in os.environ.keys()):
         raise KeyError("Could not find the environ \"IVIT_I\", please setup the custom setting path: $ export IVIT_I=/workspace/ivit-i.json")
     else:
-        app.config.from_object(basic_setting)
+        app.config.from_object(config)
         app.config.from_file( os.environ["IVIT_I"], load=json.load )
 
     # define logger
