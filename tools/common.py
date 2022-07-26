@@ -1,14 +1,14 @@
-import GPUtil, logging, os
+import logging, os
 import uuid, sys, traceback
 import subprocess
 import socket
 
-def get_gpu_info():
+def get_nv_info():
+    import GPUtil
     gpus = GPUtil.getGPUs()
     ret = dict()
     for gpu in gpus:
         ret.update({ gpu.name: {
-                
                 "id": gpu.id,
                 "name": gpu.name, 
                 "uuid": gpu.uuid, 
@@ -18,6 +18,24 @@ def get_gpu_info():
         }})
     return ret
 
+def get_intel_device():
+    ret = {
+        "CPU": {
+            "id": 0,
+            "name": "CPU"
+        }
+    }
+    return ret
+
+def get_xlnx_device():
+    ret = {
+        "DPU": {
+            "id": 0,
+            "name": "DPU"
+        }
+    }
+    return ret
+    
 def get_address():
     st = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:       
@@ -41,16 +59,26 @@ def get_v4l2() -> list:
     return ret_list
 
 def handle_exception(error, title="Error", exit=False):
-    e = error
-    error_class = e.__class__.__name__ #取得錯誤類型
-    detail = e.args[0] #取得詳細內容
-    cl, exc, tb = sys.exc_info() #取得Call Stack
-    lastCallStack = traceback.extract_tb(tb)[-1] #取得Call Stack的最後一筆資料
-    fileName = lastCallStack[0] #取得發生的檔案名稱
-    lineNum = lastCallStack[1] #取得發生的行號
-    funcName = lastCallStack[2] #取得發生的函數名稱
-    errMsg = "File \"{}\", line {}, in {}: [{}] {}".format(fileName, lineNum, funcName, error_class, detail)
-    logging.error("{}\n{}".format(title, errMsg))
+    
+    # Get Error Class ( type )
+    error_class = error.__class__.__name__ 
+    
+    # Get Detail
+    detail = error.args[0] 
 
-    if exit:
-        sys.exit()
+    # Get Call Stack
+    cl, exc, tb = sys.exc_info() 
+
+    # Last Data of Call Stack
+    last_call_stack = traceback.extract_tb(tb)[-1] 
+
+    # Parse Call Stack and Combine Error Message
+    file_name = last_call_stack[0] 
+    line_num = last_call_stack[1] 
+    func_name = last_call_stack[2] 
+    err_msg = "{} \nFile \"{}\", line {}, in {}: [{}] {}".format(title, file_name, line_num, func_name, error_class, detail)
+    
+    logging.error(err_msg)
+    if exit: sys.exit()
+
+    return err_msg
