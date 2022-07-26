@@ -30,16 +30,18 @@ def initialize_flask_app():
         - socketio
     """
     
+    # check IVIT_I is in environment
+    if not ('IVIT_I' in os.environ.keys()):
+        raise KeyError("Could not find the environ \"IVIT_I\", please setup the custom setting path: $ export IVIT_I=/workspace/ivit-i.json")
+
     # initialize logger
-    config_logger(log_name=app.config['LOGGER'], write_mode='a', level='debug', clear_log=True)
+    with open( os.environ["IVIT_I"], 'r' ) as f:
+        data = json.load(f)
+        config_logger(log_name=data["LOGGER"], write_mode='a', level='debug', clear_log=True)
 
     # initialize flask
     app = Flask(__name__)
 
-    # check IVIT_I is in environment
-    if not ('IVIT_I' in os.environ.keys()):
-        raise KeyError("Could not find the environ \"IVIT_I\", please setup the custom setting path: $ export IVIT_I=/workspace/ivit-i.json")
-    
     # loading flask configuration
     app.config.from_object(config)
     app.config.from_file( os.environ["IVIT_I"], load=json.load )
