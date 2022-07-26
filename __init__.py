@@ -29,34 +29,44 @@ def initialize_flask_app():
         - app
         - socketio
     """
-    # initialize
-    app = Flask(__name__)
-
-    # loading configuration
-    if not ('IVIT_I' in os.environ.keys()):
-        raise KeyError("Could not find the environ \"IVIT_I\", please setup the custom setting path: $ export IVIT_I=/workspace/ivit-i.json")
-    else:
-        app.config.from_object(config)
-        app.config.from_file( os.environ["IVIT_I"], load=json.load )
-
+    
     # initialize logger
     config_logger(log_name=app.config['LOGGER'], write_mode='a', level='debug', clear_log=True)
 
+    # initialize flask
+    app = Flask(__name__)
+
+    # check IVIT_I is in environment
+    if not ('IVIT_I' in os.environ.keys()):
+        raise KeyError("Could not find the environ \"IVIT_I\", please setup the custom setting path: $ export IVIT_I=/workspace/ivit-i.json")
+    
+    # loading flask configuration
+    app.config.from_object(config)
+    app.config.from_file( os.environ["IVIT_I"], load=json.load )
+
     # update ip address
-    if app.config['HOST']=="":
+    if app.config['HOST'] == "":
         addr = get_address()
         app.config['HOST']=addr
         logging.info('Update HOST to {}'.format(addr))
 
-    # update api docs
+    # define web api docs
     app.config['SWAGGER'] = {
         'title': 'iVIT-I',
         'uiversion': 3
     }
+    swagger = Swagger(app)   
 
-    cors(app)                                                                   # share resource
-    socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins='*')   # define socket
-    swagger = Swagger(app)                                                      # define web api docs    
+    # share resource
+    cors(app)                                                       
+    
+    # define socket
+    socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins='*')   
+
+    # do something else
+    if not (os.path.exists(app.config["DATA"])):
+        # creat data folder if it's not exsit
+        os.makedirs(app.config["DATA"])
 
     return app, socketio
 

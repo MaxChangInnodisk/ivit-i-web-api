@@ -23,10 +23,6 @@ def create_app():
     app.register_blueprint(bp_system)        # some utils, like 'v4l2', 'device' ... etc
     app.register_blueprint(bp_application)
     
-    # check data folder is exsit
-    if not (os.path.exists(app.config["DATA"])):
-        os.makedirs(app.config["DATA"])
-
     # define the web api
     @app.before_first_request
     @app.route("/reset/")
