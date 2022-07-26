@@ -1,62 +1,22 @@
-# ------------------------------------------------------------------------------------------
-# common module
 import cv2, time, logging, shutil, subprocess, base64, threading, os, sys, copy, json
-# ------------------------------------------------------------------------------------------
-# flask basic, socketio, filename and docs ( flasgger )
-from flask import Flask, Blueprint, jsonify, request, render_template, url_for, redirect, abort
-from flask_socketio import SocketIO
+from flask import jsonify, request
 from werkzeug.utils import secure_filename
-from flasgger import Swagger
-# flask, Corss-Origin Resource Sharing, avoid "No 'Access-Control-Allow-Origin' header"
-from flask_cors import CORS as cors
-# green flask and application
-import eventlet
-eventlet.monkey_patch()  
-# ------------------------------------------------------------------------------------------
+
+from . import app, socketio
+
 # ivit_i 
 sys.path.append(os.getcwd())
-from ivit_i.utils.logger import config_logger
-from ivit_i.web.tools import get_address, get_tasks, get_pure_jsonify
-from ivit_i.web.api import basic_setting, bp_system, bp_tasks, bp_operators, bp_application
-# ------------------------------------------------------------------------------------------
+from ivit_i.web.tools import get_tasks, get_pure_jsonify
+from ivit_i.web.api import bp_system, bp_tasks, bp_operators, bp_application
+
 from ivit_i.web.ai.pipeline import Source
 from ivit_i.web.ai.get_api import get_api
 from ivit_i.app.handler import get_application
-# ------------------------------------------------------------------------------------------
+
 DIV = "*"*20
-# ------------------------------------------------------------------------------------------
 
 def create_app():
     
-    # initialize
-    app = Flask(__name__)
-    
-    # loading configuration
-    if not ('IVIT_I' in os.environ.keys()):
-        raise KeyError("Could not find the environ \"IVIT_I\", please setup the custom setting path: $ export IVIT_I=/workspace/ivit-i.json")
-    else:
-        app.config.from_object(basic_setting)
-        app.config.from_file( os.environ["IVIT_I"], load=json.load )
-
-    # define logger
-    config_logger(log_name=app.config['LOGGER'], write_mode='a', level='debug', clear_log=True)
-
-    # update ip address
-    if app.config['HOST']=="":
-        addr = get_address()
-        app.config['HOST']=addr
-        logging.info('Update HOST to {}'.format(addr))
-
-    # update api docs
-    app.config['SWAGGER'] = {
-        'title': 'iVIT-I',
-        'uiversion': 3
-    }
-    
-    cors(app)                                                                   # share resource
-    socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins='*')   # define socket
-    swagger = Swagger(app)                                                      # define web api docs    
-
     # register blueprint
     app.register_blueprint(bp_tasks)        # captrue the info of tasks
     app.register_blueprint(bp_operators)    # operate the task
