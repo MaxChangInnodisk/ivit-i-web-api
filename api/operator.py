@@ -2,7 +2,6 @@ import shutil
 import subprocess as sb
 import logging, copy, sys, os
 from flask import Blueprint, abort, jsonify, current_app, request
-from ivit_i.web.api.application import YAML_PATH
 
 from ..tools.handler import edit_task, add_task, get_tasks, remove_task, import_task
 from ..tools.parser import get_pure_jsonify
