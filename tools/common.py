@@ -18,20 +18,28 @@ def get_nv_info():
         }})
     return ret
 
-def get_intel_device():
+def get_intel_info():
     ret = {
         "CPU": {
             "id": 0,
-            "name": "CPU"
+            "name": "CPU",
+            "uuid": "", 
+            "load": 0, 
+            "memoryUtil": 0, 
+            "temperature": 0
         }
     }
     return ret
 
-def get_xlnx_device():
+def get_xlnx_info():
     ret = {
         "DPU": {
             "id": 0,
-            "name": "DPU"
+            "name": "DPU",
+            "uuid": "", 
+            "load": 0, 
+            "memoryUtil": 0, 
+            "temperature": 0
         }
     }
     return ret
