@@ -18,8 +18,9 @@ import eventlet
 eventlet.monkey_patch()
 
 # Import Custom Module
-from .tools import config_logger, get_address
-from .api import config
+from .tools.logger import config_logger
+from .tools.common import get_address
+from .api.config import config
 
 def initialize_flask_app():
     """
