@@ -2,10 +2,14 @@ import logging, subprocess, json, os
 from flask import Blueprint, abort, jsonify, current_app, request
 from flasgger import swag_from
 
+# Load Module from `web/tools`
 from ..tools.parser import get_pure_jsonify
 from ..tools.common import get_v4l2, handle_exception
 
 YAML_PATH   = "/workspace/ivit_i/web/docs/system"
+BP_NAME     = "system"
+bp_system = Blueprint(BP_NAME, __name__)
+
 PLATFORM    = "PLATFORM"
 NV          = "nvidia"
 INTEL       = "intel"
@@ -13,8 +17,6 @@ XLNX        = "xilinx"
 LOGGER      = "LOGGER"
 TXT_EXT     = ".txt"
 JSON_EXT    = ".json"
-
-bp_system = Blueprint('system', __name__)
 
 @bp_system.route("/v4l2/")
 @swag_from("{}/{}".format(YAML_PATH, "v4l2.yml"))

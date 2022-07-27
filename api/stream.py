@@ -1,10 +1,11 @@
-from sre_constants import SUCCESS
-import cv2, time, logging, base64, threading, os, sys, copy, json
+import cv2, time, logging, base64, threading, os, copy, sys
 from flask import Blueprint, abort, jsonify, app, request
 from werkzeug.utils import secure_filename
 
+# Load Module from `web/api`
 from . import frame2btye, get_src, stop_src
 
+# Load Module from `web`
 from .. import socketio, app
 from ..tools.handler import get_tasks
 from ..tools.parser import get_pure_jsonify
@@ -12,6 +13,8 @@ from ..tools.common import handle_exception
 from ..ai.pipeline import Source
 from ..ai.get_api import get_api
 
+# Get Application Module From iVIT-I
+sys.path.append("/workspace")
 from ivit_i.app.handler import get_application
 
 # Define API Docs yaml
@@ -274,7 +277,7 @@ def start_stream(uuid):
 
 @bp_stream.route("/task/<uuid>/stream/stop/", methods=["GET"])
 def stop_stream(uuid):
-
+    
     if app.config[TASK][uuid][STATUS]!=ERROR:
         stop_src(uuid)
         if app.config[TASK][uuid][STREAM]!=None:
