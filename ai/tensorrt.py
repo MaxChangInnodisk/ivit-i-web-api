@@ -17,7 +17,7 @@ DIV='-'*50
 # ------------------------------------------------------------------------
 # TensorRT 
 
-def trt_init(model_conf):
+def trt_init(model_conf, first_frame=None):
     """ 初始化 TensorRT Engine """
     logging.info('Init TensorRT Engine')
 
