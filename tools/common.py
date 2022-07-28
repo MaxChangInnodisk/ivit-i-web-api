@@ -1,6 +1,6 @@
 import logging, os
 import uuid, sys, traceback
-import subprocess
+import subprocess as sp
 import socket
 
 def get_nv_info():
@@ -32,6 +32,10 @@ def get_intel_info():
     return ret
 
 def get_xlnx_info():
+
+    cmd = "xmutil platformstats -p | grep temperature | awk -F: {'print $2'} | awk {'print $1'}"
+    temparature = sp.run(cmd, shell=True, stdout=sp.PIPE, encoding='utf8').stdout.strip().split('\n')
+
     ret = {
         "DPU": {
             "id": 0,
@@ -39,7 +43,7 @@ def get_xlnx_info():
             "uuid": "", 
             "load": 0, 
             "memoryUtil": 0, 
-            "temperature": 0
+            "temperature": temparature[0]
         }
     }
     return ret
@@ -62,7 +66,7 @@ def gen_uuid(name:str, len:int=8) -> str:
     return str(uuid.uuid4())[:len]
 
 def get_v4l2() -> list:
-    ret = subprocess.run("ls /dev/video*", shell=True, stdout=subprocess.PIPE, encoding='utf8').stdout
+    ret = sp.run("ls /dev/video*", shell=True, stdout=sp.PIPE, encoding='utf8').stdout
     ret_list = ret.strip().split('\n')
     return ret_list
 
