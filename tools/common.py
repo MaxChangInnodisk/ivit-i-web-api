@@ -4,26 +4,46 @@ import subprocess as sp
 import socket
 
 def get_nv_info():
-    import GPUtil
-    gpus = GPUtil.getGPUs()
-    ret = dict()
-    for gpu in gpus:
-        ret.update({ gpu.name: {
-                "id": gpu.id,
-                "name": gpu.name, 
-                "uuid": gpu.uuid, 
-                "load": round(gpu.load*100, 3), 
-                "memoryUtil": round(gpu.memoryUtil*100, 3), 
-                "temperature": gpu.temperature
-        }})
+    ret  = {
+        "GPU": {
+            "id": -1,
+            "name": "GPU",
+            "uuid": "", 
+            "load": 0, 
+            "memoryUtil": 0, 
+            "temperature": 0
+        }
+    }
+    try:
+        import GPUtil
+        gpus = GPUtil.getGPUs()
+        ret = dict()
+        for gpu in gpus:
+            ret.update({ gpu.name: {
+                    "id": gpu.id,
+                    "name": gpu.name, 
+                    "uuid": gpu.uuid, 
+                    "load": round(gpu.load*100, 3), 
+                    "memoryUtil": round(gpu.memoryUtil*100, 3), 
+                    "temperature": gpu.temperature
+            }})
+    except Exception as e:
+        handle_exception(e, "Get temperature error")
+    
     return ret
 
 def get_intel_info():
-    import psutil
-    KEY  ="coretemp"
-    res  = psutil.sensors_temperatures() 
-    temp = [ float(core.current) for core in res[KEY] ]
-    avg  = sum(temp)/len(temp)
+    avg = 0
+    try:
+        import psutil
+        KEY  ="coretemp"
+        res  = psutil.sensors_temperatures() 
+        temp = [ float(core.current) for core in res[KEY] ]
+        avg  = sum(temp)/len(temp)
+    except Exception as e:
+        handle_exception(e, "Get temperature error")
+        avg = 0
+
     ret  = {
         "CPU": {
             "id": 0,
@@ -37,10 +57,15 @@ def get_intel_info():
     return ret
 
 def get_xlnx_info():
-
-    cmd  = "xmutil platformstats -p | grep temperature | awk -F: {'print $2'} | awk {'print $1'}"
-    temp = sp.run(cmd, shell=True, stdout=sp.PIPE, encoding='utf8').stdout.strip().split('\n')
-    avg  = sum(temp)/len(temp)
+    avg = 0
+    try:
+        cmd  = "xmutil platformstats -p | grep temperature | awk -F: {'print $2'} | awk {'print $1'}"
+        temp = sp.run(cmd, shell=True, stdout=sp.PIPE, encoding='utf8').stdout.strip().split('\n')
+        avg  = sum(temp)/len(temp)
+    except Exception as e:
+        handle_exception(e, "Get temperature error")
+        avg = 0
+        
     ret  = {
         "DPU": {
             "id": 0,
