@@ -19,31 +19,36 @@ def get_nv_info():
     return ret
 
 def get_intel_info():
-    ret = {
+    import psutil
+    KEY  ="coretemp"
+    res  = psutil.sensors_temperatures() 
+    temp = [ float(core.current) for core in res[KEY] ]
+    avg  = sum(temp)/len(temp)
+    ret  = {
         "CPU": {
             "id": 0,
             "name": "CPU",
             "uuid": "", 
             "load": 0, 
             "memoryUtil": 0, 
-            "temperature": 0
+            "temperature": avg
         }
     }
     return ret
 
 def get_xlnx_info():
 
-    cmd = "xmutil platformstats -p | grep temperature | awk -F: {'print $2'} | awk {'print $1'}"
-    temparature = sp.run(cmd, shell=True, stdout=sp.PIPE, encoding='utf8').stdout.strip().split('\n')
-
-    ret = {
+    cmd  = "xmutil platformstats -p | grep temperature | awk -F: {'print $2'} | awk {'print $1'}"
+    temp = sp.run(cmd, shell=True, stdout=sp.PIPE, encoding='utf8').stdout.strip().split('\n')
+    avg  = sum(temp)/len(temp)
+    ret  = {
         "DPU": {
             "id": 0,
             "name": "DPU",
             "uuid": "", 
             "load": 0, 
             "memoryUtil": 0, 
-            "temperature": temparature[0]
+            "temperature": avg
         }
     }
     return ret
