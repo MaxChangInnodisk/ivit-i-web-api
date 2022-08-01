@@ -61,6 +61,7 @@ def get_xlnx_info():
     try:
         cmd  = "xmutil platformstats -p | grep temperature | awk -F: {'print $2'} | awk {'print $1'}"
         temp = sp.run(cmd, shell=True, stdout=sp.PIPE, encoding='utf8').stdout.strip().split('\n')
+        temp = [ float(val) for val in temp ]
         avg  = sum(temp)/len(temp)
     except Exception as e:
         handle_exception(e, "Get temperature error")
