@@ -1,7 +1,8 @@
 import logging, os
-from flask import abort, current_app, request
+from flask import abort, app, request
 import cv2, time, logging, base64, threading, os, sys, copy, json
 
+from .. import socketio, app
 from ..tools.common import handle_exception
 from ..ai.pipeline import Source
 from ..tools.common import handle_exception
@@ -143,7 +144,7 @@ def get_request_file(save_file=False):
     
     if save_file:
         try:
-            file_path = os.path.join(current_app.config[DATA], secure_filename(file_name))
+            file_path = os.path.join(app.config[DATA], secure_filename(file_name))
             file.save( file_path )
         except Exception as e:
             err = handle_exception(e, "Error when saving file ...")
@@ -160,7 +161,7 @@ def get_request_data():
 
     # Put framework information into data
     if FRAMEWORK_KEY not in data.keys(): 
-        data.update( { FRAMEWORK_KEY : current_app.config['AF'] } )
+        data.update( { FRAMEWORK_KEY : app.config['AF'] } )
 
     # Source: If got new source
     if bool(request.files):
@@ -235,21 +236,30 @@ def get_src(task_uuid, reload_src=False):
             - type: object
             - desc: the source object same with app.config["SRC"][{src_name}][object]
     """
-
     # get the target source name
-    src_name = current_app.config[TASK][task_uuid][SOURCE]
+    logging.debug("Get Source Name")
+    src_name = app.config[TASK][task_uuid][SOURCE]
     
     # if source is None or reload_src==True then create a new source
-    if ( current_app.config[SRC][src_name][OBJECT] == None ) or reload_src:
+    try:
+        src_obj = app.config[SRC][src_name][OBJECT]
+    except Exception as e:
+        raise (handle_exception(e))
+
+    if ( src_obj == None ) or reload_src:
         logging.info('Initialize a new source.')
-        current_app.config[SRC][src_name][OBJECT] = Source(src_name, current_app.config[SRC][src_name][TYPE])
+        try: 
+            app.config[SRC][src_name][OBJECT] = Source(src_name, app.config[SRC][src_name][TYPE])
+        except Exception as e:
+            handle_exception(e)
+            raise (handle_exception(e))
     
     # setup status and error message in source config
-    status, err = current_app.config[SRC][src_name][OBJECT].get_status()
-    current_app.config[SRC][src_name][STATUS], current_app.config[SRC][src_name][ERROR] = RUN if status else ERROR, err
+    status, err = app.config[SRC][src_name][OBJECT].get_status()
+    app.config[SRC][src_name][STATUS], app.config[SRC][src_name][ERROR] = RUN if status else ERROR, err
     
     # return object
-    return current_app.config[SRC][src_name][OBJECT]
+    return app.config[SRC][src_name][OBJECT]
 
 def stop_src(task_uuid, release=False):
     """ 
@@ -264,34 +274,34 @@ def stop_src(task_uuid, release=False):
     """
     
     # initialize
-    src_name, stop_flag, access_proc = current_app.config[TASK][task_uuid][SOURCE], True, []
+    src_name, stop_flag, access_proc = app.config[TASK][task_uuid][SOURCE], True, []
     
     # checking all process
-    for _uuid in current_app.config[SRC][src_name][PROC]:
+    for _uuid in app.config[SRC][src_name][PROC]:
         
-        if _uuid in current_app.config[TASK].keys():
+        if _uuid in app.config[TASK].keys():
             
             # if any task with same source is still running, then set stop_flag to False
-            if ( task_uuid!=_uuid) and (current_app.config[TASK][_uuid][STATUS]==RUN): 
+            if ( task_uuid!=_uuid) and (app.config[TASK][_uuid][STATUS]==RUN): 
                 access_proc.append(_uuid)
                 stop_flag = False           
         else:
             # clean unused uuid
-            current_app.config[SRC][src_name][PROC].remove(_uuid)
+            app.config[SRC][src_name][PROC].remove(_uuid)
     
     # clear source object
     if stop_flag:
         logging.info('Stopping source object ...')
-        current_app.config[SRC][src_name][STATUS] = STOP
+        app.config[SRC][src_name][STATUS] = STOP
 
-        if current_app.config[SRC][src_name][OBJECT] != None: 
+        if app.config[SRC][src_name][OBJECT] != None: 
             # need release source
             if release:
                 logging.warning('Release source ...')
-                current_app.config[SRC][src_name][OBJECT].release() 
-                current_app.config[SRC][src_name][OBJECT] = None 
+                app.config[SRC][src_name][OBJECT].release() 
+                app.config[SRC][src_name][OBJECT] = None 
             else:
-                current_app.config[SRC][src_name][OBJECT].stop()
+                app.config[SRC][src_name][OBJECT].stop()
         logging.info('Stop the source.')
     else:
         logging.warning("Stop failed, source ({}) accessed by {} ".format(src_name, access_proc))

@@ -3,7 +3,7 @@ import subprocess as sb
 import logging, copy, sys, os
 from flask import Blueprint, abort, jsonify, current_app, request
 
-from . import get_request_data, print_title
+from .common import get_request_data, print_title
 
 from ..tools.handler import edit_task, add_task, get_tasks, remove_task, import_task
 from ..tools.parser import get_pure_jsonify

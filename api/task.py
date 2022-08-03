@@ -4,7 +4,7 @@ from flasgger import swag_from
 from ivit_i.web.api.stream import FAIL_CODE
 
 # From /ivit_i/web/api
-from . import get_src, stop_src
+from .common import get_src, stop_src
 
 # From /ivit_i/web
 from ..tools.parser import get_pure_jsonify

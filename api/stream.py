@@ -3,10 +3,8 @@ from flask import Blueprint, abort, jsonify, app, request
 from werkzeug.utils import secure_filename
 
 # Load Module from `web/api`
-from . import frame2btye, get_src, stop_src
+from .common import frame2btye, get_src, stop_src, socketio, app
 
-# Load Module from `web`
-from .. import socketio, app
 from ..tools.handler import get_tasks
 from ..tools.parser import get_pure_jsonify
 from ..tools.common import handle_exception
@@ -147,9 +145,15 @@ def stream_task(task_uuid, src, namespace, infer_function):
             
             # If no frame, wait a new frame when source type is rtsp and video
             if not ret_frame: 
-                logging.debug('Reconnect source ... ')
+                
                 if src.get_type().lower() in [RTSP, VIDEO]:
-                    src = get_src(task_uuid, reload_src=True) 
+                    logging.warning('Reconnect source ... ')
+                    try:
+                        src = get_src(task_uuid, reload_src=True)
+
+                    except Exception as e:
+                        handle_exception(e)
+                        break
                     continue
                 else:
                     err_msg ="Couldn't get the frame data."
