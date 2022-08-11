@@ -1,4 +1,4 @@
-Import_1 is for extracting zip file
+import_zip is for extracting zip file
 ---
 tags:
   - operator

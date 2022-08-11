@@ -5,7 +5,7 @@ tags:
 parameters:
   - in: path
     name: task_name
-    description: process name could be captured from the import_1 web api.
+    description: process name could be captured from the import_zip web api.
     type: string
     required: true
     default: "  "
