@@ -280,6 +280,7 @@ def import_url_event():
 
         # check http head is exist
         http_head = "http://"
+        data["url"] = data["url"].strip()
         zip_url = data["url"] if http_head in data["url"] else http_head+data["url"]
 
         # define temporary zip name
