@@ -2,6 +2,7 @@ import shutil
 import subprocess as sb
 import logging, copy, sys, os
 from flask import Blueprint, abort, jsonify, current_app, request
+import requests
 
 from .common import get_request_data, print_title
 
@@ -108,25 +109,32 @@ def add_event():
     except Exception as e:
         return handle_exception(e, "Add error"), 400
 
-@bp_operators.route("/import_1/", methods=["POST"])
-@swag_from("{}/{}".format(YAML_PATH, "extract_zip.yml"))
-def import_extract_event():
-    """
-    1. download compress file
-    2. uncompress it and check is 'Classification' or 'Object Detection' ( subprocess.run )
-    3. convert model ( background : subprocess.Popen )
-    4. return information and successs code
-    ---
-    Provide web api to check file is convert
-    """
-    print_title("Import Event (1) - Extract ZIP from Trainning Tool")
+def clean_temp_folder():
+    if os.path.exists( current_app.config[TEMP_PATH] ):
+        shutil.rmtree( current_app.config[TEMP_PATH] )
+    os.mkdir( current_app.config[TEMP_PATH] )
 
-    # Define the mapping table
-    MAP = {
+def check_import_file_exist(zip_path):
+    """remove the old file and direction in target path"""
+    
+    # Check Zip
+    if os.path.exists(zip_path):
+        os.remove(zip_path)
+    
+    # Maybe there has extracted folder, check folder which extracted from ZIP
+    task_path = os.path.splitext(zip_path)[0]
+    if os.path.exists(task_path):
+        shutil.rmtree(task_path)
+
+def get_conversion_table():
+    key_cvt_table = {
         CLASSIFICATION_KEY  : CLS,
         YOLO_KEY            : DARKNET if current_app.config[AF] == TRT else OBJ
     }
-    
+    return key_cvt_table
+
+def parse_info_from_zip( zip_path ):
+
     # initialize parameters
     trg_tag = ""
     org_model_path = ""
@@ -134,40 +142,16 @@ def import_extract_event():
     trg_label_path = ""
     trg_cfg_path = ""
     trg_json_path = ""
-    meta_data = []
     
-    # get file
-    file = request.files[SOURCE_KEY]
-    file_name = secure_filename(file.filename)
-    task_name = os.path.splitext(file_name)[0]
-    logging.info("Capture file ({})".format(file_name))
+    # define mapping table
+    mapping_table   = get_conversion_table()
 
-    # clear && create temp folder
-    temp_path = current_app.config[TEMP_PATH]
-    if os.path.exists(temp_path):
-        shutil.rmtree( temp_path )
-    os.mkdir( current_app.config[TEMP_PATH] )
+    # extract zip file
+    task_path = os.path.splitext(zip_path)[0]
+    task_name = task_path.split('/')[-1]
     
-    # combine path: ./temp/aaa.zip -> temp/aaa/ -> temp/aaa/export
-    zip_path = os.path.join(current_app.config[TEMP_PATH], file_name) # temp/aaa.zip
-    task_dir = os.path.dirname( zip_path )                              # temp/
-    task_path = os.path.join( task_dir, task_name )                     # temp/aaa
-
-    # remove the old file and direction in target path
-    for path in [ zip_path, task_path ]:
-        if os.path.exists(path):
-            logging.warning("Detected some file ({}), remove the old one ...".format(path))
-            if os.path.isfile(path):
-                os.remove(path)
-            else:
-                shutil.rmtree( path )
- 
-    # extract zip and remove unused file
-    file.save( zip_path )
-    logging.info("Saving file ({}) and extract it in {}".format(zip_path, task_dir))
-
-    # no export folder 
     sb.run(f"unzip {zip_path} -d {task_path} && rm -rf {zip_path}", shell=True)
+    logging.info("Extract to {} and remove {}, found {} files.".format( task_path, zip_path, len(os.listdir(task_path)) ))
 
     # parse all file 
     for fname in os.listdir(task_path):
@@ -178,19 +162,22 @@ def import_extract_event():
         if ext in [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXT ]:
             logging.debug("Detected {}: {}".format("Model", fpath))
             org_model_path = fpath
+        
         elif ext in [ DARK_LABEL_EXT, CLS_LABEL_EXT ]:
             logging.debug("Detected {}: {}".format("Label", fpath))
             trg_label_path = fpath
+        
         elif ext in [ DARK_JSON_EXT, CLS_JSON_EXT ]:
             logging.debug("Detected {}: {}".format("JSON", fpath))
             trg_json_path = fpath
             
             # update tag name via json file name 
-            trg_tag = MAP[name.split('/')[-1]]
+            trg_tag = mapping_table[name.split('/')[-1]]
             
         elif ext in [ DARK_CFG_EXT ]:
             logging.debug("Detected {}: {}".format("Config", fpath))
             trg_cfg_path = fpath
+
         else:
             logging.debug("Detected {}: {}".format("Meta Data", fpath))
 
@@ -218,12 +205,13 @@ def import_extract_event():
     else:
         trg_model_path = org_model_path
 
-    # update in web api
+    # update IMPORT_PROC in web api
     key = IMPORT_PROC
     if not ( key in current_app.config ):
-        current_app.config.update( {key:dict()})
+        current_app.config.update( { key:dict() } )
     if not ( task_name in current_app.config[key] ):
         current_app.config[key].update( { task_name:dict() })
+
     current_app.config[key][task_name][PROC]=convert_proc
 
     # return information
@@ -236,11 +224,91 @@ def import_extract_event():
         CONFIG_PATH : trg_cfg_path,
         JSON_PATH   : trg_json_path
     }
-    current_app.config[key][task_name][INFO]=ret    
 
-    logging.debug(ret)
+    current_app.config[key][task_name][INFO] = ret
 
-    return jsonify( ret ), 200
+    # log
+    logging.info("Finish Parsing ZIP File ... ")
+    [ logging.info("    - {}: {}".format(key, val)) for key, val in ret.items() ]
+
+    return ret
+
+@bp_operators.route("/import_zip/", methods=["POST"])
+@swag_from("{}/{}".format(YAML_PATH, "extract_zip.yml"))
+def import_zip_event():
+    """
+    1. download ZIP file
+    2. extract it and check is 'Classification' or 'Object Detection' ( subprocess.run )
+    3. convert model ( background : subprocess.Popen )
+    4. return information and successs code
+    ---
+    Provide web api to check file is convert
+    """
+    try:
+        print_title("Import Event (1) - Extract ZIP from Trainning Tool")
+        
+        # get file
+        file = request.files[SOURCE_KEY]
+        file_name = secure_filename(file.filename)
+        task_name = os.path.splitext(file_name)[0].split('/')[-1]
+        logging.info("Capture file ({})".format(file_name))
+
+        # combine path
+        zip_path = os.path.join(current_app.config[TEMP_PATH], file_name)   # temp/aaa.zip
+        
+        # remove the old file and direction in target path
+        check_import_file_exist( zip_path = zip_path )
+
+        # extract zip and remove unused file
+        file.save( zip_path )
+
+        # parse information from ZIP file
+        info = parse_info_from_zip( zip_path = zip_path )
+
+        return jsonify( info ), 200
+
+    except Exception as e:
+
+        return jsonify(handle_exception(e)), 400
+
+@bp_operators.route("/import_url/", methods=["POST"])
+def import_url_event():
+
+    try:
+        # get data from web api
+        data = dict(request.form) if bool(request.form) else request.get_json()
+
+        # check http head is exist
+        http_head = "http://"
+        zip_url = data["url"] if http_head in data["url"] else http_head+data["url"]
+
+        # define temporary zip name
+        file_name = "temp.zip"
+        zip_path = os.path.join(current_app.config[TEMP_PATH], file_name)
+    
+        # remove the old file and direction in target path
+        check_import_file_exist( zip_path = zip_path )
+
+        
+        # create HTTP response object
+        logging.warning("Download File from URL ({})".format(zip_url))
+        r = requests.get(zip_url)
+        
+        # send a HTTP request to the server and save
+        with open(zip_path, 'wb') as f:
+            # r.content -> send a HTTP request to the server
+            # f.write -> write the binary contents of the response (r.content) 
+            f.write(r.content)
+
+        # parse information from ZIP file
+        info = parse_info_from_zip( zip_path = zip_path )
+
+        return jsonify( info ), 200
+
+    except Exception as e:
+
+        return jsonify(handle_exception(e)), 400
+
 
 @bp_operators.route("/import_proc/", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "import_proc.yml"))
@@ -264,7 +332,7 @@ def import_process_event(task_name):
         ret = PROC_DONE
     return jsonify( ret )
 
-@bp_operators.route("/import_2/", methods=["POST"])
+@bp_operators.route("/import/", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "import.yml"))
 def import_event():
 
@@ -278,6 +346,7 @@ def import_event():
         task_status, task_uuid, task_info = import_task(data)
         return jsonify( "Import successed ( {}:{} )".format( data["name"], task_uuid ) ), 200
     except Exception as e:
+        current_app.config[TASK_LIST]=get_tasks()
         return handle_exception(e, "Import error"), 400
 
 
