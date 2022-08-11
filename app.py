@@ -25,6 +25,13 @@ def create_app():
     
     from . import app, socketio
 
+    # create basic folder
+    for path in ["TEMP_PATH", "DATA"]:
+        trg_path = app.config[path]
+        if not os.path.exists(trg_path):
+            logging.warning("Create Folder: {}".format(trg_path))
+            os.mkdir(trg_path)
+
     # register blueprint
     app.register_blueprint(bp_tasks)        # captrue the info of tasks
     app.register_blueprint(bp_operators)    # operate the task
