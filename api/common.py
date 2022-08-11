@@ -182,7 +182,7 @@ def print_title(title):
 
 def print_data(data, title='Check request data'):
     logging.debug(title)
-    [ logging.debug(" - {}: {}".format(key, data)) for key, val in data.items() ]
+    [ logging.debug(" - {}: {}".format(key, val)) for key, val in data.items() ]
 
 def frame2btye(frame):
     """
