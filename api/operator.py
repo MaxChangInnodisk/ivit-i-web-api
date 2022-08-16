@@ -320,9 +320,16 @@ def import_url_event():
 @bp_operators.route("/import_proc/", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "import_proc.yml"))
 def import_process_default_event():
-
-    message = copy.deepcopy(current_app.config[IMPORT_PROC])
     status  = 200
+    message = ""
+    
+    try:
+        message = get_pure_jsonify(copy.deepcopy(current_app.config[IMPORT_PROC]))
+    
+    except Exception as e:
+        status  = 400
+        message = handle_exception(e)
+
     return jsonify( message ), status
 
 @bp_operators.route("/import_proc/<task_name>/status", methods=["GET"])
