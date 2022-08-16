@@ -21,7 +21,9 @@ JSON_EXT    = ".json"
 @bp_system.route("/v4l2/")
 @swag_from("{}/{}".format(YAML_PATH, "v4l2.yml"))
 def web_v4l2():
-    return jsonify(get_v4l2())
+    ret, message = get_v4l2()
+    status = 200 if ret else 400
+    return jsonify( message ), status
 
 @bp_system.route("/device/")
 def web_device_info():
