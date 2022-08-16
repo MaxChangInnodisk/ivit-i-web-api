@@ -161,7 +161,7 @@ def get_request_data():
 
     # Put framework information into data
     if FRAMEWORK_KEY not in data.keys(): 
-        data.update( { FRAMEWORK_KEY : app.config['AF'] } )
+        data.update( { FRAMEWORK_KEY : app.config[AF] } )
 
     # Source: If got new source
     if bool(request.files):
@@ -170,7 +170,9 @@ def get_request_data():
         logging.debug("Get data ({})".format(data[SOURCE_KEY]))
         
     # Set the format of thres to float
-    data[THRES_KEY]=float( data[THRES_KEY] )
+    if THRES_KEY in data:
+        data[THRES_KEY]=float( data[THRES_KEY] )
+        loggin.debug("Convert data[{}] to float format".format(THRES_KEY))
     
     # Print out to check information
     print_data(data)

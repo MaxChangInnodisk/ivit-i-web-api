@@ -274,14 +274,19 @@ def import_zip_event():
 @bp_operators.route("/import_url/", methods=["POST"])
 def import_url_event():
 
+    message = ""
+    status  = 200
+
     try:
         # get data from web api
-        data = dict(request.form) if bool(request.form) else request.get_json()
-
+        # data = dict(request.form) if bool(request.form) else request.get_json()
+        data    = get_request_data()
+        
         # check http head is exist
-        http_head = "http://"
-        data["url"] = data["url"].strip()
-        zip_url = data["url"] if http_head in data["url"] else http_head+data["url"]
+        zip_url     = data["url"].strip()
+        http_head   = "http://"
+        if not (http_head in zip_url):
+            zip_url = http_head + zip_url
 
         # define temporary zip name
         file_name = "temp.zip"
@@ -302,53 +307,69 @@ def import_url_event():
             f.write(r.content)
 
         # parse information from ZIP file
-        info = parse_info_from_zip( zip_path = zip_path )
-
-        return jsonify( info ), 200
+        message = parse_info_from_zip( zip_path = zip_path )
 
     except Exception as e:
+        message = handle_exception(e)
+        status  = 400
 
-        return jsonify(handle_exception(e)), 400
+    finally:
+        return jsonify( message ), status
 
 
 @bp_operators.route("/import_proc/", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "import_proc.yml"))
 def import_process_default_event():
-    ret = copy.deepcopy(current_app.config[IMPORT_PROC])
-    return jsonify( get_pure_jsonify( ret ) )
+
+    message = copy.deepcopy(current_app.config[IMPORT_PROC])
+    status  = 200
+    return jsonify( message ), status
 
 @bp_operators.route("/import_proc/<task_name>/status", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "import_proc_status.yml"))
 def import_process_event(task_name):
     
+    message = PROC_RUN
+    status  = 200
+    
     proc = current_app.config[IMPORT_PROC][task_name][PROC]
 
-    if proc!=None:
-        try:
-            ret = PROC_RUN if proc.poll() is None else PROC_DONE
-        except Exception as e:
-            handle_exception(e)
-            ret = PROC_DONE
+    if proc == None:
+        message = PROC_DONE
+
     else:
-        ret = PROC_DONE
-    return jsonify( ret )
+        
+        if proc.poll() != None:
+            message = PROC_DONE
+        
+    return jsonify( message ), status
 
 @bp_operators.route("/import/", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "import.yml"))
 def import_event():
 
-    print_title("Import Event (2) - Import a Task")
+    print_title("Import a Task")
+    status, message = 200, ""
     
-    # Get Data and Check
-    data = get_request_data()
-
     # Import event
     try:
+        # Convert data to json format
+        data = get_request_data()
+
+        # Import Task Event
         task_status, task_uuid, task_info = import_task(data)
-        return jsonify( "Import successed ( {}:{} )".format( data["name"], task_uuid ) ), 200
+        
+        message = "Import successed ( {}:{} )".format( data["name"], task_uuid )
+        
     except Exception as e:
+
+        message = handle_exception(e, "Import error")
+        status = 400
+    
+    finally:
+
         current_app.config[TASK_LIST]=get_tasks()
-        return handle_exception(e, "Import error"), 400
+        return jsonify( message ), status
 
 
 @bp_operators.route("/remove/", methods=["POST"])
@@ -359,7 +380,7 @@ def remove_application():
     
     try:
         # Convert data to json format
-        data = dict(request.form) if bool(request.form) else request.get_json()
+        data = get_request_data()
 
         # Return state and message
         ret, ret_msg = remove_task(data['uuid'])
