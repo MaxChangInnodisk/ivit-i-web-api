@@ -172,7 +172,7 @@ def get_request_data():
     # Set the format of thres to float
     if THRES_KEY in data:
         data[THRES_KEY]=float( data[THRES_KEY] )
-        loggin.debug("Convert data[{}] to float format".format(THRES_KEY))
+        logging.debug("Convert data[{}] to float format".format(THRES_KEY))
     
     # Print out to check information
     print_data(data)
