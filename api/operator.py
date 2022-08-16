@@ -355,12 +355,26 @@ def import_event():
 @swag_from("{}/{}".format(YAML_PATH, "remove.yml"))
 def remove_application():
     
-    data = dict(request.form) if bool(request.form) else request.get_json()
+    status, message = 200, ""
     
     try:
-        remove_task(data['uuid'])
-        return jsonify('Remove the application ({})'.format(data['uuid'])), 200
+        # Convert data to json format
+        data = dict(request.form) if bool(request.form) else request.get_json()
 
+        # Return state and message
+        ret, ret_msg = remove_task(data['uuid'])
+        
+        # Setup information
+        status  = 200 if ret==True else 400
+        message = ret_msg
+        
     except Exception as e:
-        return handle_exception(e, "Remove error"), 400
+        
+        status = 400
+        message = handle_exception(e, "Remove Error")
+
+    finally:
+
+        get_tasks()
+        return jsonify(message), status
 

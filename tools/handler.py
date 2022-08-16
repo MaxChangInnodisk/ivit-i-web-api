@@ -4,17 +4,25 @@ from typing import Tuple
 from flask import current_app
 
 from .parser import parse_task_info, write_json, check_src_type
-from .common import gen_uuid
+from .common import gen_uuid, handle_exception
+
+
 from ivit_i.app.handler import get_tag_app_list, get_app_list
 
-DIV = '-'*30
-APP_KEY = 'APPLICATION'
-MODEL_KEY = 'MODEL'
-MODEL_APP_KEY = 'MODEL_APP'
-APP_MODEL_KEY = 'APP_MODEL'
-TAG_APP = 'TAG_APP'
-SRC_KEY = "SRC"
+DIV             = '-'*30
+APP_KEY         = 'APPLICATION'
+MODEL_KEY       = 'MODEL'
+MODEL_APP_KEY   = 'MODEL_APP'
+APP_MODEL_KEY   = 'APP_MODEL'
+TAG_APP         = 'TAG_APP'
+SRC_KEY         = "SRC"
+UUID            = "UUID"
+TASK            = "TASK"
+APPLICATION     = "APPLICATION"
+MODEL           = "MODEL"
+SRC             = "SRC"
 
+SRC_PROC        = "proc"
 
 
 def init_task_app(task_uuid):
@@ -417,41 +425,71 @@ def add_task(form):
     return init_tasks(trg_an)
 
 def remove_task(task_uuid):
-    logging.warning("Delete {}".format(task_uuid))
-    task_path = current_app.config['TASK'][task_uuid]['path']
+
+    try:
+        # Get target task's basic information
+        logging.warning("Delete {}".format(task_uuid))
+        task_path   = current_app.config[TASK][task_uuid]['path']
+        task_name   = current_app.config[UUID][task_uuid]
+        task_model  = current_app.config[TASK][task_uuid]["model_path"].split('/')[-1]
+        
+        
+
+        # Update Application
+        if 'application' in current_app.config[TASK][task_uuid]:
+            
+            task_app = current_app.config[TASK][task_uuid]['application']['name']
+            task_app = [ task_app ] if type(task_app)==str else task_app
+
+            # Delete UUID in each application ( Multi Application is supported )
+            for app in task_app:
+                current_app.config[APPLICATION][app].remove(task_uuid)
+                logging.debug(' - remove {} from app.config[{}][{}], check /application'.format(
+                    task_uuid,
+                    APPLICATION,
+                    app
+                ))
+
+        # Update MODEL_APP
+        current_app.config[MODEL_APP_KEY].pop(task_model, None)
+
+        logging.debug(' - remove {} from app.config[{}], check /model_app'.format(
+            task_model,
+            MODEL_APP_KEY
+        ))
+
+        # Update Source
+        if 'source' in current_app.config[TASK][task_uuid]:
+
+            task_src = current_app.config[TASK][task_uuid]['source']
+            current_app.config[SRC][ task_src ][SRC_PROC].remove(task_uuid)
+
+            logging.debug(' - remove {} from app.config[{}][{}][{}], check /src'.format(
+                task_uuid,
+                SRC,
+                task_src,
+                SRC_PROC
+            ))
+
+        # Update Model
+        if task_model in current_app.config[MODEL]:
+            logging.debug(' - update MODEL')
+            current_app.config[MODEL][task_model].remove(task_uuid)
+
+        logging.debug(' - update UUID')
+        current_app.config[UUID].pop(task_uuid, None)
+
+        logging.debug(' - remove TASK')
+        current_app.config[TASK].pop(task_uuid, None)
+
+        logging.debug(' - remove DATA ({})'.format(task_path))
+        if os.path.exists(task_path): shutil.rmtree(task_path)
+        
+        return True, "Remove Task ({}) Successed!".format(task_uuid)
     
-    logging.debug(' - update APPLICATION')
-    if 'application' in current_app.config['TASK'][task_uuid]:
-        task_application = current_app.config['TASK'][task_uuid]['application']['name']
-        if type(task_application)==str:
-            task_application = [ task_application ]
-        for app in task_application:
-            current_app.config['APPLICATION'][app].remove(task_uuid)
-    
-    logging.debug(' - update SOURCE')
-    if 'source' in current_app.config['TASK'][task_uuid]:
-        task_src = current_app.config['TASK'][task_uuid]['source']
-        current_app.config['SRC'][ task_src ]['proc'].remove(task_uuid)
+    except Exception as e:
 
-    logging.debug(' - update MODEL')
-    if 'model_path' in current_app.config['TASK'][task_uuid]:
-        task_model = current_app.config['TASK'][task_uuid]['model_path'].split('/')[-1]
-        if task_model in current_app.config['MODEL']:
-            current_app.config['MODEL'][task_model].remove(task_uuid)
-
-    logging.debug(' - update UUID')
-    current_app.config['UUID'].pop(task_uuid, None)
-
-    logging.debug(' - remove TASK')
-    current_app.config['TASK'].pop(task_uuid, None)
-
-    logging.debug(' - remove META DATA ({})'.format(task_path))
-    if os.path.exists(task_path):
-        shutil.rmtree(task_path)                     
-    else:
-        logging.warning('Folder is not found')
-
-    return True
+        return False, handle_exception(e, "Remove error")
 
 def import_task(form):
     """
