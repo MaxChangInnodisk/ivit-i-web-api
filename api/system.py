@@ -18,6 +18,10 @@ LOGGER      = "LOGGER"
 TXT_EXT     = ".txt"
 JSON_EXT    = ".json"
 
+@bp_system.route("/platform")
+def get_platform():
+    return jsonify( current_app.config[PLATFORM] ), 200
+
 @bp_system.route("/v4l2/")
 @swag_from("{}/{}".format(YAML_PATH, "v4l2.yml"))
 def web_v4l2():
