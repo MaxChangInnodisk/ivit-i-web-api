@@ -431,7 +431,11 @@ def remove_task(task_uuid):
         logging.warning("Delete {}".format(task_uuid))
         task_path   = current_app.config[TASK][task_uuid]['path']
         task_name   = current_app.config[UUID][task_uuid]
-        task_model  = current_app.config[TASK][task_uuid]["model_path"].split('/')[-1]
+
+        # If target task is an error task it would not have model_path
+        task_model  = ""
+        if "model_path" in current_app.config[TASK][task_uuid]:
+            task_model  = current_app.config[TASK][task_uuid]["model_path"].split('/')[-1]
         
         # Update Application
         if 'application' in current_app.config[TASK][task_uuid]:
@@ -461,25 +465,29 @@ def remove_task(task_uuid):
                 SRC_PROC
             ))
 
+        # Remove UUID in config[UUID]
+        logging.debug(' - update UUID')
+        current_app.config[UUID].pop(task_uuid, None)
+
+        # Remove task in config[TASK]
+        logging.debug(' - remove TASK')
+        current_app.config[TASK].pop(task_uuid, None)
+
         # Update Model
         if task_model in current_app.config[MODEL]:
             logging.debug(' - update MODEL')
             current_app.config[MODEL][task_model].remove(task_uuid)
 
-        logging.debug(' - update UUID')
-        current_app.config[UUID].pop(task_uuid, None)
-
-        logging.debug(' - remove TASK')
-        current_app.config[TASK].pop(task_uuid, None)
 
         # Update MODEL_APP
-        if current_app.config[MODEL][task_model] == []:
-            current_app.config[MODEL_APP_KEY].pop(task_model, None)
-            
-            logging.debug(' - remove {} from app.config[{}], check /model_app'.format(
-                task_model,
-                MODEL_APP_KEY
-            ))
+        if task_model in current_app.config[MODEL]:
+            if current_app.config[MODEL][task_model] == []:
+                current_app.config[MODEL_APP_KEY].pop(task_model, None)
+
+                logging.debug(' - remove {} from app.config[{}], check /model_app'.format(
+                    task_model,
+                    MODEL_APP_KEY
+                ))
 
         logging.debug(' - remove DATA ({})'.format(task_path))
         if os.path.exists(task_path): shutil.rmtree(task_path)
