@@ -433,8 +433,6 @@ def remove_task(task_uuid):
         task_name   = current_app.config[UUID][task_uuid]
         task_model  = current_app.config[TASK][task_uuid]["model_path"].split('/')[-1]
         
-        
-
         # Update Application
         if 'application' in current_app.config[TASK][task_uuid]:
             
@@ -449,14 +447,6 @@ def remove_task(task_uuid):
                     APPLICATION,
                     app
                 ))
-
-        # Update MODEL_APP
-        current_app.config[MODEL_APP_KEY].pop(task_model, None)
-
-        logging.debug(' - remove {} from app.config[{}], check /model_app'.format(
-            task_model,
-            MODEL_APP_KEY
-        ))
 
         # Update Source
         if 'source' in current_app.config[TASK][task_uuid]:
@@ -481,6 +471,15 @@ def remove_task(task_uuid):
 
         logging.debug(' - remove TASK')
         current_app.config[TASK].pop(task_uuid, None)
+
+        # Update MODEL_APP
+        if current_app.config[MODEL][task_model] == []:
+            current_app.config[MODEL_APP_KEY].pop(task_model, None)
+            
+            logging.debug(' - remove {} from app.config[{}], check /model_app'.format(
+                task_model,
+                MODEL_APP_KEY
+            ))
 
         logging.debug(' - remove DATA ({})'.format(task_path))
         if os.path.exists(task_path): shutil.rmtree(task_path)
