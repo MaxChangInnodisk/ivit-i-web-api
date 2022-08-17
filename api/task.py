@@ -99,13 +99,30 @@ def task_simple_info(uuid):
 @bp_tasks.route("/task/<uuid>/label/")
 @swag_from("{}/{}".format(YAML_PATH, "task_label.yml"))
 def task_label(uuid):
+
+    message = ""
+    status  = 200
+
     try:
         label_list = []
-        with open( current_app.config[TASK][uuid][LABEL_PATH], 'r') as f:
-            [ label_list.append( line.rstrip("\n") ) for line in f.readlines() ]
-        return jsonify( label_list ), 200
+        
+        if current_app.config[TASK][uuid][LABEL_PATH] in [ "", "None", None, False ]:
+            
+            message = [ "No Label Information" ]
+            
+        else:
+
+            with open( current_app.config[TASK][uuid][LABEL_PATH], 'r') as f:
+                [ label_list.append( line.rstrip("\n") ) for line in f.readlines() ]
+
+            message = label_list
+
     except Exception as e:
-        return jsonify( e ), 400
+        message = handle_exception(e)
+        status = 400
+
+    return jsonify( message ), status
+    
 
 @bp_tasks.route("/task/<uuid>/<key>/")
 def task_status(uuid, key):
