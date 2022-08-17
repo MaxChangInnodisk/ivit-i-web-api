@@ -1,5 +1,4 @@
-import logging, os
-from flask import abort, app, request
+from flask import abort, request
 import cv2, time, logging, base64, threading, os, sys, copy, json
 
 from .. import socketio, app
@@ -145,6 +144,7 @@ def get_request_file(save_file=False):
     if save_file:
         try:
             file_path = os.path.join(app.config[DATA], secure_filename(file_name))
+
             file.save( file_path )
         except Exception as e:
             err = handle_exception(e, "Error when saving file ...")
@@ -171,7 +171,7 @@ def get_request_data():
         
     # Set the format of thres to float
     if THRES_KEY in data:
-        data[THRES_KEY]=float( data[THRES_KEY] )
+        data[THRES_KEY]=float( data[THRES_KEY].strip() )
         logging.debug("Convert data[{}] to float format".format(THRES_KEY))
     
     # Print out to check information
