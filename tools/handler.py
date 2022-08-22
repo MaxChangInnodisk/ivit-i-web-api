@@ -559,6 +559,13 @@ def import_task(form):
         for ext in ext_list:
             org_file_path = "{}{}".format(org_path, ext)
             trg_file_path = "{}{}".format(trg_path, ext)
+            
+            if not os.path.exists(org_file_path):
+                # task folder
+                shutil.rmtree( task_path )
+                raise FileNotFoundError("Could not find {}, make sure the ZIP file is for Intel".format(org_file_path))
+            
+            logging.debug("Rename: {} to {}".format(org_file_path, trg_file_path))
             os.rename( org_file_path, trg_file_path )
     
     # generate model config json

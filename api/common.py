@@ -44,6 +44,7 @@ CLS_MODEL_EXT   = ".onnx"
 ## ir model for openvino
 IR_MODEL_EXT    = ".xml"
 
+
 # Define Status
 RUN         = "run"
 STOP        = "stop"

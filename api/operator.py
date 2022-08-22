@@ -52,6 +52,7 @@ DARK_MODEL_EXT  = ".weights"
 DARK_CFG_EXT    = ".cfg"
 CLS_MODEL_EXT   = ".onnx"
 IR_MODEL_EXT    = ".xml"
+IR_MODEL_EXTS   = [ ".bin", ".mapping", ".xml" ]
 
 # Return Pattern when ZIP file is extracted
 NAME            = "name"
@@ -133,15 +134,36 @@ def get_conversion_table():
     }
     return key_cvt_table
 
+def check_ir_models(path):
+
+    if current_app.config[AF] != "openvino":
+        logging.warning("Not openvino paltform ... ")
+        return True
+    
+    if not os.path.isfile(path):
+        raise Exception("The argument of the function must be xml file here")
+
+    model_name = os.path.splitext(path)[0]
+
+    for ext in IR_MODEL_EXTS:
+        trg_file_path = "{}{}".format( model_name, ext )
+        
+        logging.debug("Checking {} file ... ({}) ".format(ext, trg_file_path))
+        
+        if not os.path.exists(trg_file_path):
+            return False
+    
+    return True
+
 def parse_info_from_zip( zip_path ):
 
     # initialize parameters
-    trg_tag = ""
-    org_model_path = ""
-    trg_model_path = ""
-    trg_label_path = ""
-    trg_cfg_path = ""
-    trg_json_path = ""
+    trg_tag         = ""
+    org_model_path  = ""
+    trg_model_path  = ""
+    trg_label_path  = ""
+    trg_cfg_path    = ""
+    trg_json_path   = ""
     
     # define mapping table
     mapping_table   = get_conversion_table()
@@ -162,7 +184,7 @@ def parse_info_from_zip( zip_path ):
         if ext in [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXT ]:
             logging.debug("Detected {}: {}".format("Model", fpath))
             org_model_path = fpath
-        
+
         elif ext in [ DARK_LABEL_EXT, CLS_LABEL_EXT ]:
             logging.debug("Detected {}: {}".format("Label", fpath))
             trg_label_path = fpath
@@ -180,6 +202,11 @@ def parse_info_from_zip( zip_path ):
 
         else:
             logging.debug("Detected {}: {}".format("Meta Data", fpath))
+
+    # Double check model file
+    if not check_ir_models(org_model_path):
+        shutil.rmtree(task_path)
+        raise FileNotFoundError("Checking IR Model Failed, make sure ZIP or URL is for INTEL")
 
     # It have to convert model if the framework is tensorrt
     convert_proc = None
