@@ -1,12 +1,12 @@
 import logging, os, colorlog
-# ===============================================================================================
+
 LOG_LEVEL = {   
     'debug': logging.DEBUG,
     'info': logging.INFO,
     'warning': logging.WARNING,
     'error': logging.ERROR  
 }
-# ===============================================================================================
+
 def config_logger(log_name=None, write_mode='a', level='Debug', clear_log=False):
 
     logger = logging.getLogger()            # get logger
@@ -32,13 +32,9 @@ def config_logger(log_name=None, write_mode='a', level='Debug', clear_log=False)
             logger.addHandler(file_handler)
     
     
-    logger.info('Create logger.({})'.format(logger.name))
-    logger.info('Enabled stream {}'.format(f'and file mode.({log_name})' if log_name else 'mode'))
+        logger.info('Create logger.({})'.format(logger.name))
+        logger.info('Enabled stream {}'.format(f'and file mode.({log_name})' if log_name else 'mode'))
+        
     return logger
-# ===============================================================================================
-if __name__ == '__main__':
-    
-    config_logger(log_name='ivinno-vino.log', write_mode='w', level='debug')
-    
-    logging.info('start')
+
 
