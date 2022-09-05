@@ -649,6 +649,7 @@ def import_task(form):
         app_key = "application"
         if not dict_app:
             logging.info("detect string application")
+            trg_key = "application"
             app_name = form[app_key]
             task_config['application'].update({ trg_key: app_name if app_name in available_app_list else "default" })
         else:
