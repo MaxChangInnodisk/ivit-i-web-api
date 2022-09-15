@@ -1,4 +1,4 @@
-import logging, copy, time
+import logging, copy, time, os
 from flask import Blueprint, jsonify, current_app
 from flasgger import swag_from
 from ivit_i.web.api.stream import FAIL_CODE
@@ -106,9 +106,11 @@ def task_label(uuid):
     try:
         label_list = []
         
-        if current_app.config[TASK][uuid][LABEL_PATH] in [ "", "None", None, False ]:
-            
-            message = [ "No Label Information" ]
+        is_err_path = current_app.config[TASK][uuid][LABEL_PATH] in [ "", "None", None, False ]
+        is_not_txt = os.path.splitext(current_app.config[TASK][uuid][LABEL_PATH])[1] != ".txt"
+        if is_err_path or is_not_txt:
+
+            message = [ ]
             
         else:
 
