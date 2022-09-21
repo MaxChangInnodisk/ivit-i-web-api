@@ -1,0 +1,23 @@
+Capture the accelerator device
+---
+tags:
+  - system
+responses:
+  200:
+    description: Capture the accelerator device
+    schema:
+      type: object
+      properties:
+        device_name:
+          type: object
+      example:
+        {
+            "NVIDIA GeForce GTX 1050 Ti": {
+                "id": 0,
+                "name": "NVIDIA GeForce GTX 1050 Ti",
+                "uuid": "GPU-9ccdb62b-7d76-ef35-1277-8356eb1af77f",
+                "load": 14.0,
+                "memoryUtil": 15.878,
+                "temperature": 48.0
+            }
+        }

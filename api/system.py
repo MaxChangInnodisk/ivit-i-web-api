@@ -19,6 +19,7 @@ TXT_EXT     = ".txt"
 JSON_EXT    = ".json"
 
 @bp_system.route("/platform")
+@swag_from("{}/{}".format(YAML_PATH, "platform.yml"))
 def get_platform():
     return jsonify( current_app.config[PLATFORM] ), 200
 
@@ -30,6 +31,7 @@ def web_v4l2():
     return jsonify( message ), status
 
 @bp_system.route("/device/")
+@swag_from("{}/{}".format(YAML_PATH, "device.yml"))
 def web_device_info():
     """ Get available devices """
     ret = None

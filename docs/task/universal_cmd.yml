@@ -1,0 +1,29 @@
+Universal Command
+---
+tags:
+  - task
+
+parameters:
+  - in: path
+    name: uuid
+    required: true
+    schema:
+      type: string
+    
+  - in: path
+    name: key
+    required: true
+    schema:
+      type: string
+
+responses:
+  200:
+    schema:
+      type: string
+      description: success message
+      example: "{ success message }"
+  400:
+    schema:
+      type: string
+      description : error message
+      example: "{ error message }"

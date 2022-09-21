@@ -1,0 +1,33 @@
+Update new source file and source type
+---
+tags:
+  - stream
+
+parameters:
+  - in: formData
+    name: source
+    required: true
+    type: file
+
+  - in: formData
+    name: source_type
+    required: true
+    type: string
+
+responses:
+  200:
+    schema:
+      type: object
+      description: success message
+      example:
+        {
+          "image": "{ the base64 format image array }",
+          "height": 399,
+          "width": 1647,
+          "channel": 3
+        }
+  400:
+    schema:
+      type: string
+      description : error message
+      example: "{ error message }"

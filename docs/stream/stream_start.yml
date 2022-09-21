@@ -1,0 +1,23 @@
+Start the streaming of AI Inference
+---
+tags:
+  - stream
+
+parameters:
+  - in: path
+    name: uuid
+    required: true
+    schema:
+      type: string
+        
+responses:
+  200:
+    schema:
+      type: string
+      description: success message
+      example: "Stream is created, The results is display in /task/<uuid>/stream"
+  400:
+    schema:
+      type: string
+      description : error message
+      example: "{ error message }"

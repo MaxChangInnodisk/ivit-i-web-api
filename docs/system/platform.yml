@@ -1,0 +1,9 @@
+Get target platform
+---
+tags:
+  - system
+responses:
+  200:
+    schema:
+      type: string
+      example: "nvidia"

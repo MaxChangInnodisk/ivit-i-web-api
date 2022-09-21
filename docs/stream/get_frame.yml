@@ -1,0 +1,29 @@
+Get the frame from the source
+---
+tags:
+  - stream
+
+parameters:
+  - in: path
+    name: uuid
+    required: true
+    schema:
+      type: string
+
+responses:
+  200:
+    schema:
+      type: object
+      description: success message
+      example:
+        {
+          "image": "{ the base64 format image array }",
+          "height": "{ image height }",
+          "width": "{ image width }",
+          "channel": "{ image channel }"
+        }
+  400:
+    schema:
+      type: string
+      description : error message
+      example: "{ error message }"

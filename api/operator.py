@@ -299,6 +299,7 @@ def import_zip_event():
         return jsonify(handle_exception(e)), 400
 
 @bp_operators.route("/import_url/", methods=["POST"])
+@swag_from("{}/{}".format(YAML_PATH, "extract_url.yml"))
 def import_url_event():
 
     message = ""

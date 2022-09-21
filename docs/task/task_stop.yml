@@ -1,0 +1,23 @@
+Stop the task
+---
+tags:
+  - task
+
+parameters:
+  - in: path
+    name: uuid
+    required: true
+    schema:
+      type: string
+
+responses:
+  200:
+    schema:
+      type: string
+      description: success message
+      example: "Stop the task ( {uuid} )"
+  400:
+    schema:
+      type: string
+      description : error message
+      example: "{ error message }"

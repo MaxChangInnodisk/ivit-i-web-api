@@ -127,6 +127,7 @@ def task_label(uuid):
     
 
 @bp_tasks.route("/task/<uuid>/<key>/")
+@swag_from("{}/{}".format(YAML_PATH, "universal_cmd.yml"))
 def task_status(uuid, key):
     trg_key, org_key_list = None, current_app.config[TASK][uuid].keys()
     for org_key in org_key_list:
@@ -138,6 +139,7 @@ def task_status(uuid, key):
         return jsonify(current_app.config[TASK][uuid][trg_key]), 200
 
 @bp_tasks.route("/task/<uuid>/run/", methods=["GET"])
+@swag_from("{}/{}".format(YAML_PATH, "task_run.yml"))
 def run_task(uuid):
     
     # check if the task is ready to inference
@@ -200,6 +202,7 @@ def run_task(uuid):
     return jsonify(msg), PASS_CODE
 
 @bp_tasks.route("/task/<uuid>/stop/", methods=["GET"])
+@swag_from("{}/{}".format(YAML_PATH, "task_stop.yml"))
 def stop_task(uuid):
     """ 
     Stop the task: release source, set relative object to None, set task status to stop, reload task list 

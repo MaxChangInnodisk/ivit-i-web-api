@@ -1,0 +1,30 @@
+Extracting url
+---
+tags:
+  - operator
+
+parameters:
+  - in: string
+    name: source
+    required: true
+
+responses:
+  200:
+    schema:
+      type: string
+      description: success message
+      example:
+        {
+          "name": "dog_cat_classficiation",
+          "path": "./temp/dog_cat_classficiation",
+          "tag": "cls",
+          "model_path": "./temp/dog_cat_classficiation/dog_cat_classification.xml",
+          "label_path": "./temp/dog_cat_classficiation/classes.txt",
+          "config_path": "",
+          "json_path": "./temp/dog_cat_classficiation/classification.json"
+        }
+  400:
+    schema:
+      type: string
+      description : error message
+      example: "{ error message }"
