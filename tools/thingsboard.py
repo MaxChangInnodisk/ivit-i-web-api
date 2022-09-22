@@ -28,7 +28,6 @@ def post_api(tb_url, data):
         ret = True
     except requests.Timeout:
         resp = "Time Out !!!"
-        logging.error(resp)
     except requests.ConnectionError:
         resp = "Connect Error !!!"
     
