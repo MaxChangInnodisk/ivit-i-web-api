@@ -15,38 +15,35 @@ TB_TYPE         = "iCAP-Client"
 TB_NAME         = "ivit-{}".format(get_address())
 TB_ALIAS        = TB_NAME
 
+HEAD_MAP = {
+    "json": {'Content-type': 'application/json'}
+}
 
-def post_api(tb_url, data):
-    headers     = {'Content-type': 'application/json'}
+def post_api(tb_url, data, h_type='json', timeout=10):
+    headers     = HEAD_MAP[h_type]
     ret = False
     try:
-        resp = requests.post(tb_url, data=json.dumps(data), headers=headers, timeout=10)
-        try:
-            resp = json.loads(resp.text)
-        except:
-            resp = { "data": resp.text }
+        resp = requests.post(tb_url, data=json.dumps(data), headers=headers, timeout=timeout)
+        try: resp = json.loads(resp.text)
+        except: resp = { "data": resp.text }
         ret = True
-    except requests.Timeout:
-        resp = "Time Out !!!"
-    except requests.ConnectionError:
-        resp = "Connect Error !!!"
+    except requests.Timeout: resp = "Time Out !!!"
+    except requests.ConnectionError: resp = "Connect Error !!!"
     
     if(not ret): logging.error(resp)
     return ret, resp
 
-def get_api(tb_url):
-    headers     = {'Content-type': 'application/json'}
+def get_api(tb_url, h_type='json', timeout=10):
+    headers     = HEAD_MAP[h_type]
     ret = False
     try:
         resp = requests.get(tb_url, headers=headers, timeout=10)
-        try:
-            resp = json.loads(resp.text)
-        except:
-            resp = { "data": resp.text }
+        try: resp = json.loads(resp.text)
+        except Exception as e: resp = { "data": resp.text }
         ret = True
-    except Exception as e:
-        resp = e
-        logging.error(resp)
+    except Exception as e: resp = e
+
+    if(not ret): logging.error(resp)
     return ret, resp
     
 def register_tb_device(tb_url):
@@ -87,7 +84,7 @@ def register_tb_device(tb_url):
     if ( not header in tb_url ): tb_url = header + tb_url
 
     logging.warning("Register Device ... \n{}".format(data))
-    ret, data    = post_api(tb_url, data)
+    ret, data    = post_api(tb_url, data, timeout=3)
 
     if(ret):
         logging.warning("Get Response: {}".format(data))
