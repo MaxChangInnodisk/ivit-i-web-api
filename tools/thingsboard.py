@@ -98,7 +98,7 @@ def register_tb_device(tb_url):
         device_id       = data[TB_KEY_ID]
         device_token    = data[TB_KEY_TOKEN]
 
-    return (create_time, device_id, device_token)    
+    return ret, (create_time, device_id, device_token)
 
 if __name__ == "__main__":
     register_tb_device("http://10.204.16.110:3000/api/v1/devices")

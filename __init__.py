@@ -79,12 +79,16 @@ def initialize_flask_app():
         app.config["TB_API_REG_DEVICE"]
     )
     # - register thingboard device
-    create_time, device_id, device_token = register_tb_device(register_url)
-    app.config['TB_CREATE_TIME'] = create_time
-    app.config['TB_DEVICE_ID'] = device_id
-    app.config['TB_TOKEN'] = app.config['MQTT_USERNAME'] = device_token
-    # - init
-    mqtt = Mqtt(app)
+    ret, (create_time, device_id, device_token) = register_tb_device(register_url)
+
+    if(ret):
+        app.config['TB_CREATE_TIME'] = create_time
+        app.config['TB_DEVICE_ID'] = device_id
+        app.config['TB_TOKEN'] = app.config['MQTT_USERNAME'] = device_token
+        # - init
+        mqtt = Mqtt(app)
+    else:
+        mqtt = None
 
     # share resource
     cors(app)                                                       
