@@ -21,6 +21,10 @@ eventlet.monkey_patch()
 from .tools.logger import config_logger
 from .tools.common import get_address
 from .api.config import config
+from .tools.thingsboard import register_tb_device
+
+# MQTT
+from flask_mqtt import Mqtt
 
 ENV_CONF_KEY = "IVIT_I"
 ENV_CONF = "/workspace/ivit-i.json"
@@ -30,6 +34,7 @@ def initialize_flask_app():
     - Return
         - app
         - socketio
+        - mqtt
     """
     
     # check IVIT_I is in environment
@@ -64,9 +69,26 @@ def initialize_flask_app():
     }
     swagger = Swagger(app)   
 
+    # Init MQTT
+    app.config["MQTT_BROKER_URL"] = app.config["TB"]
+    
+    # - combine URL
+    register_url = "{}:{}{}".format(
+        app.config["TB"], 
+        app.config["TB_PORT"],
+        app.config["TB_API_REG_DEVICE"]
+    )
+    # - register thingboard device
+    create_time, device_id, device_token = register_tb_device(register_url)
+    app.config['TB_CREATE_TIME'] = create_time
+    app.config['TB_DEVICE_ID'] = device_id
+    app.config['TB_TOKEN'] = app.config['MQTT_USERNAME'] = device_token
+    # - init
+    mqtt = Mqtt(app)
+
     # share resource
     cors(app)                                                       
-    
+
     # define socket
     socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins='*')   
 
@@ -75,7 +97,9 @@ def initialize_flask_app():
         # creat data folder if it's not exsit
         os.makedirs(app.config["DATA"])
 
-    return app, socketio
+    # return app,mqtt
+    return app, socketio, mqtt
 
 # Initailize Flask App and Get SocketIO Object
-app, socketio = initialize_flask_app()
+app, socketio, mqtt = initialize_flask_app()
+# app, mqtt = initialize_flask_app()

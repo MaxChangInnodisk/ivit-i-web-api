@@ -11,3 +11,16 @@ class config(object):
     SRC             = dict()
     ALLOWED_HOSTS   = ['*']
     RE_SRC          = '0'
+    
+    MQTT_BROKER_URL = ""
+    MQTT_USERNAME   = ""
+    MQTT_PASSWORD   = ""
+    MQTT_BROKER_PORT   = 1883
+    
+    TB_API_REG_DEVICE   = "/api/v1/devices"
+    TB_TOPIC_REC_RPC    = "v1/devices/me/rpc/request/"
+    TB_TOPIC_SND_RPC    = "v1/devices/me/rpc/response/"
+    
+    TB_DEVICE_ID        = ''
+    TB_TOKEN            = ''
+    TB_CREATE_TIME      = ''
