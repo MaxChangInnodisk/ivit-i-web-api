@@ -27,8 +27,8 @@ def post_api(tb_url, data, h_type='json', timeout=10):
         try: resp = json.loads(resp.text)
         except: resp = { "data": resp.text }
         ret = True
-    except requests.Timeout: resp = "Time Out !!!"
-    except requests.ConnectionError: resp = "Connect Error !!!"
+    except requests.Timeout: resp = "Request Time Out !!! ({})".format(tb_url)
+    except requests.ConnectionError: resp = "Connect Error !!! ({})".format(tb_url)
     
     if(not ret): logging.error(resp)
     return ret, resp
@@ -83,16 +83,22 @@ def register_tb_device(tb_url):
     header = "http://"
     if ( not header in tb_url ): tb_url = header + tb_url
 
-    logging.warning("Register Device ... \n{}".format(data))
-    ret, data    = post_api(tb_url, data, timeout=3)
+    timeout = 3
+    logging.warning("[ iCAP ] Register Thingsboard Device ... ( Time Out: {}s ) \n{}".format(timeout, data))
+    print('')
+    
+    ret, data    = post_api(tb_url, data, timeout=timeout)
 
     if(ret):
+        logging.warning("[ iCAP ] Register Thingsboard Device ... Pass ! \n{}".format(data))
         logging.warning("Get Response: {}".format(data))
 
         data            = data["data"]
         create_time     = data[TB_KEY_TIME_CREATE]
         device_id       = data[TB_KEY_ID]
         device_token    = data[TB_KEY_TOKEN]
+    else:
+        logging.warning("[ iCAP ] Register Thingsboard Device ... Failed !")
 
     return ret, (create_time, device_id, device_token)
 
