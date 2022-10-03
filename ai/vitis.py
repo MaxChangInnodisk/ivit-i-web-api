@@ -6,6 +6,9 @@ try:
     from ivit_i.utils.drawing_tools import get_palette
 except Exception as e:
     logging.error(e)
+
+from ivit_i.utils import handle_exception
+
 # ------------------------------------------------------------------------
 # Vitis-AI
 """ 初始化 Vitis-AI """
@@ -65,7 +68,7 @@ def vitis_inference(frame, uuid, model_conf, trg, runtime, draw, palette, ret_dr
     
     except Exception as e:
         ret = False
-        logging.error(e)
+        logging.error(handle_exception(e))
 
     return ret, info, frame
    
