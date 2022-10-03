@@ -7,9 +7,10 @@ from .common import frame2btye, get_src, stop_src, socketio, app
 
 from ..tools.handler import get_tasks
 from ..tools.parser import get_pure_jsonify
-from ivit_i.utils.utils import handle_exception
-from ..ai.pipeline import Source
 from ..ai.get_api import get_api
+
+from ivit_i.common.pipeline import Source
+from ivit_i.utils import handle_exception
 
 # Get Application Module From iVIT-I
 sys.path.append("/workspace")
