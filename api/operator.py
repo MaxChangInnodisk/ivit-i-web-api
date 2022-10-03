@@ -8,7 +8,7 @@ from .common import get_request_data, print_title
 
 from ..tools.handler import edit_task, add_task, get_tasks, remove_task, import_task
 from ..tools.parser import get_pure_jsonify
-from ..tools.common import handle_exception
+from ivit_i.utils.utils import handle_exception
 
 from werkzeug.utils import secure_filename
 from flasgger import swag_from

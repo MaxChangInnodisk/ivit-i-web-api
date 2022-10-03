@@ -10,9 +10,10 @@ from ivit_i.web.api.operator import bp_operators
 from ivit_i.web.api.application import bp_application
 from ivit_i.web.api.stream import bp_stream
 
+from ivit_i.utils import handle_exception
+
 from .tools.parser import get_pure_jsonify
 from .tools.handler import get_tasks
-from .tools.common import handle_exception
 from .tools.thingsboard import get_api, post_api
 
 DIV         = "*" * 20
@@ -136,6 +137,7 @@ def create_app():
             else:
                 logging.error("Got error: {}".format(resp))
 
+    logging.info("Finish Initializing.")
     return app, socketio
 
 if __name__ == "__main__":

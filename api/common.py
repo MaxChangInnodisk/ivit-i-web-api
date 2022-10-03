@@ -1,12 +1,13 @@
 from flask import abort, request
 import cv2, time, logging, base64, threading, os, sys, copy, json
+from werkzeug.utils import secure_filename
 
 from .. import socketio, app
-from ..tools.common import handle_exception
-from ..ai.pipeline import Source
-from ..tools.common import handle_exception
 
-from werkzeug.utils import secure_filename
+# from ..ai.pipeline import Source
+# from ivit_i.utils.utils import handle_exception
+from ivit_i.common.pipeline import Source
+from ivit_i.utils.utils import handle_exception
 
 # Define app config key
 AF              = "AF"

@@ -7,7 +7,7 @@ from .common import frame2btye, get_src, stop_src, socketio, app
 
 from ..tools.handler import get_tasks
 from ..tools.parser import get_pure_jsonify
-from ..tools.common import handle_exception
+from ivit_i.utils.utils import handle_exception
 from ..ai.pipeline import Source
 from ..ai.get_api import get_api
 

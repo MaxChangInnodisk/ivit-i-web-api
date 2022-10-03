@@ -10,7 +10,7 @@ from .common import get_src, stop_src
 from ..tools.parser import get_pure_jsonify
 from ..tools.handler import get_tasks
 from ..tools.parser import get_pure_jsonify
-from ..tools.common import handle_exception
+from ivit_i.utils.utils import handle_exception
 from ..ai.get_api import get_api
 
 YAML_PATH   = "/workspace/ivit_i/web/docs/task"
