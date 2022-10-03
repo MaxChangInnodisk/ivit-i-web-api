@@ -19,7 +19,7 @@ HEAD_MAP = {
     "json": {'Content-type': 'application/json'}
 }
 
-def post_api(tb_url, data, h_type='json', timeout=10):
+def post_api(tb_url, data, h_type='json', timeout=10, stderr=True):
     headers     = HEAD_MAP[h_type]
     ret = False
     try:
@@ -30,7 +30,7 @@ def post_api(tb_url, data, h_type='json', timeout=10):
     except requests.Timeout: resp = "Request Time Out !!! ({})".format(tb_url)
     except requests.ConnectionError: resp = "Connect Error !!! ({})".format(tb_url)
     
-    if(not ret): logging.error(resp)
+    if(not ret and stderr): logging.error(resp)
     return ret, resp
 
 def get_api(tb_url, h_type='json', timeout=10):
@@ -87,7 +87,7 @@ def register_tb_device(tb_url):
     logging.warning("[ iCAP ] Register Thingsboard Device ... ( Time Out: {}s ) \n{}".format(timeout, data))
     print('')
     
-    ret, data    = post_api(tb_url, data, timeout=timeout)
+    ret, data    = post_api(tb_url, data, timeout=timeout, stderr=False)
 
     if(ret):
         logging.warning("[ iCAP ] Register Thingsboard Device ... Pass ! \n{}".format(data))
