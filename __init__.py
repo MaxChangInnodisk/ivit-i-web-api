@@ -26,17 +26,23 @@ from .tools.thingsboard import register_tb_device
 # MQTT
 from flask_mqtt import Mqtt
 
+# Basic Parameters
 ENV_CONF_KEY = "IVIT_I"
 ENV_CONF = "/workspace/ivit-i.json"
 
-def initialize_flask_app():
-    """ Initailize Flask App and Get SocketIO Object
-    - Return
-        - app
-        - socketio
-        - mqtt
+# Basic Function
+def init_flask():
     """
-    
+    Initailize Flask
+        1. Check Environment ( IVIT_I=/path/to/ivit-i.json ).
+        2. Initialize Logger.
+        3. Initialize Flask App.
+        4. Load Flask Configuration form IVIT_I and ./api/config.py.
+            - IVIT_I        : let user could modify
+            - api/config.py : Internal configuration 
+        5. Update HOST in config.
+    """
+
     # check IVIT_I is in environment
     if not (ENV_CONF_KEY in os.environ.keys()):
         if os.path.exists(ENV_CONF):
@@ -51,8 +57,6 @@ def initialize_flask_app():
 
     # initialize flask
     app = Flask(__name__)
-
-    # loading flask configuration
     app.config.from_object(config)
     app.config.from_file( os.environ[ENV_CONF_KEY], load=json.load )
 
@@ -62,48 +66,65 @@ def initialize_flask_app():
         app.config['HOST']=addr
         logging.info('Update HOST to {}'.format(addr))
 
-    # define web api docs
-    app.config['SWAGGER'] = {
-        'title': 'iVIT-I',
-        'uiversion': 3
-    }
-    swagger = Swagger(app)   
+    return app
 
-    # Init MQTT
-    app.config["MQTT_BROKER_URL"] = app.config["TB"]
-    
-    # - combine URL
-    register_url = "{}:{}{}".format(
-        app.config["TB"], 
-        app.config["TB_PORT"],
-        app.config["TB_API_REG_DEVICE"]
-    )
-    # - register thingboard device
-    ret, (create_time, device_id, device_token) = register_tb_device(register_url)
+def init_for_icap():
+    """
+    Check if need iCAP
 
-    if(ret):
-        app.config['TB_CREATE_TIME'] = create_time
-        app.config['TB_DEVICE_ID'] = device_id
-        app.config['TB_TOKEN'] = app.config['MQTT_USERNAME'] = device_token
-        # - init
-        mqtt = Mqtt(app)
-    else:
-        mqtt = None
+        1. Check configuration
+        2. Concatenate URL for thingsboard
+        3. Registering thingsboard device
+        4. Init MQTT
+    """
+    mqtt, start_icap = None, app.config["ICAP"]
+    logging.info("[ iCAP ] Enable iCAP: {}".format( start_icap ))
 
-    # share resource
-    cors(app)                                                       
+    if( start_icap == True ):
 
-    # define socket
-    socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins='*')   
+        logging.info("[ iCAP ] Enabled iCAP, start to init MQTT and register device ...")
+        app.config["MQTT_BROKER_URL"] = app.config["TB"]
+        
+        # - combine URL
+        register_url = "{}:{}{}".format(
+            app.config["TB"], 
+            app.config["TB_PORT"],
+            app.config["TB_API_REG_DEVICE"]
+        )
+        # - register thingboard device
+        ret, (create_time, device_id, device_token) = register_tb_device(register_url)
 
-    # do something else
+        if(ret):
+            app.config['TB_CREATE_TIME'] = create_time
+            app.config['TB_DEVICE_ID'] = device_id
+            app.config['TB_TOKEN'] = app.config['MQTT_USERNAME'] = device_token
+            
+            # - init            
+            mqtt = Mqtt(app)
+
+def create_non_exist_folder():
+    # creat data folder if it's not exsit
     if not (os.path.exists(app.config["DATA"])):
-        # creat data folder if it's not exsit
         os.makedirs(app.config["DATA"])
 
-    # return app,mqtt
-    return app, socketio, mqtt
+# Initialize Flask App 
+app = init_flask()
 
-# Initailize Flask App and Get SocketIO Object
-app, socketio, mqtt = initialize_flask_app()
-# app, mqtt = initialize_flask_app()
+# Define Web API docs 
+app.config['SWAGGER'] = {
+    'title': 'iVIT-I',
+    'uiversion': 3
+}
+swagger = Swagger(app)   
+
+# Define Cross-Origin Resource Sharing - https://www.maxlist.xyz/2020/05/08/flask-cors/
+cors(app)                                                       
+
+# Define Socket
+socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins='*')   
+
+# Define MQTT For iCAP 
+mqtt = init_for_icap()
+
+# Create Folder For iVIT_I
+create_non_exist_folder()
