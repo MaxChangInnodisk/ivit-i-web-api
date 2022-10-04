@@ -507,8 +507,8 @@ def import_task(form):
     Form 
     Key: name, path, model_path, label_path, config_path, json_path, tag, application, device, source, thres, source_type
     """
-    # model extension for double check
-    MODEL_EXT = [ '.trt', '.engine', '.xml' ] 
+    logging.info("------------")
+    logging.info("Import Event")
     
     # get task_name and task_path
     framework = current_app.config['AF']
@@ -519,20 +519,32 @@ def import_task(form):
 
     task_path = os.path.join( current_app.config['TASK_ROOT'] , task_name )
 
-    # something, we could not store the model_path
+    # something went wrong, we could not store the model_path
+    # model extension for double check
+    MODEL_EXT = [ '.trt', '.engine', '.xml', '.xmodel' ] 
     if form["model_path"]=="":
-        logging.warning("Something went wrong in model_path, auto search again ...")
+        logging.warning("\t- Something went wrong in model_path, auto search again ...")
         for f in os.listdir(src_path):
             name, ext = os.path.splitext(f)
             if ext in MODEL_EXT:
                 form["model_path"] = f
-                logging.debug("Find the model path ({})".format(form["model_path"]))
+                logging.debug("\t- Find the model path ({})".format(form["model_path"]))
+
+    # Get Each File Path
 
     task_model_path = os.path.join( task_path, form["model_path"].split("/")[-1] )
     task_label_path = os.path.join( task_path, form["label_path"].split("/")[-1] )
     
     model_config_path = os.path.join( task_path, "{}.json".format( os.path.splitext(form["model_path"].split("/")[-1])[0] ))
     task_config_path = os.path.join( task_path, "task.json")
+
+    logging.info(f"    - Get Path: \n\
+        - task_model_path   : {task_model_path}\n\
+        - task_label_path   : {task_label_path}\n\
+        - model_config_path : {model_config_path}\n\
+        - task_config_path  : {task_config_path} \t" )
+
+    # Parse Data
 
     task_tag = form["tag"]
     task_device = form["device"]
@@ -541,14 +553,16 @@ def import_task(form):
     task_thres = float(form["thres"])
 
     # create the folder for new task
+
     if os.path.exists(task_path):
         msg="Task is already exist !!! ({})".format(task_path)
         raise Exception(msg)
     else:
         os.makedirs(task_path)
-        logging.info('The new task path: {}'.format(task_path))
+        logging.info('\t- The new task path: {}'.format(task_path))
 
     # move the file and rename
+    
     os.rename( form["model_path"], task_model_path )
     os.rename( form["label_path"], task_label_path )
     
@@ -564,6 +578,8 @@ def import_task(form):
                 # task folder
                 shutil.rmtree( task_path )
                 raise FileNotFoundError("Could not find {}, make sure the ZIP file is for Intel".format(org_file_path))
+            else:
+                logging.info("- Found ")
             
             logging.debug("Rename: {} to {}".format(org_file_path, trg_file_path))
             os.rename( org_file_path, trg_file_path )
@@ -581,7 +597,7 @@ def import_task(form):
             elif task_tag == "obj":
                 from ivit_i.obj.config_template import TEMPLATE as model_config
         except Exception as e:
-            logging.error(e)
+            raise Exception(handle_exception(e))
             
         # modify the content
         model_config["tag"] = task_tag
@@ -599,17 +615,24 @@ def import_task(form):
         model_config[framework]["input_size"] = "{},{},{}".format( c, h, w )
         
         # update preprocess
-        if "process_mode" in train_config["train_config"]["datagenerator"] and framework != "openvino":
-            model_config[framework]["preprocess"] = train_config["train_config"]["datagenerator"]["preprocess_mode"]
+        has_preproc_key = "preprocess_mode" in train_config["train_config"]["datagenerator"]
+
+        if has_preproc_key:
+
+            if framework != "openvino":
+                model_config[framework]["preprocess"] = train_config["train_config"]["datagenerator"]["preprocess_mode"]
+                logging.info("\t- Get preprocess model: {}".format(model_config[framework]["preprocess"]))
+
         else:
             # if no preprocess than set to caffe
+            logging.warning("\t- Could not detected preprocess key, setting default value ... caffe")
             model_config[framework]["preprocess"] = "caffe"
 
         # update anchor
         anchor_key = "anchors"
         if anchor_key in train_config:
             anchors = [ float(anchor.strip(" "))  for anchor in train_config[anchor_key].split(",") ]
-            logging.debug("Update anchor: {}".format(anchors))
+            logging.info("\t- Update anchor: {}".format(anchors))
             model_config[framework][anchor_key] = anchors
             model_config[framework]["architecture_type"] = "yolov4"
 
@@ -618,7 +641,7 @@ def import_task(form):
             json.dump( model_config, out_file )
 
     except Exception as e:
-        raise Exception(e)
+        raise Exception(handle_exception(e))
 
     # generate task config json
     try:
@@ -633,10 +656,10 @@ def import_task(form):
             }
         }
 
-        # check if dictionary in string
+        # check if dictionary in application string
         dict_app = False
         try:
-            logging.warning("Dict in application")
+            # logging.warning("Dict in application")
             form["application"] = json.loads(form["application"])
             dict_app = True
         except:
@@ -648,7 +671,7 @@ def import_task(form):
         
         app_key = "application"
         if not dict_app:
-            logging.info("detect string application")
+            logging.info("\t- Detect string application")
             trg_key = "application"
             app_name = form[app_key]
             task_config['application'].update({ trg_key: app_name if app_name in available_app_list else "default" })
@@ -673,15 +696,17 @@ def import_task(form):
                     logging.debug("Found depend_on")
                     task_config['application'].update( { trg_key: form[app_key][trg_key] } )
 
-        logging.warning("Update Application Setting: {}".format(task_config['application']))
+        logging.warning("\t- Update Application Setting: {}".format(task_config['application']))
 
         # write task config
         with open( task_config_path, "w") as out_file:
+            logging.info("\t- Overwrite config file: {}".format(out_file))
             json.dump( task_config, out_file)
     except Exception as e:
         raise Exception(e)
 
     # remove temperate file
+    logging.info("\t- Remove source folder: {}".format(src_path))
     shutil.rmtree( src_path )
 
     return init_tasks( task_name )
