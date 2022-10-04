@@ -53,6 +53,7 @@ DARK_CFG_EXT    = ".cfg"
 CLS_MODEL_EXT   = ".onnx"
 IR_MODEL_EXT    = ".xml"
 IR_MODEL_EXTS   = [ ".bin", ".mapping", ".xml" ]
+X_MODEL_EXTS    = ".xmodel"
 
 # Return Pattern when ZIP file is extracted
 NAME            = "name"
@@ -176,19 +177,25 @@ def parse_info_from_zip( zip_path ):
     logging.info("Extract to {} and remove {}, found {} files.".format( task_path, zip_path, len(os.listdir(task_path)) ))
 
     # parse all file 
+    logging.warning("Start to parse file in target folder ... ")
     for fname in os.listdir(task_path):
+        
         
         fpath = os.path.join(task_path, fname)
         name, ext = os.path.splitext(fpath)
+        logging.debug("Check File ... {}".format(fpath))
 
-        if ext in [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXT ]:
+        # Model
+        if ext in [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXT, X_MODEL_EXTS ]:
             logging.debug("Detected {}: {}".format("Model", fpath))
             org_model_path = fpath
 
+        # Label
         elif ext in [ DARK_LABEL_EXT, CLS_LABEL_EXT ]:
             logging.debug("Detected {}: {}".format("Label", fpath))
             trg_label_path = fpath
         
+        # Config
         elif ext in [ DARK_JSON_EXT, CLS_JSON_EXT ]:
             logging.debug("Detected {}: {}".format("JSON", fpath))
             trg_json_path = fpath
@@ -202,6 +209,8 @@ def parse_info_from_zip( zip_path ):
 
         else:
             logging.debug("Detected {}: {}".format("Meta Data", fpath))
+
+    logging.warning("Finished Parsing File.")
 
     # Double check model file
     if not check_ir_models(org_model_path):
