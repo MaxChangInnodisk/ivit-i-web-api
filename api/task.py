@@ -104,20 +104,14 @@ def task_label(uuid):
     status  = 200
 
     try:
-        label_list = []
+        message = [ ]
         
         is_err_path = current_app.config[TASK][uuid][LABEL_PATH] in [ "", "None", None, False ]
-        is_not_txt = os.path.splitext(current_app.config[TASK][uuid][LABEL_PATH])[1] != ".txt"
-        if is_err_path or is_not_txt:
-
-            message = [ ]
-            
-        else:
-
-            with open( current_app.config[TASK][uuid][LABEL_PATH], 'r') as f:
-                [ label_list.append( line.rstrip("\n") ) for line in f.readlines() ]
-
-            message = label_list
+        if is_err_path:
+            logging.warning("Could not found label file")
+    
+        with open( current_app.config[TASK][uuid][LABEL_PATH], 'r') as f:
+            message = [ line.rstrip("\n") for line in f.readlines() ]
 
     except Exception as e:
         message = handle_exception(e)
