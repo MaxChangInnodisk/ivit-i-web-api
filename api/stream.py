@@ -2,9 +2,11 @@ import cv2, time, logging, base64, threading, os, copy, sys
 from flask import Blueprint, abort, jsonify, app, request
 from werkzeug.utils import secure_filename
 
-# Load Module from `web/api`
-from .common import frame2btye, get_src, stop_src, socketio, app
+# Get Application Module From iVIT-I
+sys.path.append("/workspace")
 
+# Load Module from `web/api`
+from .common import frame2btye, get_src, stop_src, socketio, app, stop_task_thread
 from ..tools.handler import get_tasks
 from ..tools.parser import get_pure_jsonify
 from ..ai.get_api import get_api
@@ -12,8 +14,6 @@ from ..ai.get_api import get_api
 from ivit_i.common.pipeline import Source
 from ivit_i.utils import handle_exception
 
-# Get Application Module From iVIT-I
-sys.path.append("/workspace")
 from ivit_i.app.handler import get_application
 from flasgger import swag_from
 
@@ -193,7 +193,7 @@ def stream_task(task_uuid, src, namespace, infer_function):
             # Start to draw
             t3 = time.time()
             if ret and has_application :
-                frame_draw = application(org_frame, info)
+                frame_draw, _ = application(org_frame, info)
 
             # Convert to base64 format
             frame_base64 = base64.encodebytes(cv2.imencode(BASE64_EXT, frame_draw)[1].tobytes()).decode(BASE64_DEC)
@@ -220,7 +220,8 @@ def stream_task(task_uuid, src, namespace, infer_function):
 
     except Exception as e:
         err = handle_exception(e, "Stream Error")
-        return jsonify(err), 400
+        stop_task_thread(task_uuid, err)
+        raise Exception(err)
 
 @bp_stream.route("/update_src/", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "update_src.yml"))
@@ -284,7 +285,11 @@ def start_stream(uuid):
         return jsonify('Stream is created, The results is display in /task/<uuid>/stream'), PASS_CODE
 
     except Exception as e:
-        return jsonify(handle_exception(e, "Stream Start Error")), FAIL_CODE
+        app.config[TASK][uuid][STREAM].join()
+        if app.config[TASK][uuid]["error"] == "":
+            app.config[TASK][uuid]["error"] = handle_exception(e)
+            app.config[TASK][uuid]["status"] = STOP
+        return jsonify(app.config[TASK][uuid]["error"]), FAIL_CODE
 
 @bp_stream.route("/task/<uuid>/stream/stop/", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "stream_stop.yml"))
