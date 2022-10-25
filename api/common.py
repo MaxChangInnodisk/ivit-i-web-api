@@ -225,6 +225,11 @@ def frame2btye(frame):
     }
     return ret
 
+def stop_task_thread(task_uuid, err):
+    stop_src( task_uuid, True )
+    app.config[TASK][task_uuid]["status"] = "error"
+    app.config[TASK][task_uuid]["error"] = err
+
 def get_src(task_uuid, reload_src=False):
     """ 
     Setup the source object and run 
