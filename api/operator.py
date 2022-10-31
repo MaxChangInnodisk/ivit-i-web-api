@@ -88,10 +88,12 @@ def edit_event(uuid):
     # Edit Event
     try:
         edit_task(data, uuid)
-        return "Edit successed ( {}:{} )".format(uuid, current_app.config['UUID'][uuid]), 200
+        return jsonify("Edit successed ( {}:{} )".format(uuid, current_app.config['UUID'][uuid])), 200
 
     except Exception as e:
         return handle_exception(e, "Edit error"), 400
+
+
 
 @bp_operators.route("/add/", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "add.yml"))
