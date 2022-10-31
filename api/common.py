@@ -146,11 +146,11 @@ def get_request_file(save_file=False):
     if save_file:
         try:
             file_path = os.path.join(app.config[DATA], secure_filename(file_name))
-
             file.save( file_path )
         except Exception as e:
             err = handle_exception(e, "Error when saving file ...")
-            abort(404, {'message': err } )
+            logging.error(err)
+            # abort(404, {'message': err } )
 
         return file_path
     
@@ -160,7 +160,7 @@ def get_request_data():
     """ Get data form request and parse content. """
     # Support form data and json
     data = dict(request.form) if bool(request.form) else request.get_json()
-
+    
     # Put framework information into data
     if FRAMEWORK_KEY not in data.keys(): 
         data.update( { FRAMEWORK_KEY : app.config[AF] } )
@@ -177,6 +177,7 @@ def get_request_data():
         logging.debug("Convert data[{}] to float format".format(THRES_KEY))
     
     # Print out to check information
+
     print_data(data)
 
     return data
