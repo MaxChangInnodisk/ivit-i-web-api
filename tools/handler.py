@@ -229,7 +229,6 @@ def modify_application_json(form, app_cfg):
     app_key  = "application"
     app_form = form[app_key]
     
-    
     # Update Each Key and Value
     trg_key = "name"
     if trg_key in app_form:    
@@ -277,6 +276,11 @@ def modify_application_json(form, app_cfg):
 
         if app_form[trg_key] != []:
             app_cfg[app_key].update( { trg_key: app_form[trg_key] } )
+
+    trg_key = "sensitivity"
+    if trg_key in app_form:
+        app_cfg[app_key].update( { trg_key: app_form[trg_key] } )
+    
 
     logging.warning("Update Application Setting: {}".format(app_cfg[app_key]))
     
