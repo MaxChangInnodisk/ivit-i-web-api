@@ -207,6 +207,82 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
     
     return (task_status, task_uuid, current_app.config['TASK'][task_uuid])
 
+def str_to_json(val):
+    if type(val) == str:
+        return json.loads(val)
+    return val
+
+def modify_application_json(form, app_cfg):
+    """
+    Update the application parameters
+    """
+
+
+    # check if dictionary in string
+    try:
+        form["application"] = json.loads(form["application"])
+        logging.info("Application is an string json ... ")
+    except:
+        form["application"] = form["application"]
+        logging.info("Application is an dictionary")
+
+    app_key  = "application"
+    app_form = form[app_key]
+    
+    
+    # Update Each Key and Value
+    trg_key = "name"
+    if trg_key in app_form:    
+        app_name = app_form[trg_key]
+        app_cfg[app_key] = { trg_key: app_name }
+        
+        # Update application with correct pattern
+        # tag_app_list = current_app.config[TAG_APP] if not ( TAG_APP in current_app.config ) else get_tag_app_list()
+        # available_app_list = [ app for apps in tag_app_list.values() for app in apps  ]        
+        # if not (app_name in available_app_list):
+        #     logging.warning("Could not found application ({}) in available list ({})".format(app_name, available_app_list))
+        #     app_name = "default"
+        
+        app_cfg[app_key] = { trg_key: app_name }
+
+    trg_key = "depend_on"
+    if trg_key in app_form:
+        app_form[trg_key] = str_to_json(app_form[trg_key])
+
+        if app_form[trg_key] != []:
+            app_cfg[app_key].update( { trg_key: app_form[trg_key] } )
+
+    trg_key = "logic"
+    if trg_key in app_form:
+        app_cfg[app_key].update( { trg_key: app_form[trg_key] } )
+    
+    trg_key = "logic_thres"
+    if trg_key in app_form:
+        app_cfg[app_key].update( { trg_key: int(app_form[trg_key]) } )
+    
+    trg_key = "alarm"
+    if trg_key in app_form:
+        app_cfg[app_key].update( { trg_key: app_form[trg_key] } )
+
+    trg_key = "area_points"
+    if trg_key in app_form:
+        app_form[trg_key] = str_to_json(app_form[trg_key])
+
+        if app_form[trg_key] != []:
+            app_cfg[app_key].update( { trg_key: app_form[trg_key] } )
+
+    trg_key = "area_vector"
+    if trg_key in app_form:
+        app_form[trg_key] = str_to_json(app_form[trg_key])
+
+        if app_form[trg_key] != []:
+            app_cfg[app_key].update( { trg_key: app_form[trg_key] } )
+
+    logging.warning("Update Application Setting: {}".format(app_cfg[app_key]))
+    
+    return app_cfg
+
+
 def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
     try:
         af = current_app.config['AF']
@@ -232,7 +308,7 @@ def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
         model_cfg_path = org_model_cfg_path.replace(src_an, trg_an, 1)
         [ logging.debug(f' - update {key}: {org} -> {trg}') for (key, org, trg) in [ ("app_path", org_app_cfg_path, app_cfg_path), ("model_path", org_model_cfg_path, model_cfg_path) ] ]
 
-        # Update app information
+        # Update Basic Parameters
         logging.debug('Update information in {}'.format(app_cfg_path))
         form["thres"] = float(form["thres"])
         app_cfg["prim"]["model_json"] = app_cfg["prim"]["model_json"].replace(src_an, trg_an, 1)
@@ -242,60 +318,8 @@ def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
             logging.debug(f' - update ({key}): {app_cfg[key]} -> {form[key]}')
             app_cfg[key] = form[ key ]
         
-        # Update application with correct pattern
-        tag_app_list = current_app.config[TAG_APP] if not ( TAG_APP in current_app.config ) else get_tag_app_list()
-        
-        available_app_list = [ app for apps in tag_app_list.values() for app in apps  ]
-
-        # check if dictionary in string
-        dict_app = False
-        try:
-            form["application"] = json.loads(form["application"])
-            dict_app = True
-            logging.info("Application is an string json ... ")
-        except:
-            form["application"] = form["application"]
-            logging.info("Application is an dictionary")
-
-        app_key = "application"
-        
-        if not dict_app:
-            app_name = form[app_key]
-            app_cfg[app_key] = { "name": app_name if app_name in available_app_list else "default" }
-
-        else:
-
-            trg_key = "name"
-            if trg_key in form[app_key]:
-                app_name = form[app_key][trg_key]
-                if app_name in available_app_list:
-                    
-                    app_cfg['application'] = { trg_key: app_name }
-                else:
-                    logging.warning("Could not found application ({}) in available list ({})".format(app_name, available_app_list))
-                    app_cfg['application'] = { trg_key: "default" } 
-
-            trg_key = "area_points"
-            if trg_key in form[app_key]:
-                if type(form[app_key][trg_key])==str:
-                    form[app_key][trg_key] = json.loads(form[app_key][trg_key])
-
-                if form[app_key][trg_key] != []:
-                    logging.debug("Found area_points")
-                    app_cfg['application'].update( { trg_key: form[app_key][trg_key] } )
-
-            trg_key = "depend_on"
-            if trg_key in form[app_key]:
-                
-                if type(form[app_key][trg_key])==str:
-                    form[app_key][trg_key] = json.loads(form[app_key][trg_key])
-
-                logging.debug("Found depend_on ... {}".format( form[app_key][trg_key]))
-                if form[app_key][trg_key] != []:
-                    logging.debug("Update depend_on ... ")
-                    app_cfg['application'].update( { trg_key: form[app_key][trg_key] } )
-
-        logging.warning("Update Application Setting: {}".format(app_cfg['application']))
+        # Update application
+        app_cfg = modify_application_json(form, app_cfg)
 
         # Update model information
         logging.debug('Update information in {}'.format(model_cfg_path))
