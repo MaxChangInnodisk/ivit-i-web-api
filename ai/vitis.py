@@ -2,8 +2,8 @@ import sys, os, time, copy, logging
 from flask import Blueprint, current_app
 sys.path.append(os.getcwd())
 try:
-    from ivit_i.utils.drawing_tools import Draw as vitis_draw
-    from ivit_i.utils.drawing_tools import get_palette
+    from ivit_i.utils.draw_tools import Draw as vitis_draw
+    from ivit_i.utils.draw_tools import get_palette
 except Exception as e:
     logging.error(e)
 # ------------------------------------------------------------------------

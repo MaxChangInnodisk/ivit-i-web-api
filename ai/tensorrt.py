@@ -5,8 +5,8 @@ import numpy as np
 
 sys.path.append(os.getcwd())
 try:
-    from ivit_i.utils.drawing_tools import Draw as trt_draw
-    from ivit_i.utils.drawing_tools import get_palette, draw_fps
+    from ivit_i.utils.draw_tools import Draw as trt_draw
+    from ivit_i.utils.draw_tools import get_palette, draw_fps
     from ivit_i.common import api
 except Exception as e:
     msg='Can not import TensorRT ... {}'.format(e)
