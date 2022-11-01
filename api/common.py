@@ -7,7 +7,7 @@ from .. import socketio, app
 # from ..ai.pipeline import Source
 # from ivit_i.utils.utils import handle_exception
 from ivit_i.common.pipeline import Source
-from ivit_i.utils.utils import handle_exception
+from ivit_i.utils.err_handler import handle_exception
 
 # Define app config key
 AF              = "AF"
