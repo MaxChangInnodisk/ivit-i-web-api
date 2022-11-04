@@ -242,7 +242,7 @@ def modify_application_json(form, app_cfg):
         #     logging.warning("Could not found application ({}) in available list ({})".format(app_name, available_app_list))
         #     app_name = "default"
         
-        app_cfg[app_key] = { trg_key: app_name }
+        # app_cfg[app_key] = { trg_key: app_name }
 
     trg_key = "depend_on"
     if trg_key in app_form:
@@ -538,35 +538,37 @@ def import_task(form):
     # model extension for double check
     MODEL_EXT = [ '.trt', '.engine', '.xml' ] 
     
+    logging.warning(form)
     # get task_name and task_path
-    framework = current_app.config['AF']
-    task_name = form['name'].strip()
-    src_path = form["path"]
+    framework       = current_app.config['AF']
+    task_name       = form['name'].strip()
+    src_path        = form["path"]
     src_config_path = form["config_path"]
-    src_json_path = form["json_path"]
+    src_json_path   = form["json_path"]
+    src_model_path  = form["model_path"]
 
     task_path = os.path.join( current_app.config['TASK_ROOT'] , task_name )
 
-    # something, we could not store the model_path
-    if form["model_path"]=="":
+    # double check file
+    if src_model_path=="":
         logging.warning("Something went wrong in model_path, auto search again ...")
         for f in os.listdir(src_path):
-            name, ext = os.path.splitext(f)
-            if ext in MODEL_EXT:
-                form["model_path"] = f
-                logging.debug("Find the model path ({})".format(form["model_path"]))
+            if os.path.splitext(f)[1] in MODEL_EXT:
+                src_model_path = f
+                logging.debug("Find the model path ({})".format(src_model_path))
 
-    task_model_path = os.path.join( task_path, form["model_path"].split("/")[-1] )
+    # concate target path
+    task_model_path = os.path.join( task_path, src_model_path.split("/")[-1] )
     task_label_path = os.path.join( task_path, form["label_path"].split("/")[-1] )
     
-    model_config_path = os.path.join( task_path, "{}.json".format( os.path.splitext(form["model_path"].split("/")[-1])[0] ))
+    model_config_path = os.path.join( task_path, "{}.json".format( os.path.splitext(src_model_path.split("/")[-1])[0] ))
     task_config_path = os.path.join( task_path, "task.json")
 
-    task_tag = form["tag"]
-    task_device = form["device"]
-    task_source = form["source"]
-    task_source_type = form["source_type"]
-    task_thres = float(form["thres"])
+    task_tag            = form["tag"]
+    task_device         = form["device"]
+    task_source         = form["source"]
+    task_source_type    = form["source_type"]
+    task_thres          = float(form["thres"])
 
     # create the folder for new task
     if os.path.exists(task_path):
@@ -646,7 +648,7 @@ def import_task(form):
             json.dump( model_config, out_file )
 
     except Exception as e:
-        raise Exception(e)
+        raise Exception(handle_exception(e, 'Generated Modal Config Error'))
 
     # generate task config json
     try:
@@ -661,53 +663,16 @@ def import_task(form):
             }
         }
 
-        # check if dictionary in string
-        dict_app = False
-        try:
-            logging.warning("Dict in application")
-            form["application"] = json.loads(form["application"])
-            dict_app = True
-        except:
-            form["application"] = form["application"]
-
-        # update application
-        tag_app_list = current_app.config[TAG_APP] if ( TAG_APP in current_app.config ) else get_tag_app_list()
-        available_app_list = [ app for apps in tag_app_list.values() for app in apps  ]
+        # Update Application
+        app_cfg = modify_application_json(form, {} )
+        task_config["application"] = app_cfg["application"]
         
-        app_key = "application"
-        if not dict_app:
-            logging.info("detect string application")
-            trg_key = "application"
-            app_name = form[app_key]
-            task_config['application'].update({ trg_key: app_name if app_name in available_app_list else "default" })
-        else:
-
-            trg_key = "name"
-            if trg_key in form[app_key]:
-                app_name = form[app_key][trg_key]
-                task_config['application'].update({ trg_key: app_name if app_name in available_app_list else "default" })
-
-            trg_key = "area_points"
-            if trg_key in form[app_key]:
-                form[app_key][trg_key] = json.loads(form[app_key][trg_key])
-                if form[app_key][trg_key] != []:
-                    logging.debug("Found area_points")
-                    task_config['application'].update( { trg_key: form[app_key][trg_key] } )
-            
-            trg_key = "depend_on"
-            if trg_key in form[app_key]:
-                form[app_key][trg_key] = json.loads(form[app_key][trg_key])
-                if form[app_key][trg_key] != []:
-                    logging.debug("Found depend_on")
-                    task_config['application'].update( { trg_key: form[app_key][trg_key] } )
-
-        logging.warning("Update Application Setting: {}".format(task_config['application']))
-
         # write task config
         with open( task_config_path, "w") as out_file:
             json.dump( task_config, out_file)
+
     except Exception as e:
-        raise Exception(e)
+        raise Exception(handle_exception(e, 'Generated Task Config Error'))
 
     # remove temperate file
     shutil.rmtree( src_path )
