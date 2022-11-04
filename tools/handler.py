@@ -286,13 +286,12 @@ def modify_application_json(form, app_cfg):
     
     return app_cfg
 
-
-def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
+def modify_task_json(src_uuid:str, task_name:str, form:dict, need_copy:bool=False):
     try:
         af = current_app.config['AF']
         # Pasre the old verions of task.json and model_config file
         [ src_an, src_path ] = [ current_app.config['TASK'][src_uuid][_key] for _key in ['name', 'path'] ]
-        trg_path = src_path.replace(src_an, trg_an, 1)
+        trg_path = src_path.replace(src_an, task_name, 1)
 
         ret, (org_app_cfg_path, org_model_cfg_path, app_cfg, model_cfg), err = parse_task_info(src_an, pure_content=True)
 
@@ -308,14 +307,14 @@ def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
             current_app.config['TASK'].pop(src_uuid, None)
 
         # Get path
-        app_cfg_path = org_app_cfg_path.replace(src_an, trg_an, 1)
-        model_cfg_path = org_model_cfg_path.replace(src_an, trg_an, 1)
+        app_cfg_path = org_app_cfg_path.replace(src_an, task_name, 1)
+        model_cfg_path = org_model_cfg_path.replace(src_an, task_name, 1)
         [ logging.debug(f' - update {key}: {org} -> {trg}') for (key, org, trg) in [ ("app_path", org_app_cfg_path, app_cfg_path), ("model_path", org_model_cfg_path, model_cfg_path) ] ]
 
         # Update Basic Parameters
         logging.debug('Update information in {}'.format(app_cfg_path))
         form["thres"] = float(form["thres"])
-        app_cfg["prim"]["model_json"] = app_cfg["prim"]["model_json"].replace(src_an, trg_an, 1)
+        app_cfg["prim"]["model_json"] = app_cfg["prim"]["model_json"].replace(src_an, task_name, 1)
         
         for key in ['name', 'source', 'source_type']:
             # the source key is different with configuration ( source )
@@ -332,7 +331,7 @@ def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
                 if model_cfg["tag"]=='pose' and key=="label_path":
                     pass
                 else:
-                    model_cfg[af][key] = val.replace(src_an, trg_an, 1) 
+                    model_cfg[af][key] = val.replace(src_an, task_name, 1) 
             if key in ['device', 'thres']:
                 model_cfg[af][key] = form[key]  
             logging.debug(f' - update ({key}): {val} -> { model_cfg[af][key] if key in model_cfg[af] else val}')
@@ -341,13 +340,8 @@ def modify_task_json(src_uuid:str, trg_an:str, form:dict, need_copy:bool=False):
         write_json(app_cfg_path, app_cfg)
         write_json(model_cfg_path, model_cfg)
     except Exception as e:
-        exc_type, exc_obj, exc_tb = sys.exc_info()
-        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        msg = 'Modify JSON Error: \n{}\n{} ({}:{})'.format(exc_type, exc_obj, fname, exc_tb.tb_lineno)
-        logging.error(msg)
-        raise Exception(msg)
-        # logging.raiseExceptions(msg)
-
+        msg = handle_exception(e, 'Modify JSON Error')
+        logging.error(msg); raise Exception(msg)
         
 def get_tasks(need_reset=False) -> list:
     """ 
@@ -408,14 +402,25 @@ def edit_task(form, src_uuid):
     src_path = current_app.config['TASK'][src_uuid]['path']
 
     # Get new path
-    trg_an = form['name']
+    task_name = form['name']
     
     modify_task_json(   src_uuid=src_uuid,
-                        trg_an=trg_an,
+                        task_name=task_name,
                         form=form   )
 
     # Update UUID and TASK
-    return init_tasks(trg_an, src_uuid)
+    return init_tasks(task_name, src_uuid)
+
+def check_exist_task(task_path, need_create=False):
+    """
+    Double check task path and create it if need.
+    """
+    if os.path.exists(task_path):
+        msg="Task is already exist !!! ({})".format(task_path)
+        raise Exception(msg)
+    else:
+        if need_create: os.makedirs(task_path)
+        logging.info('The new task path: {}'.format(task_path))
 
 def add_task(form):
     """
@@ -429,28 +434,24 @@ def add_task(form):
     # key_list = ['name', 'model', 'application', 'device', 'source', 'thres']
     
     # create the folder for new application
-    af, trg_an = current_app.config['AF'], form['name']
-    task_path = os.path.join( current_app.config['TASK_ROOT'] , trg_an )
-    if os.path.exists(task_path):
-        msg="Task is already exist !!! ({})".format(task_path)
-        raise Exception(msg)
-    else:
-        logging.info('The new application path: {}'.format(task_path))
+    task_name   = form['name']
+    task_path   = os.path.join( current_app.config['TASK_ROOT'] , task_name )
+    src_uuid    = current_app.config['MODEL'][form['model']][0] if form['model'] in current_app.config['MODEL'].keys() else None
 
-    src_uuid = current_app.config['MODEL'][form['model']][0] if form['model'] in current_app.config['MODEL'].keys() else None
-            
+    # Double check task and source
+    check_exist_task(task_path)
     if src_uuid==None:
         msg="Could not found the task which using the same model ..."
-        logging.error(msg)
-        raise Exception(msg)
+        logging.error(msg); raise Exception(msg)
 
-    modify_task_json(   src_uuid=src_uuid,
-                        trg_an=trg_an,
-                        form=form,
-                        need_copy=True   )
+    # Modify task config
+    modify_task_json(   src_uuid    = src_uuid,
+                        task_name   = task_name,
+                        form        = form,
+                        need_copy   = True   )
 
     # Update UUID and TASK
-    return init_tasks(trg_an)
+    return init_tasks(task_name)
 
 def remove_task(task_uuid):
 
@@ -526,6 +527,77 @@ def remove_task(task_uuid):
 
         return False, handle_exception(e, "Remove error")
 
+def get_config_template(task_tag):
+    model_config = None
+    logging.debug("Detect TAG: {}".format(task_tag))
+    try:
+        if task_tag == "cls":
+            from ivit_i.cls.config_template import TEMPLATE as model_config
+        elif task_tag == "darknet":
+            from ivit_i.darknet.config_template import TEMPLATE as model_config
+        elif task_tag == "obj":
+            from ivit_i.obj.config_template import TEMPLATE as model_config
+    except Exception as e:
+        msg = handle_exception(e, "Could not get model configuration templates")
+        logging.error(msg); raise ImportError(msg)
+
+    return model_config
+
+def copy_model_event(src_model_path, task_model_path):
+    
+    logging.info('Copy Model Event')
+
+    os.rename( src_model_path, task_model_path )
+    
+    # if is openvino model, we have to copy the .bin and .mapping file
+    if current_app.config["AF"] == "openvino":
+        org_path = os.path.splitext(src_model_path)[0]
+        trg_path = os.path.splitext(task_model_path)[0]
+
+        ext_list = [ ".bin", ".mapping"]
+        for ext in ext_list:
+            org_file_path = "{}{}".format(org_path, ext)
+            trg_file_path = "{}{}".format(trg_path, ext)
+            
+            if not os.path.exists(org_file_path):
+                logging.error("Could not find {}, make sure the ZIP file is for Intel".format(org_file_path))
+                return False
+
+            os.rename( org_file_path, trg_file_path )
+            logging.info("\t- Rename: {} -> {}".format(org_file_path, trg_file_path))
+
+    return True
+
+def copy_label_event(src, trg):
+    ret = True
+    logging.info('Copy Label Event')
+    os.rename( src, trg )
+    logging.info('\t- Rename: {} -> {}'.format(src, trg))
+    return ret
+
+def parse_train_config(train_config):
+    ret_dict = {}
+    # update input shape
+    h, w, c = train_config["model_config"]["input_shape"][:]
+    ret_dict["input_size"] = "{},{},{}".format( c, h, w )
+    
+    # update preprocess
+    if "process_mode" in train_config["train_config"]["datagenerator"] and framework != "openvino":
+        ret_dict["preprocess"] = train_config["train_config"]["datagenerator"]["preprocess_mode"]
+    else:
+        # if no preprocess than set to caffe
+        ret_dict["preprocess"] = "caffe"
+
+    # update anchor
+    anchor_key = "anchors"
+    if anchor_key in train_config:
+        anchors = [ float(anchor.strip(" "))  for anchor in train_config[anchor_key].split(",") ]
+        logging.debug("Update anchor: {}".format(anchors))
+        ret_dict[anchor_key] = anchors
+        ret_dict["architecture_type"] = "yolov4"
+    return ret_dict
+    pass
+
 def import_task(form):
     """
     新增新的應用
@@ -538,7 +610,6 @@ def import_task(form):
     # model extension for double check
     MODEL_EXT = [ '.trt', '.engine', '.xml' ] 
     
-    logging.warning(form)
     # get task_name and task_path
     framework       = current_app.config['AF']
     task_name       = form['name'].strip()
@@ -546,130 +617,91 @@ def import_task(form):
     src_config_path = form["config_path"]
     src_json_path   = form["json_path"]
     src_model_path  = form["model_path"]
+    src_label_path  = form["label_path"]
 
     task_path = os.path.join( current_app.config['TASK_ROOT'] , task_name )
 
+    # create the folder for new task
+    check_exist_task(task_path, need_create=True)
+
     # double check file
     if src_model_path=="":
-        logging.warning("Something went wrong in model_path, auto search again ...")
         for f in os.listdir(src_path):
             if os.path.splitext(f)[1] in MODEL_EXT:
-                src_model_path = f
-                logging.debug("Find the model path ({})".format(src_model_path))
+                src_model_path = f; break
+        if (src_model_path == ""):
+            raise Exception('Import Error: no model path in form data and could not find model in temporary folder ({}) ... '.format(src_path))
 
-    # concate target path
-    task_model_path = os.path.join( task_path, src_model_path.split("/")[-1] )
-    task_label_path = os.path.join( task_path, form["label_path"].split("/")[-1] )
-    
+    # define configuration path
     model_config_path = os.path.join( task_path, "{}.json".format( os.path.splitext(src_model_path.split("/")[-1])[0] ))
     task_config_path = os.path.join( task_path, "task.json")
 
+    # define task config parameters
     task_tag            = form["tag"]
     task_device         = form["device"]
     task_source         = form["source"]
     task_source_type    = form["source_type"]
     task_thres          = float(form["thres"])
 
-    # create the folder for new task
-    if os.path.exists(task_path):
-        msg="Task is already exist !!! ({})".format(task_path)
-        raise Exception(msg)
-    else:
-        os.makedirs(task_path)
-        logging.info('The new task path: {}'.format(task_path))
-
-    # move the file and rename
-    os.rename( form["model_path"], task_model_path )
-    os.rename( form["label_path"], task_label_path )
+    # concate target path
+    task_model_path = os.path.join( task_path, src_model_path.split("/")[-1] )
+    task_label_path = os.path.join( task_path, src_label_path.split("/")[-1] )
     
-    # if is openvino model, we have to copy the .bin and .mapping file
-    if current_app.config["AF"] == "openvino":
-        org_path, trg_path = os.path.splitext(form["model_path"])[0], os.path.splitext(task_model_path)[0]
-        ext_list = [ ".bin", ".mapping"]
-        for ext in ext_list:
-            org_file_path = "{}{}".format(org_path, ext)
-            trg_file_path = "{}{}".format(trg_path, ext)
-            
-            if not os.path.exists(org_file_path):
-                # task folder
-                shutil.rmtree( task_path )
-                raise FileNotFoundError("Could not find {}, make sure the ZIP file is for Intel".format(org_file_path))
-            
-            logging.debug("Rename: {} to {}".format(org_file_path, trg_file_path))
-            os.rename( org_file_path, trg_file_path )
+    # move the file and rename
+    copy_label_flag = copy_label_event( src_label_path, task_label_path )
+    copy_model_flag = copy_model_event( src_label_path, task_label_path )
+
+    if( not ( copy_label_flag or copy_model_flag ) ):
+        msg = "Something went wrong, please check log file. auto remove {}".format(task_path)
+        shutil.rmtree( task_path ); raise Exception(msg)
     
     # generate model config json
     try:
         # if you have different key in configuration, you have to add 
-        logging.debug("Generate Model Config ... ")
-        logging.debug("Detect TAG: {}".format(task_tag))
-        try:
-            if task_tag == "cls":
-                from ivit_i.cls.config_template import TEMPLATE as model_config
-            elif task_tag == "darknet":
-                from ivit_i.darknet.config_template import TEMPLATE as model_config
-            elif task_tag == "obj":
-                from ivit_i.obj.config_template import TEMPLATE as model_config
-        except Exception as e:
-            logging.error(e)
-            
+        logging.debug("Start to Generate Model Config ... ")
+        
+        # Get configuration template
+        model_config = get_config_template(task_tag)    
+        
         # modify the content
         model_config["tag"] = task_tag
-        model_config[framework]["model_path"] = task_model_path
-        model_config[framework]["label_path"] = task_label_path
-        model_config[framework]["device"] = task_device
-        model_config[framework]["thres"] = task_thres
+        model_config[framework]["model_path"]   = task_model_path
+        model_config[framework]["label_path"]   = task_label_path
+        model_config[framework]["device"]       = task_device
+        model_config[framework]["thres"]        = task_thres
 
-        # log the training config to caputre the input_shape and preprocess
+        # update input_size, preprocess, anchors
         with open( src_json_path, "r" ) as f:
             train_config = json.load(f)
-
-        # update input shape
-        h, w, c = train_config["model_config"]["input_shape"][:]
-        model_config[framework]["input_size"] = "{},{},{}".format( c, h, w )
-        
-        # update preprocess
-        if "process_mode" in train_config["train_config"]["datagenerator"] and framework != "openvino":
-            model_config[framework]["preprocess"] = train_config["train_config"]["datagenerator"]["preprocess_mode"]
-        else:
-            # if no preprocess than set to caffe
-            model_config[framework]["preprocess"] = "caffe"
-
-        # update anchor
-        anchor_key = "anchors"
-        if anchor_key in train_config:
-            anchors = [ float(anchor.strip(" "))  for anchor in train_config[anchor_key].split(",") ]
-            logging.debug("Update anchor: {}".format(anchors))
-            model_config[framework][anchor_key] = anchors
-            model_config[framework]["architecture_type"] = "yolov4"
+        model_config[framework].update( parse_train_config(train_config) )
 
         # write information into model config file
         with open( model_config_path, "w" ) as out_file:
             json.dump( model_config, out_file )
+
+        logging.debug("Model Config \n{}".format(model_config))
 
     except Exception as e:
         raise Exception(handle_exception(e, 'Generated Modal Config Error'))
 
     # generate task config json
     try:
-        task_config = {
-            "framework": framework,
-            "name": task_name,
-            "source": task_source,
-            "source_type": task_source_type,
-            "application": { },
-            "prim": {
-                "model_json": model_config_path
-            }
-        }
+        task_config = {}
+
+        task_config["framework"]    = framework
+        task_config["name"]         = task_name
+        task_config["source"]       = task_source
+        task_config["source_type"]  = task_source_type
+        task_config["prim"] = { "model_json": model_config_path }
 
         # Update Application
-        app_cfg = modify_application_json(form, {} )
-        task_config["application"] = app_cfg["application"]
-        
+        task_config.update( modify_application_json(form, {} ) )
+
         # write task config
         with open( task_config_path, "w") as out_file:
             json.dump( task_config, out_file)
+
+        logging.debug("Task Config \n{}".format(task_config))
 
     except Exception as e:
         raise Exception(handle_exception(e, 'Generated Task Config Error'))
