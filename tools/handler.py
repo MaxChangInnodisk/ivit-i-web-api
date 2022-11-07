@@ -569,8 +569,10 @@ def copy_model_event(src_model_path, task_model_path):
     return True
 
 def copy_label_event(src, trg):
-    ret = True
+    
     logging.info('Copy Label Event')
+
+    ret = True
     os.rename( src, trg )
     logging.info('\t- Rename: {} -> {}'.format(src, trg))
     return ret
@@ -611,15 +613,25 @@ def import_task(form):
     MODEL_EXT = [ '.trt', '.engine', '.xml' ] 
     
     # get task_name and task_path
-    framework       = current_app.config['AF']
     task_name       = form['name'].strip()
     src_path        = form["path"]
     src_config_path = form["config_path"]
     src_json_path   = form["json_path"]
     src_model_path  = form["model_path"]
     src_label_path  = form["label_path"]
+    
+    framework       = current_app.config['AF']
+    task_dir        = current_app.config['TASK_ROOT']
+    model_dir       = current_app.config['MODEL_DIR']
+    
+    src_model_name  = src_model_path.strip().split('/')[-1]
+    src_label_name  = src_label_path.strip().split('/')[-1]
+    src_model_pure_name   = os.path.splitext(src_model_name)[0]
 
-    task_path = os.path.join( current_app.config['TASK_ROOT'] , task_name )
+    dst_model_dir   = os.path.join( model_dir, src_model_pure_name )
+    if( not os.path.exists(dst_model_dir) ): os.makedirs( dst_model_dir )
+    
+    task_path = os.path.join( task_dir , task_name )
 
     # create the folder for new task
     check_exist_task(task_path, need_create=True)
@@ -633,7 +645,7 @@ def import_task(form):
             raise Exception('Import Error: no model path in form data and could not find model in temporary folder ({}) ... '.format(src_path))
 
     # define configuration path
-    model_config_path = os.path.join( task_path, "{}.json".format( os.path.splitext(src_model_path.split("/")[-1])[0] ))
+    model_config_path = os.path.join( task_path, "{}.json".format( src_model_pure_name ))
     task_config_path = os.path.join( task_path, "task.json")
 
     # define task config parameters
@@ -644,13 +656,13 @@ def import_task(form):
     task_thres          = float(form["thres"])
 
     # concate target path
-    task_model_path = os.path.join( task_path, src_model_path.split("/")[-1] )
-    task_label_path = os.path.join( task_path, src_label_path.split("/")[-1] )
+    dst_model_path = os.path.join( dst_model_dir, src_model_name )
+    dst_label_path = os.path.join( dst_model_dir, src_label_name )
     
     # move the file and rename
-    copy_label_flag = copy_label_event( src_label_path, task_label_path )
-    copy_model_flag = copy_model_event( src_label_path, task_label_path )
-
+    copy_model_flag = copy_model_event( src_model_path, dst_model_path )
+    copy_label_flag = copy_label_event( src_label_path, dst_label_path )
+    
     if( not ( copy_label_flag or copy_model_flag ) ):
         msg = "Something went wrong, please check log file. auto remove {}".format(task_path)
         shutil.rmtree( task_path ); raise Exception(msg)
@@ -665,8 +677,8 @@ def import_task(form):
         
         # modify the content
         model_config["tag"] = task_tag
-        model_config[framework]["model_path"]   = task_model_path
-        model_config[framework]["label_path"]   = task_label_path
+        model_config[framework]["model_path"]   = dst_model_path
+        model_config[framework]["label_path"]   = dst_label_path
         model_config[framework]["device"]       = task_device
         model_config[framework]["thres"]        = task_thres
 
