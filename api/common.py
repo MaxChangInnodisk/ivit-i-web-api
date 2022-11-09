@@ -6,7 +6,7 @@ from .. import socketio, app
 
 # from ..ai.pipeline import Source
 # from ivit_i.utils.utils import handle_exception
-from ivit_i.common.pipeline import Source
+from ivit_i.common.pipeline import Source, Pipeline
 from ivit_i.utils.err_handler import handle_exception
 
 # Define app config key
@@ -259,7 +259,9 @@ def get_src(task_uuid, reload_src=False):
     if ( src_obj == None ) or reload_src:
         logging.info('Initialize a new source.')
         try: 
-            app.config[SRC][src_name][OBJECT] = Source(src_name, app.config[SRC][src_name][TYPE])
+            # app.config[SRC][src_name][OBJECT] = Source(src_name, app.config[SRC][src_name][TYPE])
+            app.config[SRC][src_name][OBJECT] = Pipeline(src_name, app.config[SRC][src_name][TYPE])
+            app.config[SRC][src_name][OBJECT].start()
         except Exception as e:
             handle_exception(e)
             raise (handle_exception(e))

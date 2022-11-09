@@ -154,29 +154,18 @@ def run_task(uuid):
         current_app.config[TASK][uuid][ERROR] = src_err
         return src_err, PASS_CODE
     
-    # avoid changing the configuration data during initailization ( init)
+    # avoid changing the configuration data during initailization ( init_ai_model)
     temp_config = copy.deepcopy(current_app.config[TASK][uuid][CONFIG]) 
     
     # get ai objects
-    init, _ = get_api()
+    init_ai_model = get_api()[0]
     
     # only pose estimation in openvino have to input a frame
     is_openvino = (current_app.config[TASK][uuid][FRAMEWORK]==OV)
     is_pose = (current_app.config[TASK][uuid][CONFIG][TAG]=='pose')
-    input_frame = src.get_frame()[1] if is_openvino and is_pose else None
+    input_frame = src.read()[1] if is_openvino and is_pose else None
         
-    ai_objects = init(temp_config, input_frame)
-    
-    # if no object then return error message
-    if None in ai_objects:
-        msg = '{}\n( {} )'.format( ai_objects[0], "Auto restart the service" )    
-        logging.critical(msg)
-        return msg, FAIL_CODE
-    else:
-        (   current_app.config[TASK][uuid][API], 
-            current_app.config[TASK][uuid][RUNTIME], 
-            current_app.config[TASK][uuid][DRAW_TOOLS], 
-            current_app.config[TASK][uuid][PALETTE]  ) = ai_objects
+    current_app.config[TASK][uuid][API] = init_ai_model(temp_config, input_frame)
     
     # send socketio and update current_app.config
     current_app.config[TASK][uuid][STATUS] = RUN

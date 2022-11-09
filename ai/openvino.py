@@ -21,15 +21,14 @@ def vino_init(prim_conf, first_frame=None):
             from ivit_i.pose import Pose as trg
         
         trg = trg()
-        model, color_palette = trg.load_model(prim_conf, first_frame) if "pose" in prim_conf['tag'] else trg.load_model(prim_conf)
+        trg.load_model(prim_conf, first_frame)
         draw = vino_draw()
-        runtime, palette = model, color_palette
-    
+        
     except Exception as e:
         trg = e
         runtime, palette, draw = None, None, None
 
-    return trg, runtime, draw, palette
+    return trg
 
 """ 進行 AI 辨識 """
 def vino_inference(frame, uuid, model_conf, trg, runtime, draw, palette, ret_draw=True):

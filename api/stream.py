@@ -11,7 +11,7 @@ from ..tools.handler import get_tasks
 from ..tools.parser import get_pure_jsonify
 from ..ai.get_api import get_api
 
-from ivit_i.common.pipeline import Source
+from ivit_i.common.pipeline import Source, Pipeline
 from ivit_i.utils import handle_exception
 
 from ivit_i.app.handler import get_application
@@ -141,10 +141,11 @@ def stream_task(task_uuid, src, namespace, infer_function):
     # start looping
     try:
         SRC_NAME = app.config[TASK][task_uuid][SOURCE]
+        
         while(app.config[SRC][SRC_NAME][STATUS]==RUN):
             
             # Get the frame from source
-            ret_frame, frame = src.get_frame()
+            ret_frame, frame = src.read()
             t1 = time.time()
             
             # If no frame, wait a new frame when source type is rtsp and video
@@ -170,33 +171,36 @@ def stream_task(task_uuid, src, namespace, infer_function):
             app.config[TASK][task_uuid][FRAME_IDX] += 1
 
             # Check is all ai object is exist
-            if (None in [ temp_model_conf, trg, runtime, draw, palette ]):
-                logging.error('None in [ temp_model_conf, trg, runtime, draw, palette ]')
-                abort(404)
+            # if (None in [ temp_model_conf, trg, runtime, draw, palette ]):
+            #     logging.error('None in [ temp_model_conf, trg, runtime, draw, palette ]')
+            #     abort(404)
             
             # Start to Inference
             t2 = time.time()
             org_frame = frame.copy()
 
             # Update frame_draw when finished the inference
-            ret, info, frame_draw = do_inference(   
-                org_frame, 
-                task_uuid, 
-                temp_model_conf, 
-                trg, 
-                runtime, 
-                draw, 
-                palette, 
-                ret_draw=(not has_application) 
-            ) 
+            # ret, info, frame_draw = do_inference(   
+            #     org_frame, 
+            #     task_uuid, 
+            #     temp_model_conf, 
+            #     trg, 
+            #     runtime, 
+            #     draw, 
+            #     palette, 
+            #     ret_draw=(not has_application) 
+            # ) 
+
+            info = app.config[TASK][task_uuid][API].inference( org_frame )
+
             
             # Start to draw
             t3 = time.time()
-            if ret and has_application :
-                frame_draw, _ = application(org_frame, info)
+            if info and has_application :
+                org_frame, app_info = application(org_frame, info)
 
             # Convert to base64 format
-            frame_base64 = base64.encodebytes(cv2.imencode(BASE64_EXT, frame_draw)[1].tobytes()).decode(BASE64_DEC)
+            frame_base64 = base64.encodebytes(cv2.imencode(BASE64_EXT, org_frame)[1].tobytes()).decode(BASE64_DEC)
             
             # Combine the return information
             ret_info = copy.deepcopy(RET_INFO)
@@ -241,10 +245,14 @@ def update_src():
         # Update data information
         data[SOURCE]=file_path
 
-    src = Source(
-        input_data = data[SOURCE], 
-        intype=data[SOURCE_TYPE]
-    )
+    # src = Source(
+    #     input_data = data[SOURCE], 
+    #     intype=data[SOURCE_TYPE]
+    # )
+    src = Pipeline( input_data = data[SOURCE], 
+                    intype = data[SOURCE_TYPE] )
+    src.start()
+
     ret = frame2btye(src.get_first_frame())
 
     return jsonify( ret )
@@ -265,7 +273,7 @@ def start_stream(uuid):
     [ logging.info(cnt) for cnt in [DIV, f'Start stream ... destination of socketio event: "/task/{uuid}/stream"', DIV] ]
 
     # create stream object
-    _, do_inference = get_api()
+    do_inference = get_api()[1]
     if app.config[TASK][uuid][STREAM]==None:
         app.config[TASK][uuid][STREAM] = threading.Thread(
             target=stream_task, 
