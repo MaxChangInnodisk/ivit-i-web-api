@@ -141,84 +141,67 @@ def stream_task(task_uuid, src, namespace, infer_function):
     # start looping
     try:
         SRC_NAME = app.config[TASK][task_uuid][SOURCE]
-        
+        cv_show = True
+        cur_info, infer_info = None, None
+        cur_fps, infer_fps = 30, 30
+
         while(app.config[SRC][SRC_NAME][STATUS]==RUN):
             
-            # Get the frame from source
-            ret_frame, frame = src.read()
             t1 = time.time()
-            
-            # If no frame, wait a new frame when source type is rtsp and video
-            if not ret_frame: 
-                
-                if src.get_type().lower() in [RTSP, VIDEO]:
-                    logging.warning('Reconnect source ... ')
-                    try:
-                        src = get_src(task_uuid, reload_src=True)
-                    except Exception as e:
-                        handle_exception(e)
-                        break
-                    continue
-                else:
-                    err_msg ="Couldn't get the frame data."
-                    app.config[SRC][ app.config[TASK][task_uuid][SOURCE] ][ERROR]= err_msg
-                    app.config[TASK][task_uuid][ERROR]= err_msg
-                    app.config[TASK][task_uuid][STATUS]= ERROR
-                    break
 
+            # Get the frame from source
+            success, frame = src.read()            
+            if not success: continue
+            
             # If got frame then add the frame index
             app.config[TASK][task_uuid][FRAME_IDX] += 1
-
-            # Check is all ai object is exist
-            # if (None in [ temp_model_conf, trg, runtime, draw, palette ]):
-            #     logging.error('None in [ temp_model_conf, trg, runtime, draw, palette ]')
-            #     abort(404)
             
-            # Start to Inference
             t2 = time.time()
-            org_frame = frame.copy()
 
-            # Update frame_draw when finished the inference
-            # ret, info, frame_draw = do_inference(   
-            #     org_frame, 
-            #     task_uuid, 
-            #     temp_model_conf, 
-            #     trg, 
-            #     runtime, 
-            #     draw, 
-            #     palette, 
-            #     ret_draw=(not has_application) 
-            # ) 
-
-            info = app.config[TASK][task_uuid][API].inference( org_frame )
-
-            
-            # Start to draw
+            # Start to Inference and update info
+            infer_info = app.config[TASK][task_uuid][API].inference( frame )
+            if(infer_info):
+                cur_info = infer_info
+                cur_fps  = infer_fps
             t3 = time.time()
-            if info and has_application :
-                org_frame, app_info = application(org_frame, info)
 
-            # Convert to base64 format
-            frame_base64 = base64.encodebytes(cv2.imencode(BASE64_EXT, org_frame)[1].tobytes()).decode(BASE64_DEC)
+            # Draw something
+            if(cur_info):
+                frame, app_info = application(frame, cur_info)
+
+            # if cv_show:
+            #     cv2.imshow('test', frame)
+            #     if cv2.waitKey(1)==ord('q'):
+            #         cv2.destroyAllWindows()
+            #         cv_show = False
             
+            # Convert to base64 format
+            frame_base64 = base64.encodebytes(cv2.imencode(BASE64_EXT, frame)[1].tobytes()).decode(BASE64_DEC)
+            
+
             # Combine the return information
-            ret_info = copy.deepcopy(RET_INFO)
-            ret_info[IDX] = app.config[TASK][task_uuid][FRAME_IDX]
-            ret_info[DETS] = info[DETS] if info is not None else None
-            ret_info[INFER] = round((t3-t2)*1000, 3)
-            ret_info[FPS] = int(1/( time.time() - t1 ))
+            ret_info            = copy.deepcopy(RET_INFO)
+            ret_info[IDX]       = app.config[TASK][task_uuid][FRAME_IDX]
+            ret_info[DETS]      = info[DETS] if info is not None else None
+            ret_info[INFER]     = round((t3-t2)*1000, 3)
+            ret_info[FPS]       = cur_fps
             ret_info[LIVE_TIME] = int((time.time() - app.config[TASK][task_uuid][START_TIME]))
-            ret_info[G_TEMP] = ""
-            ret_info[G_LOAD] = ""
+            ret_info[G_TEMP]    = ""
+            ret_info[G_LOAD]    = ""
+
 
             # Send socketio to client
             socketio.emit(IMG_EVENT, frame_base64, namespace=namespace)
             socketio.emit(RES_EVENT, get_pure_jsonify(ret_info, json_format=False), namespace=namespace)
-            socketio.sleep(0)
+            socketio.sleep(0.001)
+
 
             # Update Live Time
             app.config[TASK][task_uuid][LIVE_TIME] = int((time.time() - app.config[TASK][task_uuid][START_TIME]))
         
+            infer_fps = int(1/(time.time()-t1))
+
+
         logging.info('Stop streaming')
 
     except Exception as e:
@@ -274,12 +257,14 @@ def start_stream(uuid):
     # create stream object
     do_inference = get_api()[1]
     if app.config[TASK][uuid][STREAM]==None:
+        logging.info('Create a new stream thread')
         app.config[TASK][uuid][STREAM] = threading.Thread(
             target=stream_task, 
             args=(uuid, get_src(uuid), f'/task/{uuid}/stream', do_inference ), 
             name=f"{uuid}",
         )
         app.config[TASK][uuid][STREAM].daemon = True
+        time.sleep(1)
 
     # check if thread is alive
     if app.config[TASK][uuid][STREAM].is_alive():
