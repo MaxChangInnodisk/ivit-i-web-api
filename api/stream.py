@@ -155,7 +155,6 @@ def stream_task(task_uuid, src, namespace, infer_function):
                     logging.warning('Reconnect source ... ')
                     try:
                         src = get_src(task_uuid, reload_src=True)
-
                     except Exception as e:
                         handle_exception(e)
                         break
