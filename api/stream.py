@@ -118,34 +118,44 @@ def stream_task(task_uuid, src, namespace, infer_function):
     '''
     
     # get all the ai inference objects
-    ret_info, info = dict(), None
-    do_inference = infer_function
-    model_conf = app.config[TASK][task_uuid][CONFIG]
-    trg = app.config[TASK][task_uuid][API]
-    runtime = app.config[TASK][task_uuid][RUNTIME]
-    draw = app.config[TASK][task_uuid][DRAW_TOOLS]
-    palette = app.config[TASK][task_uuid][PALETTE]
+    ret_info, info  = dict(), None
+    model_conf      = app.config[TASK][task_uuid][CONFIG]
+    trg             = app.config[TASK][task_uuid][API]
+    runtime         = app.config[TASK][task_uuid][RUNTIME]
+    draw            = app.config[TASK][task_uuid][DRAW_TOOLS]
+    palette         = app.config[TASK][task_uuid][PALETTE]
     
     # deep copy the config to avoid changing the old one when do inference
     temp_model_conf = copy.deepcopy(model_conf)
-
     # Get application executable function if has application
-    has_application=False
-    try:
-        application = get_application(temp_model_conf)
-        has_application = False if application == None else True
-            
-    except Exception as e:
-        handle_exception(e)
+    application = get_application(temp_model_conf)
     
+    # Define RTSP pipeline
+    src_name    = app.config[TASK][task_uuid][SOURCE]
+    (src_wid, src_hei), src_fps = src.get_shape(), src.get_fps()
+
+    gst_pipeline = 'appsrc is-live=true block=true format=GST_FORMAT_TIME ' + \
+            f'caps=video/x-raw,format=BGR,width={src_wid},height={src_hei},framerate={src_fps}/1 ' + \
+            ' ! videoconvert ! video/x-raw,format=I420 ' + \
+            ' ! queue' + \
+            ' ! x264enc bitrate=2048 speed-preset=0 key-int-max=15' + \
+            f' ! rtspclientsink location=rtsp://127.0.0.1:8554/{task_uuid}'
+
+    out = cv2.VideoWriter(  gst_pipeline, cv2.CAP_GSTREAMER, 0, 
+                            src_fps, (src_wid, src_hei), True )
+
+    if not out.isOpened():
+        raise Exception("can't open video writer")
+
     # start looping
     try:
-        SRC_NAME = app.config[TASK][task_uuid][SOURCE]
+        
         cv_show = True
-        cur_info, infer_info = None, None
-        cur_fps, infer_fps = 30, 30
+        cur_info, temp_info = None, None
+        cur_fps, temp_fps = 30, 30
+        temp_socket_time = 0
 
-        while(app.config[SRC][SRC_NAME][STATUS]==RUN):
+        while(app.config[SRC][src_name][STATUS]==RUN):
             
             t1 = time.time()
 
@@ -159,26 +169,17 @@ def stream_task(task_uuid, src, namespace, infer_function):
             t2 = time.time()
 
             # Start to Inference and update info
-            infer_info = app.config[TASK][task_uuid][API].inference( frame )
-            if(infer_info):
-                cur_info = infer_info
-                cur_fps  = infer_fps
+            temp_info = app.config[TASK][task_uuid][API].inference( frame )
+
+            if(temp_info):
+                cur_info, cur_fps = temp_info, temp_fps
+
             t3 = time.time()
 
             # Draw something
             if(cur_info):
                 frame, app_info = application(frame, cur_info)
-
-            # if cv_show:
-            #     cv2.imshow('test', frame)
-            #     if cv2.waitKey(1)==ord('q'):
-            #         cv2.destroyAllWindows()
-            #         cv_show = False
             
-            # Convert to base64 format
-            frame_base64 = base64.encodebytes(cv2.imencode(BASE64_EXT, frame)[1].tobytes()).decode(BASE64_DEC)
-            
-
             # Combine the return information
             ret_info            = copy.deepcopy(RET_INFO)
             ret_info[IDX]       = app.config[TASK][task_uuid][FRAME_IDX]
@@ -189,17 +190,28 @@ def stream_task(task_uuid, src, namespace, infer_function):
             ret_info[G_TEMP]    = ""
             ret_info[G_LOAD]    = ""
 
+            # Send RTSP
+            out.write(frame)
 
-            # Send socketio to client
-            socketio.emit(IMG_EVENT, frame_base64, namespace=namespace)
-            socketio.emit(RES_EVENT, get_pure_jsonify(ret_info, json_format=False), namespace=namespace)
-            socketio.sleep(0.001)
-
-
-            # Update Live Time
+            # # Convert to base64 format
+            # frame_base64 = base64.encodebytes(cv2.imencode(BASE64_EXT, frame)[1].tobytes()).decode(BASE64_DEC)
+            # # Send socketio to client
+            # socketio.emit(IMG_EVENT, frame_base64, namespace=namespace)
+            # if(time.time() - temp_socket_time >= 5):
+            #     socketio.emit(RES_EVENT, get_pure_jsonify(ret_info, json_format=False), namespace=namespace)
+            #     socketio.sleep(0)
+            #     temp_socket_time = time.time()
+            
+            # Delay to fix in 30 fps
+            t_cost, t_expect = (time.time()-t1), (1/src_fps)
+            if(t_cost<t_expect):
+                socketio.sleep(t_expect-t_cost)
+                
+            # Update Live Time and FPS
             app.config[TASK][task_uuid][LIVE_TIME] = int((time.time() - app.config[TASK][task_uuid][START_TIME]))
-        
-            infer_fps = int(1/(time.time()-t1))
+            
+            if(temp_info):
+                temp_fps = int(1/(time.time()-t1))
 
 
         logging.info('Stop streaming')
@@ -288,13 +300,16 @@ def start_stream(uuid):
 def stop_stream(uuid):
     
     if app.config[TASK][uuid][STATUS]!=ERROR:
-        stop_src(uuid)
+        # stop_src(uuid)
         if app.config[TASK][uuid][STREAM]!=None:
             # if app.config[TASK][uuid][STREAM].is_alive():
             try:
-                logging.warning('Stopping stream ...')
+                
                 app.config[TASK][uuid][STREAM].join()
+                logging.warning('Stopped stream ...')
             except Exception as e:
                 logging.warning(e)
+
         app.config[TASK][uuid][STREAM]=None
+        logging.warning('Clear Stream ...')
         return jsonify('Stop stream success ! '), 200
