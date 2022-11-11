@@ -132,7 +132,7 @@ def stream_task(task_uuid, src, namespace, infer_function):
     
     # Define RTSP pipeline
     src_name    = app.config[TASK][task_uuid][SOURCE]
-    (src_wid, src_hei), src_fps = src.get_shape(), src.get_fps()
+    (src_hei, src_wid), src_fps = src.get_shape(), src.get_fps()
 
     gst_pipeline = 'appsrc is-live=true block=true format=GST_FORMAT_TIME ' + \
             f'caps=video/x-raw,format=BGR,width={src_wid},height={src_hei},framerate={src_fps}/1 ' + \
@@ -195,17 +195,20 @@ def stream_task(task_uuid, src, namespace, infer_function):
 
             # # Convert to base64 format
             # frame_base64 = base64.encodebytes(cv2.imencode(BASE64_EXT, frame)[1].tobytes()).decode(BASE64_DEC)
-            # # Send socketio to client
+            # Send socketio to client
             # socketio.emit(IMG_EVENT, frame_base64, namespace=namespace)
-            # if(time.time() - temp_socket_time >= 5):
-            #     socketio.emit(RES_EVENT, get_pure_jsonify(ret_info, json_format=False), namespace=namespace)
-            #     socketio.sleep(0)
-            #     temp_socket_time = time.time()
-            
+
+            if(time.time() - temp_socket_time >= 1):
+                socketio.emit(RES_EVENT, get_pure_jsonify(ret_info, json_format=False), namespace=namespace)
+                temp_socket_time = time.time()
+            socketio.sleep(0)
+
             # Delay to fix in 30 fps
             t_cost, t_expect = (time.time()-t1), (1/src_fps)
             if(t_cost<t_expect):
-                socketio.sleep(t_expect-t_cost)
+                time.sleep(t_expect-t_cost)
+                # socketio.sleep(t_expect-t_cost)
+            
                 
             # Update Live Time and FPS
             app.config[TASK][task_uuid][LIVE_TIME] = int((time.time() - app.config[TASK][task_uuid][START_TIME]))
@@ -243,8 +246,7 @@ def update_src():
     #     input_data = data[SOURCE], 
     #     intype=data[SOURCE_TYPE]
     # )
-    src = Pipeline( input_data = data[SOURCE], 
-                    intype = data[SOURCE_TYPE] )
+    src = Pipeline( data[SOURCE], data[SOURCE_TYPE] )
     src.start()
 
     ret = frame2btye(src.get_first_frame())
