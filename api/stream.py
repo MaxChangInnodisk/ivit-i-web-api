@@ -161,8 +161,13 @@ def stream_task(task_uuid, src, namespace, infer_function):
 
             # Get the frame from source
             success, frame = src.read()            
-            if not success: continue
-            
+            # Check frame
+            if not success:
+                application.reset()
+                src.reload()
+                if src.get_type() == 'v4l2': break
+                else: continue
+                
             # If got frame then add the frame index
             app.config[TASK][task_uuid][FRAME_IDX] += 1
             
