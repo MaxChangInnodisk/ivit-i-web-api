@@ -106,7 +106,7 @@ OV          = "openvino"
 XLNX        = "xilinx"
 VTS         = "vitis-ai"
 
-def stream_task(task_uuid, src, namespace, infer_function):
+def stream_task(task_uuid, src, namespace):
     '''
     Stream event: sending 'image' and 'result' to '/app/<uuid>/stream' via socketio
     
@@ -114,7 +114,6 @@ def stream_task(task_uuid, src, namespace, infer_function):
         - task_uuid
         - src
         - namespace
-        - infer_function
     '''
     
     # get all the ai inference objects
@@ -248,16 +247,21 @@ def update_src():
         # Update data information
         data[SOURCE]=file_path
 
-    # src = Source(
-    #     input_data = data[SOURCE], 
-    #     intype=data[SOURCE_TYPE]
-    # )
-    src = Pipeline( data[SOURCE], data[SOURCE_TYPE] )
-    src.start()
+    if data[SOURCE] in app.config[SRC]:
+        src = app.config[SRC][data[SOURCE]][OBJECT]
+        if src.t.is_alive():
+            ret = src.get_first_frame()
+        else:
+            src.start()
+            ret = src.get_first_frame()
+            src.stop()
+    else:
+        src = Pipeline( data[SOURCE], data[SOURCE_TYPE] )
+        src.start()
+        ret = src.get_first_frame()
+        src.release()
 
-    ret = frame2btye(src.get_first_frame())
-
-    return jsonify( ret )
+    return jsonify( frame2btye(ret) )
 
 @bp_stream.route("/task/<uuid>/get_frame")
 @swag_from("{}/{}".format(YAML_PATH, "get_frame.yml"))
@@ -275,15 +279,15 @@ def start_stream(uuid):
     [ logging.info(cnt) for cnt in [DIV, f'Start stream ... destination of socketio event: "/task/{uuid}/stream"', DIV] ]
 
     # create stream object
-    do_inference = get_api()[1]
     if app.config[TASK][uuid][STREAM]==None:
         logging.info('Create a new stream thread')
         app.config[TASK][uuid][STREAM] = threading.Thread(
             target=stream_task, 
-            args=(uuid, get_src(uuid), f'/task/{uuid}/stream', do_inference ), 
+            args=(uuid, get_src(uuid), f'/task/{uuid}/stream', ), 
             name=f"{uuid}",
+            daemon=True
         )
-        app.config[TASK][uuid][STREAM].daemon = True
+        # app.config[TASK][uuid][STREAM].daemon = True
         time.sleep(1)
 
     # check if thread is alive
