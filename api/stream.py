@@ -132,7 +132,6 @@ def stream_task(task_uuid, src, namespace):
     trg             = app.config[TASK][task_uuid][API]
     runtime         = app.config[TASK][task_uuid][RUNTIME]
     draw            = app.config[TASK][task_uuid][DRAW_TOOLS]
-    palette         = app.config[TASK][task_uuid][PALETTE]
     
     # deep copy the config to avoid changing the old one when do inference
     temp_model_conf = copy.deepcopy(model_conf)
@@ -302,6 +301,7 @@ def start_stream(uuid):
             name    = f"{uuid}",
             daemon  = True
         )
+        time.sleep(1)
 
     # check if thread is alive
     if app.config[TASK][uuid][STREAM].is_alive():

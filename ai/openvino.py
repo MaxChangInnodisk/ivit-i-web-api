@@ -1,10 +1,10 @@
 import sys, os, time, copy, logging
-from flask import Blueprint, current_app
 sys.path.append(os.getcwd())
-try:
-    from ivit_i.utils import Draw as vino_draw
-except Exception as e:
-    logging.error(e)
+# try:
+#     from ivit_i.utils import Draw as vino_draw
+# except Exception as e:
+#     logging.error(e)
+
 # ------------------------------------------------------------------------
 # OpenVINO
 """ 初始化 OpenVINO """
@@ -22,11 +22,11 @@ def vino_init(prim_conf, first_frame=None):
         
         trg = trg()
         trg.load_model(prim_conf, first_frame)
-        draw = vino_draw()
+        # draw = vino_draw()
         
     except Exception as e:
         trg = e
-        runtime, palette, draw = None, None, None
+        print('\n\n', e)
 
     return trg
 
