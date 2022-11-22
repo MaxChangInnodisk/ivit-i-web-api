@@ -79,10 +79,13 @@ class Source():
     
     def release(self):
         try:
-            self.isStop = True
-            self.src.release()
-        except:
-            logging.warning('Could not release object')
+            self.stop()
+            if self.src is not None:
+                self.src.release()
+
+        except Exception as e:
+            logging.warning('Could not release object ... {}'.format(e))
+
         finally:
             logging.warning('Set source to `None`')
             self.src=None
