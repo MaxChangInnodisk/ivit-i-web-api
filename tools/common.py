@@ -54,6 +54,7 @@ def get_intel_info():
             "temperature": avg
         }
     }
+    ret.update( { "GPU": ret["CPU"] } )
     return ret
 
 def get_xlnx_info():

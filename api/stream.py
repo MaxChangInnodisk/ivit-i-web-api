@@ -1,4 +1,4 @@
-import cv2, time, logging, base64, threading, os, copy, sys
+import cv2, time, logging, base64, threading, os, copy, sys, json
 from flask import Blueprint, abort, jsonify, app, request
 from werkzeug.utils import secure_filename
 
@@ -71,6 +71,7 @@ FRAME_IDX   = "frame_index"
 STREAM      = "stream"
 
 # Define SocketIO Event
+SOCK        = "sock"
 IMG_EVENT   = "images"
 RES_EVENT   = "results"
 
@@ -114,9 +115,8 @@ VTS         = "vitis-ai"
 #     frame_base64 = base64.encodebytes(cv2.imencode(BASE64_EXT, frame)[1].tobytes()).decode(BASE64_DEC)
 #     # Send socketio to client
 #     socketio.emit(IMG_EVENT, frame_base64, namespace=namespace)
-    
 
-def stream_task(task_uuid, src, namespace, infer_function):
+def stream_task(task_uuid, src, namespace):
     '''
     Stream event: sending 'image' and 'result' to '/app/<uuid>/stream' via socketio
     
@@ -124,7 +124,6 @@ def stream_task(task_uuid, src, namespace, infer_function):
         - task_uuid
         - src
         - namespace
-        - infer_function
     '''
     
     # get all the ai inference objects
@@ -144,18 +143,22 @@ def stream_task(task_uuid, src, namespace, infer_function):
     src_name    = app.config[TASK][task_uuid][SOURCE]
     (src_hei, src_wid), src_fps = src.get_shape(), src.get_fps()
 
+    rtsp_url = f"rtsp://127.0.0.1:8554/{task_uuid}"
     gst_pipeline = 'appsrc is-live=true block=true format=GST_FORMAT_TIME ' + \
             f'caps=video/x-raw,format=BGR,width={src_wid},height={src_hei},framerate={src_fps}/1 ' + \
             ' ! videoconvert ! video/x-raw,format=I420 ' + \
             ' ! queue' + \
             ' ! x264enc bitrate=2048 speed-preset=0 key-int-max=15' + \
-            f' ! rtspclientsink location=rtsp://127.0.0.1:8554/{task_uuid}'
+            f' ! rtspclientsink location={rtsp_url}'
 
     out = cv2.VideoWriter(  gst_pipeline, cv2.CAP_GSTREAMER, 0, 
                             src_fps, (src_wid, src_hei), True )
 
+    logging.info('Gstreamer Pipeline: {}\n\n{}'.format(gst_pipeline, rtsp_url))
+
     if not out.isOpened():
         raise Exception("can't open video writer")
+
 
     # start looping
     try:
@@ -170,7 +173,8 @@ def stream_task(task_uuid, src, namespace, infer_function):
             t1 = time.time()
 
             # Get the frame from source
-            success, frame = src.read()            
+            success, frame = src.read()    
+            
             # Check frame
             if not success:
                 if src.get_type() == 'v4l2': break
@@ -184,8 +188,11 @@ def stream_task(task_uuid, src, namespace, infer_function):
             
             t2 = time.time()
 
+            # Copy frame for drawing
+            draw = frame.copy()
+
             # Start to Inference and update info
-            temp_info = app.config[TASK][task_uuid][API].inference( frame )
+            temp_info = trg.inference( frame )
 
             if(temp_info):
                 cur_info, cur_fps = temp_info, temp_fps
@@ -193,30 +200,24 @@ def stream_task(task_uuid, src, namespace, infer_function):
             t3 = time.time()
 
             # Draw something
-            if(cur_info):
-                frame, app_info = application(frame, cur_info)
+            if(temp_info):
+                draw, app_info = application(draw, cur_info)
             
             # Combine the return information
             ret_info            = copy.deepcopy(RET_INFO)
             ret_info[IDX]       = app.config[TASK][task_uuid][FRAME_IDX]
-            ret_info[DETS]      = info[DETS] if info is not None else None
+            ret_info[DETS]      = temp_info[DETS] if temp_info is not None else None
             ret_info[INFER]     = round((t3-t2)*1000, 3)
             ret_info[FPS]       = cur_fps
             ret_info[LIVE_TIME] = int((time.time() - app.config[TASK][task_uuid][START_TIME]))
-            ret_info[G_TEMP]    = ""
-            ret_info[G_LOAD]    = ""
 
             # Send RTSP
-            out.write(frame)
-
-            # Send Image to Web via SocketIO
-            # send_socketio(frame, socketio, namespace)
+            out.write(draw)
 
             # Send Information
-            # if(time.time() - temp_socket_time >= 1):
-            #     socketio.emit(RES_EVENT, get_pure_jsonify(ret_info, json_format=False), namespace=namespace)
-            #     temp_socket_time = time.time()
-            # socketio.sleep(0)
+            if(time.time() - temp_socket_time >= 1):                
+                app.config[SOCK] = { task_uuid: get_pure_jsonify(ret_info, json_format=False) }
+                temp_socket_time = time.time()
 
             # Delay to fix in 30 fps
             t_cost, t_expect = (time.time()-t1), (1/src_fps)
@@ -229,13 +230,19 @@ def stream_task(task_uuid, src, namespace, infer_function):
             if(temp_info):
                 temp_fps = int(1/(time.time()-t1))
 
-
         logging.info('Stop streaming')
 
     except Exception as e:
         err = handle_exception(e, "Stream Error")
         stop_task_thread(task_uuid, err)
         raise Exception(err)
+
+@sock.route(f'/{RES_EVENT}')
+def message(sock):
+    while(True):
+        ret = app.config[SOCK]
+        sock.send( json.dumps(ret) )
+        time.sleep(1)
 
 @bp_stream.route("/update_src/", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "update_src.yml"))
@@ -255,16 +262,21 @@ def update_src():
         # Update data information
         data[SOURCE]=file_path
 
-    # src = Source(
-    #     input_data = data[SOURCE], 
-    #     intype=data[SOURCE_TYPE]
-    # )
-    src = Pipeline( data[SOURCE], data[SOURCE_TYPE] )
-    src.start()
+    if data[SOURCE] in app.config[SRC]:
+        src = app.config[SRC][data[SOURCE]][OBJECT]
+        if src.t.is_alive():
+            ret = src.get_first_frame()
+        else:
+            src.start()
+            ret = src.get_first_frame()
+            src.stop()
+    else:
+        src = Pipeline( data[SOURCE], data[SOURCE_TYPE] )
+        src.start()
+        ret = src.get_first_frame()
+        src.release()
 
-    ret = frame2btye(src.get_first_frame())
-
-    return jsonify( ret )
+    return jsonify( frame2btye(ret) )
 
 @bp_stream.route("/task/<uuid>/get_frame")
 @swag_from("{}/{}".format(YAML_PATH, "get_frame.yml"))
@@ -282,16 +294,14 @@ def start_stream(uuid):
     [ logging.info(cnt) for cnt in [DIV, f'Start stream ... destination of socket event: "/task/{uuid}/stream"', DIV] ]
 
     # create stream object
-    do_inference = get_api()[1]
     if app.config[TASK][uuid][STREAM]==None:
         logging.info('Create a new stream thread')
         app.config[TASK][uuid][STREAM] = threading.Thread(
-            target=stream_task, 
-            args=(uuid, get_src(uuid), f'/task/{uuid}/stream', do_inference ), 
-            name=f"{uuid}",
+            target  = stream_task, 
+            args    = (uuid, get_src(uuid), f'/task/{uuid}/stream', ), 
+            name    = f"{uuid}",
+            daemon  = True
         )
-        app.config[TASK][uuid][STREAM].daemon = True
-        time.sleep(1)
 
     # check if thread is alive
     if app.config[TASK][uuid][STREAM].is_alive():
@@ -314,17 +324,16 @@ def start_stream(uuid):
 @swag_from("{}/{}".format(YAML_PATH, "stream_stop.yml"))
 def stop_stream(uuid):
     
-    if app.config[TASK][uuid][STATUS]!=ERROR:
-        # stop_src(uuid)
-        if app.config[TASK][uuid][STREAM]!=None:
-            # if app.config[TASK][uuid][STREAM].is_alive():
-            try:
-                
-                app.config[TASK][uuid][STREAM].join()
-                logging.warning('Stopped stream ...')
-            except Exception as e:
-                logging.warning(e)
+    if app.config[TASK][uuid][STATUS]==ERROR:
+        return jsonify('Stream Error ! '), 400
+        
+    if app.config[TASK][uuid][STREAM]!=None:
+        try:        
+            app.config[TASK][uuid][STREAM].join()
+            logging.warning('Stopped stream !')
+        except Exception as e:
+            logging.warning(e)
 
-        app.config[TASK][uuid][STREAM]=None
-        logging.warning('Clear Stream ...')
-        return jsonify('Stop stream success ! '), 200
+    app.config[TASK][uuid][STREAM]=None
+    logging.warning('Clear Stream ...')
+    return jsonify('Stop stream success ! '), 200

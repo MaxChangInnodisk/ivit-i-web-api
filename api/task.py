@@ -158,7 +158,7 @@ def run_task(uuid):
     temp_config = copy.deepcopy(current_app.config[TASK][uuid][CONFIG]) 
     
     # get ai objects
-    init_ai_model = get_api()[0]
+    init_ai_model = get_api()
     
     # only pose estimation in openvino have to input a frame
     is_openvino = (current_app.config[TASK][uuid][FRAMEWORK]==OV)
