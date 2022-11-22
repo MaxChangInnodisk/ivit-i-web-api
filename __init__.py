@@ -5,7 +5,6 @@ import os, sys, json, logging
 from flask import Flask, Blueprint
 
 # Flask - SocketIO
-# from flask_socketio import SocketIO
 from flask_sock import Sock
 
 # Web API Document for Flask
@@ -13,10 +12,6 @@ from flasgger import Swagger
 
 # flask, Corss-Origin Resource Sharing, avoid "No 'Access-Control-Allow-Origin' header"
 from flask_cors import CORS as cors
-
-# green flask and application
-# import eventlet
-# eventlet.monkey_patch()
 
 # Import Custom Module
 from .tools.logger import config_logger
@@ -122,7 +117,6 @@ swagger = Swagger(app)
 cors(app)                                                       
 
 # Define Socket
-# socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins='*')
 sock  = Sock(app)
 
 # Define MQTT For iCAP 
