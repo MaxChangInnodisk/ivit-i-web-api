@@ -1,4 +1,6 @@
 import sys, os, time, copy, logging
+from ivit_i.utils.err_handler import handle_exception
+
 sys.path.append(os.getcwd())
 # try:
 #     from ivit_i.utils import Draw as vino_draw
@@ -25,8 +27,9 @@ def vino_init(prim_conf, first_frame=None):
         # draw = vino_draw()
         
     except Exception as e:
-        trg = e
-        print('\n\n', e)
+        msg = handle_exception(e)
+        logging.error(msg)
+        raise Exception(e)
 
     return trg
 
