@@ -167,7 +167,7 @@ def run_task(uuid):
         
     current_app.config[TASK][uuid][API] = init_ai_model(temp_config, input_frame)
     
-    # send socketio and update current_app.config
+    # send info to web and update current_app.config
     current_app.config[TASK][uuid][STATUS] = RUN
     
     # set initialize time

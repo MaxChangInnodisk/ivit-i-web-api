@@ -25,7 +25,7 @@ ICO         = "favicon.ico"
 
 def create_app():
     
-    from . import app, socketio, mqtt
+    from . import app, sock, mqtt
 
     # create basic folder
     for path in ["TEMP_PATH", "DATA"]:
@@ -138,13 +138,14 @@ def create_app():
                 logging.error("Got error: {}".format(resp))
 
     logging.info("Finish Initializing.")
-    return app, socketio
+    return app, sock
 
 if __name__ == "__main__":
     
-    app, socketio = create_app()
-    socketio.run(app, host=app.config['HOST'], port=app.config['PORT'], debug=app.config['DEBUG'])
+    app, sock = create_app()
+    # sock.run(app, host=app.config['HOST'], port=app.config['PORT'], debug=app.config['DEBUG'])
+    app.run(host=app.config['HOST'], port=app.config['PORT'], debug=app.config['DEBUG'])
 
 else:
     # export IVIT_I=/workspace/ivit-i.json
-    app, socketio = create_app()
+    app, sock = create_app()

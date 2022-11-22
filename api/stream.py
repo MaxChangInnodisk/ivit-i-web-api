@@ -6,7 +6,10 @@ from werkzeug.utils import secure_filename
 sys.path.append("/workspace")
 
 # Load Module from `web/api`
-from .common import frame2btye, get_src, stop_src, socketio, app, stop_task_thread
+# from .common import frame2btye, get_src, stop_src, socketio, app, stop_task_thread
+from .common import frame2btye, get_src, stop_src, stop_task_thread
+from .common import sock, app
+
 from ..tools.handler import get_tasks
 from ..tools.parser import get_pure_jsonify
 from ..ai.get_api import get_api
@@ -106,6 +109,13 @@ OV          = "openvino"
 XLNX        = "xilinx"
 VTS         = "vitis-ai"
 
+# def send_socketio(frame, socketio, namespace):
+#     # Convert to base64 format
+#     frame_base64 = base64.encodebytes(cv2.imencode(BASE64_EXT, frame)[1].tobytes()).decode(BASE64_DEC)
+#     # Send socketio to client
+#     socketio.emit(IMG_EVENT, frame_base64, namespace=namespace)
+    
+
 def stream_task(task_uuid, src, namespace, infer_function):
     '''
     Stream event: sending 'image' and 'result' to '/app/<uuid>/stream' via socketio
@@ -199,23 +209,20 @@ def stream_task(task_uuid, src, namespace, infer_function):
             # Send RTSP
             out.write(frame)
 
-            # # Convert to base64 format
-            # frame_base64 = base64.encodebytes(cv2.imencode(BASE64_EXT, frame)[1].tobytes()).decode(BASE64_DEC)
-            # Send socketio to client
-            # socketio.emit(IMG_EVENT, frame_base64, namespace=namespace)
+            # Send Image to Web via SocketIO
+            # send_socketio(frame, socketio, namespace)
 
-            if(time.time() - temp_socket_time >= 1):
-                socketio.emit(RES_EVENT, get_pure_jsonify(ret_info, json_format=False), namespace=namespace)
-                temp_socket_time = time.time()
-            socketio.sleep(0)
+            # Send Information
+            # if(time.time() - temp_socket_time >= 1):
+            #     socketio.emit(RES_EVENT, get_pure_jsonify(ret_info, json_format=False), namespace=namespace)
+            #     temp_socket_time = time.time()
+            # socketio.sleep(0)
 
             # Delay to fix in 30 fps
             t_cost, t_expect = (time.time()-t1), (1/src_fps)
             if(t_cost<t_expect):
                 time.sleep(t_expect-t_cost)
-                # socketio.sleep(t_expect-t_cost)
             
-                
             # Update Live Time and FPS
             app.config[TASK][task_uuid][LIVE_TIME] = int((time.time() - app.config[TASK][task_uuid][START_TIME]))
             
@@ -272,7 +279,7 @@ def get_first_frame(uuid):
 @swag_from("{}/{}".format(YAML_PATH, "stream_start.yml"))
 def start_stream(uuid):      
 
-    [ logging.info(cnt) for cnt in [DIV, f'Start stream ... destination of socketio event: "/task/{uuid}/stream"', DIV] ]
+    [ logging.info(cnt) for cnt in [DIV, f'Start stream ... destination of socket event: "/task/{uuid}/stream"', DIV] ]
 
     # create stream object
     do_inference = get_api()[1]
