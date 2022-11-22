@@ -71,7 +71,7 @@ FRAME_IDX   = "frame_index"
 STREAM      = "stream"
 
 # Define SocketIO Event
-SOCK        = "sock"
+SOCK        = "SOCK"
 IMG_EVENT   = "images"
 RES_EVENT   = "results"
 
@@ -216,7 +216,7 @@ def stream_task(task_uuid, src, namespace):
 
             # Send Information
             if(time.time() - temp_socket_time >= 1):                
-                app.config[SOCK] = { task_uuid: get_pure_jsonify(ret_info, json_format=False) }
+                app.config[SOCK].update({ task_uuid: get_pure_jsonify(ret_info, json_format=False) })
                 temp_socket_time = time.time()
 
             # Delay to fix in 30 fps
