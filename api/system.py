@@ -35,18 +35,22 @@ def web_v4l2():
 def web_device_info():
     """ Get available devices """
     ret = None
+    try:
+        from ..tools.common import get_devcie_info
+        logging.warning('using get_device_info')
+        ret = get_devcie_info()
+    except:
+        if current_app.config[PLATFORM] == NV:
+            from ..tools.common import get_nv_info
+            ret = get_nv_info()
+            
+        elif current_app.config[PLATFORM] == INTEL:
+            from ..tools.common import get_intel_info
+            ret = get_intel_info()
 
-    if current_app.config[PLATFORM] == NV:
-        from ..tools.common import get_nv_info
-        ret = get_nv_info()
-        
-    elif current_app.config[PLATFORM] == INTEL:
-        from ..tools.common import get_intel_info
-        ret = get_intel_info()
-
-    elif current_app.config[PLATFORM] == XLNX:
-        from ..tools.common import get_xlnx_info
-        ret = get_xlnx_info()
+        elif current_app.config[PLATFORM] == XLNX:
+            from ..tools.common import get_xlnx_info
+            ret = get_xlnx_info()
 
     return jsonify(ret)
 

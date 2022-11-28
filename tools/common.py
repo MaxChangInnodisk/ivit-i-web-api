@@ -3,6 +3,16 @@ import uuid, sys, traceback
 import subprocess as sp
 import socket
 
+def get_devcie_info():
+    ret  = {}
+    try:
+        from ivit_i.utils.devices import get_device_info as get_info
+        ret.update(get_info())
+    except Exception as e:
+        raise Exception(handle_exception(e))
+
+    return ret 
+
 def get_nv_info():
     ret  = {
         "GPU": {
