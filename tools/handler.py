@@ -545,7 +545,7 @@ def get_config_template(task_tag):
 
 def copy_model_event(src_model_path, task_model_path):
     
-    logging.info('Copy Model Event')
+    logging.info('Copy Model Event: From {} to {}'.format(src_model_path, task_model_path))
 
     os.rename( src_model_path, task_model_path )
     
