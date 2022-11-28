@@ -116,6 +116,22 @@ VTS         = "vitis-ai"
 #     # Send socketio to client
 #     socketio.emit(IMG_EVENT, frame_base64, namespace=namespace)
 
+def define_gst_pipeline(src_wid, src_hei, src_fps, rtsp_url, platform='intel'):
+    base = 'appsrc is-live=true block=true format=GST_FORMAT_TIME ' + \
+            f'caps=video/x-raw,format=BGR,width={src_wid},height={src_hei},framerate={src_fps}/1 ' + \
+            ' ! videoconvert ! video/x-raw,format=I420 ' + \
+            ' ! queue' + \
+            ' ! x264enc bitrate=2048 speed-preset=0 key-int-max=15' + \
+            f' ! rtspclientsink location={rtsp_url}'
+
+    maps = {
+        'intel': base,
+        'nvidia': base,
+        'jetson': base
+    }
+    
+    return maps.get(platform)
+
 def stream_task(task_uuid, src, namespace):
     '''
     Stream event: sending 'image' and 'result' to '/app/<uuid>/stream' via socketio
@@ -143,12 +159,10 @@ def stream_task(task_uuid, src, namespace):
     (src_hei, src_wid), src_fps = src.get_shape(), src.get_fps()
 
     rtsp_url = f"rtsp://127.0.0.1:8554/{task_uuid}"
-    gst_pipeline = 'appsrc is-live=true block=true format=GST_FORMAT_TIME ' + \
-            f'caps=video/x-raw,format=BGR,width={src_wid},height={src_hei},framerate={src_fps}/1 ' + \
-            ' ! videoconvert ! video/x-raw,format=I420 ' + \
-            ' ! queue' + \
-            ' ! x264enc bitrate=2048 speed-preset=0 key-int-max=15' + \
-            f' ! rtspclientsink location={rtsp_url}'
+
+    gst_pipeline = define_gst_pipeline(
+        src_wid, src_hei, src_fps, rtsp_url
+    )
 
     out = cv2.VideoWriter(  gst_pipeline, cv2.CAP_GSTREAMER, 0, 
                             src_fps, (src_wid, src_hei), True )
@@ -202,6 +216,9 @@ def stream_task(task_uuid, src, namespace):
             if(temp_info):
                 draw, app_info = application(draw, cur_info)
             
+            # Send RTSP
+            out.write(draw)
+
             # Combine the return information
             ret_info            = copy.deepcopy(RET_INFO)
             ret_info[IDX]       = app.config[TASK][task_uuid][FRAME_IDX]
@@ -209,9 +226,6 @@ def stream_task(task_uuid, src, namespace):
             ret_info[INFER]     = round((t3-t2)*1000, 3)
             ret_info[FPS]       = cur_fps
             ret_info[LIVE_TIME] = int((time.time() - app.config[TASK][task_uuid][START_TIME]))
-
-            # Send RTSP
-            out.write(draw)
 
             # Send Information
             if(time.time() - temp_socket_time >= 1):                
@@ -235,6 +249,10 @@ def stream_task(task_uuid, src, namespace):
         err = handle_exception(e, "Stream Error")
         stop_task_thread(task_uuid, err)
         raise Exception(err)
+    
+    finally:
+        trg.release()
+        out.releaes()
 
 @sock.route(f'/{RES_EVENT}')
 def message(sock):
