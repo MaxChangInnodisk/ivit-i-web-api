@@ -1,25 +1,20 @@
 import cv2, time, logging, base64, threading, os, copy, sys, json
 from flask import Blueprint, abort, jsonify, app, request
 from werkzeug.utils import secure_filename
-
-# Get Application Module From iVIT-I
-sys.path.append("/workspace")
+from flasgger import swag_from
 
 # Load Module from `web/api`
-# from .common import frame2btye, get_src, stop_src, socketio, app, stop_task_thread
 from .common import frame2btye, get_src, stop_src, stop_task_thread
 from .common import sock, app
-
 from ..tools.handler import get_tasks
 from ..tools.parser import get_pure_jsonify
 from ..ai.get_api import get_api
 
+# Get Application Module From iVIT-I
+sys.path.append(os.getcwd())
 from ivit_i.common.pipeline import Source, Pipeline
-from ivit_i.utils import handle_exception
-
+from ivit_i.utils.err_handler import handle_exception
 from ivit_i.app.handler import get_application
-from flasgger import swag_from
-
 
 # Define API Docs yaml
 YAML_PATH   = ""
@@ -129,7 +124,7 @@ def define_gst_pipeline(src_wid, src_hei, src_fps, rtsp_url, platform='intel'):
         'nvidia': base,
         'jetson': base
     }
-    
+
     return maps.get(platform)
 
 def stream_task(task_uuid, src, namespace):
@@ -151,6 +146,7 @@ def stream_task(task_uuid, src, namespace):
     
     # deep copy the config to avoid changing the old one when do inference
     temp_model_conf = copy.deepcopy(model_conf)
+
     # Get application executable function if has application
     application = get_application(temp_model_conf)
     
@@ -171,7 +167,6 @@ def stream_task(task_uuid, src, namespace):
 
     if not out.isOpened():
         raise Exception("can't open video writer")
-
 
     # start looping
     try:
@@ -220,12 +215,19 @@ def stream_task(task_uuid, src, namespace):
             out.write(draw)
 
             # Combine the return information
-            ret_info            = copy.deepcopy(RET_INFO)
-            ret_info[IDX]       = app.config[TASK][task_uuid][FRAME_IDX]
-            ret_info[DETS]      = temp_info[DETS] if temp_info is not None else None
-            ret_info[INFER]     = round((t3-t2)*1000, 3)
-            ret_info[FPS]       = cur_fps
-            ret_info[LIVE_TIME] = int((time.time() - app.config[TASK][task_uuid][START_TIME]))
+            ret_info = {
+                IDX         : app.config[TASK][task_uuid][FRAME_IDX],
+                DETS        : temp_info[DETS] if temp_info is not None else None,
+                INFER       : round((t3-t2)*1000, 3),
+                FPS         : cur_fps,
+                LIVE_TIME   : int((time.time() - app.config[TASK][task_uuid][START_TIME])),
+            }
+            # ret_info            = copy.deepcopy(RET_INFO)
+            # ret_info[IDX]       = app.config[TASK][task_uuid][FRAME_IDX]
+            # ret_info[DETS]      = temp_info[DETS] if temp_info is not None else None
+            # ret_info[INFER]     = round((t3-t2)*1000, 3)
+            # ret_info[FPS]       = cur_fps
+            # ret_info[LIVE_TIME] = int((time.time() - app.config[TASK][task_uuid][START_TIME]))
 
             # Send Information
             if(time.time() - temp_socket_time >= 1):                
