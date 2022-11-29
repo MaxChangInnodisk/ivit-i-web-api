@@ -327,11 +327,11 @@ def modify_task_json(src_uuid:str, task_name:str, form:dict, need_copy:bool=Fals
         # Update model information
         logging.debug('Update information in {}'.format(model_cfg_path))
         for key, val in model_cfg[af].items():
-            if key in ['model_path', 'label_path']: 
-                if model_cfg["tag"]=='pose' and key=="label_path":
-                    pass
-                else:
-                    model_cfg[af][key] = val.replace(src_an, task_name, 1) 
+            # if key in ['model_path', 'label_path']: 
+            #     if model_cfg["tag"]=='pose' and key=="label_path":
+            #         pass
+            #     else:
+            #         model_cfg[af][key] = val.replace(src_an, task_name, 1) 
             if key in ['device', 'thres']:
                 model_cfg[af][key] = form[key]  
             logging.debug(f' - update ({key}): {val} -> { model_cfg[af][key] if key in model_cfg[af] else val}')
