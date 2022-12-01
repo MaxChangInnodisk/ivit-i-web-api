@@ -21,7 +21,7 @@ def vitis_init(prim_conf, first_frame=None):
         draw = vitis_draw()
         palette = get_palette(prim_conf)
 
-        trg.init_model()
+        trg.load_model()
 
         runtime, palette = "Temp", palette
     
