@@ -116,7 +116,7 @@ def define_gst_pipeline(src_wid, src_hei, src_fps, rtsp_url, platform='intel'):
             f'caps=video/x-raw,format=BGR,width={src_wid},height={src_hei},framerate={src_fps}/1 ' + \
             ' ! videoconvert ! video/x-raw,format=I420 ' + \
             ' ! queue' + \
-            ' ! x264enc bitrate=2048 speed-preset=0 key-int-max=15' + \
+            ' ! x264enc bitrate=4096 speed-preset=0 key-int-max=20' + \
             f' ! rtspclientsink location={rtsp_url}'
 
     maps = {
@@ -208,7 +208,7 @@ def stream_task(task_uuid, src, namespace):
             t3 = time.time()
 
             # Draw something
-            if(temp_info):
+            if(cur_info):
                 draw, app_info = application(draw, cur_info)
             
             # Send RTSP
