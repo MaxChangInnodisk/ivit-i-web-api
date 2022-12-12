@@ -357,7 +357,7 @@ def get_tasks(need_reset=False) -> list:
             try:
                 task_status, task_uuid, task_info = init_tasks(task, index=idx)
             except Exception as e:
-                raise Exception(e)
+                raise Exception(handle_exception(e))
 
     try:
         for task_uuid in current_app.config['UUID']:
