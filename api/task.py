@@ -4,14 +4,14 @@ from flasgger import swag_from
 from ivit_i.web.api.stream import FAIL_CODE
 
 # From /ivit_i/web/api
-from .common import get_src, stop_src
+from ivit_i.web.api.common import get_src, stop_src
 
 # From /ivit_i/web
-from ..tools.parser import get_pure_jsonify
-from ..tools.handler import get_tasks
-from ..tools.parser import get_pure_jsonify
+from ivit_i.web.tools.parser import get_pure_jsonify
+from ivit_i.web.tools.handler import get_tasks
+from ivit_i.web.tools.parser import get_pure_jsonify
 from ivit_i.utils.err_handler import handle_exception
-from ..ai.get_api import get_api
+from ivit_i.web.ai.get_api import get_api
 
 YAML_PATH   = "/workspace/ivit_i/web/docs/task"
 BP_NAME     = 'task'
