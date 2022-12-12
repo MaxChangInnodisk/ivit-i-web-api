@@ -42,7 +42,7 @@ TYPE        = "type"
 PROC        = "proc"
 
 # Define Key which declared in each task
-FRAMEWORK   = "framework"
+AF = FRAMEWORK   = "framework"
 CONFIG      = "config"
 LABEL_PATH  = "label_path"
 APPLICATION = "application"
@@ -98,6 +98,7 @@ PASS_CODE   = 200
 FAIL_CODE   = 400
 
 # Brand & Framework Info
+PLATFORM    = "PLATFORM"
 NV          = "nvidia"
 TRT         = "tensorrt"
 INTEL       = "intel"
@@ -119,12 +120,22 @@ def define_gst_pipeline(src_wid, src_hei, src_fps, rtsp_url, platform='intel'):
             ' ! x264enc bitrate=4096 speed-preset=0 key-int-max=20' + \
             f' ! rtspclientsink location={rtsp_url}'
 
+    xlnx =  'videomixer name=mix sink_0::xpos=0 sink_0::ypos=0 ! omxh264enc prefetch-buffer=true ' + \
+            'control-rate=2 target-bitrate=3000 filler-data=false constrained-intra-prediction=true ' + \
+            'periodicity-idr=120 gop-mode=low-delay-p aspect-ratio=3 low-bandwidth=true default-roi-quality=4 ' + \
+            '! video/x-h264,alignment=au ' + \
+            f'! rtspclientsink location={rtsp_url} ' + \
+            'appsrc ' + \
+            f'caps=video/x-raw,format=BGR,width={src_wid},height={src_hei},framerate={src_fps}/1 ' + \
+            '! videoconvert ! mix.sink_0'
+
     maps = {
         'intel': base,
         'nvidia': base,
-        'jetson': base
+        'jetson': base,
+        'xilinx': xlnx
     }
-
+    logging.info(f'Parse {platform} Gstreamer Pipeline ')
     return maps.get(platform)
 
 def stream_task(task_uuid, src, namespace):
@@ -143,7 +154,8 @@ def stream_task(task_uuid, src, namespace):
     trg             = app.config[TASK][task_uuid][API]
     runtime         = app.config[TASK][task_uuid][RUNTIME]
     draw            = app.config[TASK][task_uuid][DRAW_TOOLS]
-    
+    platform        = app.config[PLATFORM]
+
     # deep copy the config to avoid changing the old one when do inference
     temp_model_conf = copy.deepcopy(model_conf)
 
@@ -154,10 +166,10 @@ def stream_task(task_uuid, src, namespace):
     src_name    = app.config[TASK][task_uuid][SOURCE]
     (src_hei, src_wid), src_fps = src.get_shape(), src.get_fps()
 
-    rtsp_url = f"rtsp://127.0.0.1:8554/{task_uuid}"
+    rtsp_url = f"rtsp://localhost:8554/{task_uuid}"
 
     gst_pipeline = define_gst_pipeline(
-        src_wid, src_hei, src_fps, rtsp_url
+        src_wid, src_hei, src_fps, rtsp_url, platform
     )
 
     out = cv2.VideoWriter(  gst_pipeline, cv2.CAP_GSTREAMER, 0, 
@@ -216,28 +228,21 @@ def stream_task(task_uuid, src, namespace):
 
             # Combine the return information
             ret_info = {
-                IDX         : app.config[TASK][task_uuid][FRAME_IDX],
+                IDX         : int(app.config[TASK][task_uuid][FRAME_IDX]),
                 DETS        : temp_info[DETS] if temp_info is not None else None,
                 INFER       : round((t3-t2)*1000, 3),
                 FPS         : cur_fps,
-                LIVE_TIME   : int((time.time() - app.config[TASK][task_uuid][START_TIME])),
+                LIVE_TIME   : round((time.time() - app.config[TASK][task_uuid][START_TIME]), 5),
             }
-            # ret_info            = copy.deepcopy(RET_INFO)
-            # ret_info[IDX]       = app.config[TASK][task_uuid][FRAME_IDX]
-            # ret_info[DETS]      = temp_info[DETS] if temp_info is not None else None
-            # ret_info[INFER]     = round((t3-t2)*1000, 3)
-            # ret_info[FPS]       = cur_fps
-            # ret_info[LIVE_TIME] = int((time.time() - app.config[TASK][task_uuid][START_TIME]))
-
             # Send Information
             if(time.time() - temp_socket_time >= 1):                
-                app.config[SOCK].update({ task_uuid: get_pure_jsonify(ret_info, json_format=False) })
+                app.config[SOCK].update({ task_uuid: json.dumps(get_pure_jsonify(ret_info)) })
                 temp_socket_time = time.time()
 
             # Delay to fix in 30 fps
             t_cost, t_expect = (time.time()-t1), (1/src_fps)
-            if(t_cost<t_expect):
-                time.sleep(t_expect-t_cost)
+            
+            time.sleep(t_expect-t_cost if(t_cost<t_expect) else 1e-5)
             
             # Update Live Time and FPS
             app.config[TASK][task_uuid][LIVE_TIME] = int((time.time() - app.config[TASK][task_uuid][START_TIME]))
@@ -254,7 +259,7 @@ def stream_task(task_uuid, src, namespace):
     
     finally:
         trg.release()
-        out.releaes()
+        # out.releaes()
 
 @sock.route(f'/{RES_EVENT}')
 def message(sock):
