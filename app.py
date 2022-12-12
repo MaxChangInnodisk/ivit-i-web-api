@@ -3,7 +3,6 @@ from flask import jsonify, request
 
 # ivit_i 
 sys.path.append(os.getcwd())
-
 from ivit_i.web.api.system import bp_system
 from ivit_i.web.api.task import bp_tasks
 from ivit_i.web.api.operator import bp_operators
@@ -12,9 +11,9 @@ from ivit_i.web.api.stream import bp_stream
 
 from ivit_i.utils import handle_exception
 
-from .tools.parser import get_pure_jsonify
-from .tools.handler import get_tasks
-from .tools.thingsboard import get_api, post_api
+from ivit_i.web.tools.parser import get_pure_jsonify
+from ivit_i.web.tools.handler import get_tasks
+from ivit_i.web.tools.thingsboard import get_api, post_api
 
 DIV         = "*" * 20
 TASK        = "TASK"
@@ -25,7 +24,7 @@ ICO         = "favicon.ico"
 
 def create_app():
     
-    from . import app, sock, mqtt
+    from ivit_i.web import app, sock, mqtt
 
     # create basic folder
     for path in ["TEMP_PATH", "DATA"]:
