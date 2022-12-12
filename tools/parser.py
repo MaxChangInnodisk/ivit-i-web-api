@@ -2,6 +2,7 @@ import os, logging, json
 from typing import Tuple
 from flask import current_app, request
 import numpy as np
+from ivit_i.utils.err_handler import handle_exception
 
 DIV = "-"*3 + "\n"
 FRAMEWORK_LIST = ['tensorrt', 'openvino' ]
@@ -39,56 +40,59 @@ def parse_task_info(path:str, pure_content:bool=False) -> Tuple[bool, tuple, str
     ret, task_cfg_path, model_cfg_path, task_cfg, model_cfg, err = False, None, None, None, None, ""
     
     # get the configuration path
-    task_cfg_path = os.path.join( os.path.join(current_app.config["TASK_ROOT"], path), current_app.config["TASK_CFG_NAME"])
-    
-    # checking the application path
-    if os.path.exists(task_cfg_path):
+    try:
+        task_cfg_path = os.path.join( os.path.join(current_app.config["TASK_ROOT"], path), current_app.config["TASK_CFG_NAME"])
         
-        task_cfg = load_json(task_cfg_path)
-        framework = task_cfg["framework"]
-        logging.debug(task_cfg)
-        if task_cfg=="":
-            logging.error("Configuration Error, please check again ...")
+        # checking the application path
+        if os.path.exists(task_cfg_path):
+            
+            task_cfg = load_json(task_cfg_path)
+            framework = task_cfg["framework"]
+            logging.debug(task_cfg)
+            if task_cfg=="":
+                logging.error("Configuration Error, please check again ...")
 
-        # capturing the model config path
-        if "prim" in task_cfg.keys():
-            model_cfg_path = task_cfg["prim"]["model_json"] if "model_json" in task_cfg["prim"] else None
-        else:
-            model_cfg_path = task_cfg["model_json"] if "model_json" in task_cfg else None
-        if model_cfg_path != None:
+            # capturing the model config path
+            if "prim" in task_cfg.keys():
+                model_cfg_path = task_cfg["prim"]["model_json"] if "model_json" in task_cfg["prim"] else None
+            else:
+                model_cfg_path = task_cfg["model_json"] if "model_json" in task_cfg else None
+            if model_cfg_path != None:
 
-            # cheching the model config path
-            if os.path.exists(model_cfg_path):
-                model_cfg = load_json(model_cfg_path)
-                
-                # the python api have to merge each config
-                if not pure_content:
-                    model_cfg.update(task_cfg)
-                
-                # checking the model path
-                if "model_path" in model_cfg[framework]:
+                # cheching the model config path
+                if os.path.exists(model_cfg_path):
+                    model_cfg = load_json(model_cfg_path)
                     
-                    if os.path.exists(model_cfg[framework]["model_path"]):
+                    # the python api have to merge each config
+                    if not pure_content:
+                        model_cfg.update(task_cfg)
+                    
+                    # checking the model path
+                    if "model_path" in model_cfg[framework]:
                         
-                        # checking the label path
-                        if special_situation(model_cfg):
-                            ret=True
-                        else:
-                            if os.path.exists(model_cfg[framework]["label_path"]):
+                        if os.path.exists(model_cfg[framework]["model_path"]):
+                            
+                            # checking the label path
+                            if special_situation(model_cfg):
                                 ret=True
                             else:
-                                err = "Could not find the path to label ({})".format(model_cfg['label_path'])
+                                if os.path.exists(model_cfg[framework]["label_path"]):
+                                    ret=True
+                                else:
+                                    err = "Could not find the path to label ({})".format(model_cfg['label_path'])
+                        else:
+                            err = "Could not find the path to model ({})".format(model_cfg[framework]['model_path']) 
                     else:
-                        err = "Could not find the path to model ({})".format(model_cfg[framework]['model_path']) 
+                        err = "Could not find the key of the model_path"
                 else:
-                    err = "Could not find the key of the model_path"
+                    err = "Could not find the model configuration's path ({})".format(model_cfg_path)
             else:
-                err = "Could not find the model configuration's path ({})".format(model_cfg_path)
+                err = "Could not find the key of the model configuration ({})".format("model_path")    
         else:
-            err = "Could not find the key of the model configuration ({})".format("model_path")    
-    else:
-        err = "Could not find the path to application's configuration ({})".format(task_cfg_path)
-    
+            err = "Could not find the path to application's configuration ({})".format(task_cfg_path)
+    except Exception as e:
+        err = handle_exception(e)
+
     if err != "": logging.error(err)
     return ret, (task_cfg_path, model_cfg_path, task_cfg, model_cfg), err
 
