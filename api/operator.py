@@ -51,8 +51,8 @@ DARK_JSON_EXT   = CLS_JSON_EXT  = ".json"       # json is for basic information 
 DARK_MODEL_EXT  = ".weights"    
 DARK_CFG_EXT    = ".cfg"
 CLS_MODEL_EXT   = ".onnx"
-IR_MODEL_EXT    = ".xml"
-IR_MODEL_EXTS   = [ ".bin", ".mapping", ".xml" ]
+IR_MODEL_EXT    = ".xmodel"
+IR_MODEL_EXTS   = [ ".bin", ".mapping", ".xml", ".xmodel" ]
 
 # Return Pattern when ZIP file is extracted
 NAME            = "name"
@@ -181,28 +181,29 @@ def parse_info_from_zip( zip_path ):
         
         fpath = os.path.join(task_path, fname)
         name, ext = os.path.splitext(fpath)
+        logging.debug('Current File: {}'.format(fpath))
 
         if ext in [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXT ]:
-            logging.debug("Detected {}: {}".format("Model", fpath))
+            logging.info("Detected {}: {}".format("Model", fpath))
             org_model_path = fpath
 
         elif ext in [ DARK_LABEL_EXT, CLS_LABEL_EXT ]:
-            logging.debug("Detected {}: {}".format("Label", fpath))
+            logging.info("Detected {}: {}".format("Label", fpath))
             trg_label_path = fpath
         
         elif ext in [ DARK_JSON_EXT, CLS_JSON_EXT ]:
-            logging.debug("Detected {}: {}".format("JSON", fpath))
+            logging.info("Detected {}: {}".format("JSON", fpath))
             trg_json_path = fpath
             
             # update tag name via json file name 
             trg_tag = mapping_table[name.split('/')[-1]]
             
         elif ext in [ DARK_CFG_EXT ]:
-            logging.debug("Detected {}: {}".format("Config", fpath))
+            logging.info("Detected {}: {}".format("Config", fpath))
             trg_cfg_path = fpath
 
         else:
-            logging.debug("Detected {}: {}".format("Meta Data", fpath))
+            logging.info("Detected {}: {}".format("Meta Data", fpath))
 
     # Double check model file
     if not check_ir_models(org_model_path):
@@ -365,9 +366,13 @@ def import_process_default_event():
     try:        
         ret = {}
         for key in list(current_app.config[IMPORT_PROC].keys()):
+            cur_proc = current_app.config[IMPORT_PROC][key].get('proc')
+            cur_proc_mod = None if cur_proc is None else cur_proc.__module__
+            cur_proc_inf = current_app.config[IMPORT_PROC][key].get('info')
+
             ret.update({ key: {
-                'proc': current_app.config[IMPORT_PROC][key]['proc'].__module__,
-                'info': current_app.config[IMPORT_PROC][key]['info']
+                'proc': cur_proc_mod,
+                'info': cur_proc_inf
             } })
             
         message = get_pure_jsonify( ret )    
