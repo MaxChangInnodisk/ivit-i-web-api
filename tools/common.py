@@ -3,6 +3,8 @@ import uuid, sys, traceback
 import subprocess as sp
 import socket
 
+from ivit_i.utils.err_handler import handle_exception
+
 def get_devcie_info():
     ret  = {}
     try:
@@ -133,28 +135,3 @@ def get_v4l2() -> list:
         ret_message = "Camera not found"
 
     return ret_status, ret_message
-
-def handle_exception(error, title="Error", exit=False):
-    
-    # Get Error Class ( type )
-    error_class = error.__class__.__name__ 
-    
-    # Get Detail
-    detail = error.args[0] 
-
-    # Get Call Stack
-    cl, exc, tb = sys.exc_info() 
-
-    # Last Data of Call Stack
-    last_call_stack = traceback.extract_tb(tb)[-1] 
-
-    # Parse Call Stack and Combine Error Message
-    file_name = last_call_stack[0] 
-    line_num = last_call_stack[1] 
-    func_name = last_call_stack[2] 
-    err_msg = "{} \nFile \"{}\", line {}, in {}: [{}] {}".format(title, file_name, line_num, func_name, error_class, detail)
-    
-    logging.error(err_msg)
-    if exit: sys.exit()
-
-    return err_msg
