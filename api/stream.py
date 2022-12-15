@@ -65,8 +65,8 @@ PALETTE     = "palette"
 FRAME_IDX   = "frame_index"
 STREAM      = "stream"
 
-# Define SocketIO Event
-SOCK_POOL        = "SOCK_POOL"
+# Define Socket Event
+SOCK_POOL   = "SOCK_POOL"
 IMG_EVENT   = "images"
 RES_EVENT   = "results"
 
@@ -262,6 +262,7 @@ def stream_task(task_uuid, src, namespace):
         trg.release()
         # out.releaes()
 
+# Define Sock Event
 @sock.route(f'/{RES_EVENT}')
 def message(sock):
     while(True):
