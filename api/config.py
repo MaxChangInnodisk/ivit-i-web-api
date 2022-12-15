@@ -11,7 +11,7 @@ class config(object):
     SRC             = dict()
     ALLOWED_HOSTS   = ['*']
     RE_SRC          = '0'
-    SOCK            = dict()
+    SOCK_POOL            = dict()
 
     MQTT_BROKER_URL = ""
     MQTT_USERNAME   = ""

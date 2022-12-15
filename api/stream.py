@@ -66,7 +66,7 @@ FRAME_IDX   = "frame_index"
 STREAM      = "stream"
 
 # Define SocketIO Event
-SOCK        = "SOCK"
+SOCK_POOL        = "SOCK_POOL"
 IMG_EVENT   = "images"
 RES_EVENT   = "results"
 
@@ -148,37 +148,38 @@ def stream_task(task_uuid, src, namespace):
         - namespace
     '''
     
-    # get all the ai inference objects
+    # Prepare Parameters
     ret_info, info  = dict(), None
     model_conf      = app.config[TASK][task_uuid][CONFIG]
     trg             = app.config[TASK][task_uuid][API]
     runtime         = app.config[TASK][task_uuid][RUNTIME]
     draw            = app.config[TASK][task_uuid][DRAW_TOOLS]
     platform        = app.config[PLATFORM]
-
-    # deep copy the config to avoid changing the old one when do inference
+    
     temp_model_conf = copy.deepcopy(model_conf)
 
     # Get application executable function if has application
     application = get_application(temp_model_conf)
-    
+
+    # Async Mode
+    trg.set_async_mode()
+
     # Define RTSP pipeline
     src_name    = app.config[TASK][task_uuid][SOURCE]
     (src_hei, src_wid), src_fps = src.get_shape(), src.get_fps()
 
+    # Define RTSP
     rtsp_url = f"rtsp://localhost:8554/{task_uuid}"
-
     gst_pipeline = define_gst_pipeline(
         src_wid, src_hei, src_fps, rtsp_url, platform
     )
-
     out = cv2.VideoWriter(  gst_pipeline, cv2.CAP_GSTREAMER, 0, 
                             src_fps, (src_wid, src_hei), True )
 
     logging.info('Gstreamer Pipeline: {}\n\n{}'.format(gst_pipeline, rtsp_url))
 
-    if not out.isOpened():
-        raise Exception("can't open video writer")
+    # if not out.isOpened():
+    #     raise Exception("can't open video writer")
 
     # start looping
     try:
@@ -236,7 +237,7 @@ def stream_task(task_uuid, src, namespace):
             }
             # Send Information
             if(time.time() - temp_socket_time >= 1):                
-                app.config[SOCK].update({ task_uuid: json.dumps(get_pure_jsonify(ret_info)) })
+                app.config[SOCK_POOL].update({ task_uuid: json.dumps(get_pure_jsonify(ret_info)) })
                 temp_socket_time = time.time()
 
             # Delay to fix in 30 fps
@@ -264,9 +265,8 @@ def stream_task(task_uuid, src, namespace):
 @sock.route(f'/{RES_EVENT}')
 def message(sock):
     while(True):
-        ret = app.config[SOCK]
-        sock.send( json.dumps(ret) )
-        time.sleep(1)
+        sock.send( json.dumps(app.config[SOCK_POOL]) )
+        time.sleep(33e-3)
 
 @bp_stream.route("/update_src/", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "update_src.yml"))
