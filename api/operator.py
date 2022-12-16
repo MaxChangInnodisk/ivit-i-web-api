@@ -228,8 +228,7 @@ def parse_info_from_zip( zip_path ):
             cmd = [ 
                 "trtexec" if pla =='nvidia' else '/usr/src/tensorrt/bin/trtexec', 
                 "--onnx={}".format(os.path.realpath(org_model_path)), 
-                "--saveEngine={}".format(os.path.realpath(trg_model_path)),
-                "" if pla=='nvidia' else "--optShapes"
+                "--saveEngine={}".format(os.path.realpath(trg_model_path))
             ]
         else:         
             cmd = [ "./converter/yolo-converter.sh",
