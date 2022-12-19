@@ -65,11 +65,6 @@ PALETTE     = "palette"
 FRAME_IDX   = "frame_index"
 STREAM      = "stream"
 
-# Define Socket Event
-SOCK_POOL   = "SOCK_POOL"
-IMG_EVENT   = "images"
-RES_EVENT   = "results"
-
 # Define SocketIO Parameters
 IDX         = "idx"
 INFER       = "inference"
@@ -106,11 +101,11 @@ OV          = "openvino"
 XLNX        = "xilinx"
 VTS         = "vitis-ai"
 
-# def send_socketio(frame, socketio, namespace):
-#     # Convert to base64 format
-#     frame_base64 = base64.encodebytes(cv2.imencode(BASE64_EXT, frame)[1].tobytes()).decode(BASE64_DEC)
-#     # Send socketio to client
-#     socketio.emit(IMG_EVENT, frame_base64, namespace=namespace)
+# Define Socket Parameters
+SOCK_ENDPOINT   = "ivit_i"
+SOCK_POOL       = "SOCK_POOL"
+SOCK_SYS        = "sys"
+SOCK_RES        = "result"
 
 def define_gst_pipeline(src_wid, src_hei, src_fps, rtsp_url, platform='intel'):
     base = 'appsrc is-live=true block=true format=GST_FORMAT_TIME ' + \
@@ -236,8 +231,9 @@ def stream_task(task_uuid, src, namespace):
                 LIVE_TIME   : round((time.time() - app.config[TASK][task_uuid][START_TIME]), 5),
             }
             # Send Information
-            if(time.time() - temp_socket_time >= 1):                
-                app.config[SOCK_POOL].update({ task_uuid: json.dumps(get_pure_jsonify(ret_info)) })
+            if(time.time() - temp_socket_time >= 1):   
+                target_result = { task_uuid: json.dumps(get_pure_jsonify(ret_info)) }
+                app.config[SOCK_POOL][SOCK_RES].update( target_result )
                 temp_socket_time = time.time()
 
             # Delay to fix in 30 fps
@@ -261,13 +257,6 @@ def stream_task(task_uuid, src, namespace):
     finally:
         trg.release()
         # out.releaes()
-
-# Define Sock Event
-@sock.route(f'/{RES_EVENT}')
-def message(sock):
-    while(True):
-        sock.send( json.dumps(app.config[SOCK_POOL]) )
-        time.sleep(33e-3)
 
 @bp_stream.route("/update_src/", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "update_src.yml"))

@@ -22,6 +22,12 @@ TASK_LIST   = "TASK_LIST"
 APPLICATION = "APPLICATION"
 ICO         = "favicon.ico"
 
+# Define Socket Parameters
+SOCK_ENDPOINT   = "ivit_i"
+SOCK_POOL       = "SOCK_POOL"
+SOCK_SYS        = "sys"
+SOCK_RES        = "result"
+
 def create_app():
     
     from ivit_i.web import app, sock, mqtt
@@ -135,6 +141,37 @@ def create_app():
                 mqtt.publish(send_topic, send_data)
             else:
                 logging.error("Got error: {}".format(resp))
+
+    # Define Parameters
+    app.config[SOCK_POOL].update( { SOCK_SYS: dict() } )
+    app.config[SOCK_POOL].update( { SOCK_RES: dict() } )
+
+    # Define Sock Event
+    @sock.route(f'/{SOCK_ENDPOINT}')
+    def message(sock):
+
+        # Socket Loop
+        while(True):
+
+            # Receive Data
+            sock_key = sock.receive()
+
+            # Check Key
+            if app.config[SOCK_POOL].get(sock_key) is None:
+                logging.warning(f'Got unexcepted socket key: {sock_key}')
+                continue
+
+            # Check Data
+            if app.config[SOCK_POOL].get(sock_key) == {}:
+                continue
+            
+            # Send Data
+            send_data = { sock_key: app.config[SOCK_POOL].get(sock_key) }
+            sock.send ( json.dumps( send_data ) )
+            
+            # Clear Data
+            app.config[SOCK_POOL][sock_key] = dict()
+
 
     logging.info("Finish Initializing.")
     return app, sock
