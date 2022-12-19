@@ -51,8 +51,9 @@ DARK_JSON_EXT   = CLS_JSON_EXT  = ".json"       # json is for basic information 
 DARK_MODEL_EXT  = ".weights"    
 DARK_CFG_EXT    = ".cfg"
 CLS_MODEL_EXT   = ".onnx"
-IR_MODEL_EXT    = ".xmodel"
-IR_MODEL_EXTS   = [ ".bin", ".mapping", ".xml", ".xmodel" ]
+XLNX_MODEL_EXT  = ".xmodel"
+IR_MODEL_EXT    = ".xml"
+IR_MODEL_EXTS   = [ ".bin", ".mapping", ".xml" ]
 
 # Return Pattern when ZIP file is extracted
 NAME            = "name"
@@ -76,7 +77,7 @@ def after_request(response):
 
     return response
 
-@bp_operators.route("/edit/<uuid>", methods=["POST"])
+@bp_operators.route("/edit/<uuid>", methods=["PUT"])
 @swag_from("{}/{}".format(YAML_PATH, "edit.yml"))
 def edit_event(uuid):
 
@@ -92,8 +93,6 @@ def edit_event(uuid):
 
     except Exception as e:
         return handle_exception(e, "Edit error"), 400
-
-
 
 @bp_operators.route("/add/", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "add.yml"))
@@ -183,7 +182,7 @@ def parse_info_from_zip( zip_path ):
         name, ext = os.path.splitext(fpath)
         logging.debug('Current File: {}'.format(fpath))
 
-        if ext in [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXT ]:
+        if ext in [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXT, XLNX_MODEL_EXT ]:
             logging.info("Detected {}: {}".format("Model", fpath))
             org_model_path = fpath
 
@@ -269,9 +268,9 @@ def parse_info_from_zip( zip_path ):
 
     return ret
 
-@bp_operators.route("/import_zip/", methods=["POST"])
+@bp_operators.route("/extract_zip/", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "extract_zip.yml"))
-def import_zip_event():
+def extract_zip_event():
     """
     1. download ZIP file
     2. extract it and check is 'Classification' or 'Object Detection' ( subprocess.run )
@@ -307,9 +306,9 @@ def import_zip_event():
 
         return jsonify(handle_exception(e)), 400
 
-@bp_operators.route("/import_url/", methods=["POST"])
+@bp_operators.route("/extract_url/", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "extract_url.yml"))
-def import_url_event():
+def extract_url_event():
 
     message = ""
     status  = 200
@@ -430,7 +429,7 @@ def import_event():
         return jsonify( message ), status
 
 
-@bp_operators.route("/remove/", methods=["POST"])
+@bp_operators.route("/remove/", methods=["DELETE"])
 @swag_from("{}/{}".format(YAML_PATH, "remove.yml"))
 def remove_application():
     
