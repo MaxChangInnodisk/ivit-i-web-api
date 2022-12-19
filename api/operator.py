@@ -51,8 +51,9 @@ DARK_JSON_EXT   = CLS_JSON_EXT  = ".json"       # json is for basic information 
 DARK_MODEL_EXT  = ".weights"    
 DARK_CFG_EXT    = ".cfg"
 CLS_MODEL_EXT   = ".onnx"
-IR_MODEL_EXT    = ".xmodel"
-IR_MODEL_EXTS   = [ ".bin", ".mapping", ".xml", ".xmodel" ]
+XLNX_MODEL_EXT  = ".xmodel"
+IR_MODEL_EXT    = ".xml"
+IR_MODEL_EXTS   = [ ".bin", ".mapping", ".xml" ]
 
 # Return Pattern when ZIP file is extracted
 NAME            = "name"
@@ -183,7 +184,7 @@ def parse_info_from_zip( zip_path ):
         name, ext = os.path.splitext(fpath)
         logging.debug('Current File: {}'.format(fpath))
 
-        if ext in [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXT ]:
+        if ext in [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXT, XLNX_MODEL_EXT ]:
             logging.info("Detected {}: {}".format("Model", fpath))
             org_model_path = fpath
 
