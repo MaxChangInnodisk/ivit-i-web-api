@@ -275,21 +275,31 @@ def update_src():
         file.save( file_path )
         # Update data information
         data[SOURCE]=file_path
-
+        logging.info('Get new file: {}'.format(file_path))
+        
     if data[SOURCE] in app.config[SRC]:
-        src = app.config[SRC][data[SOURCE]][OBJECT]
-        if src.t.is_alive():
-            ret = src.get_first_frame()
-        else:
-            src.start()
-            ret = src.get_first_frame()
-            src.stop()
-    else:
-        src = Pipeline( data[SOURCE], data[SOURCE_TYPE] )
-        src.start()
-        ret = src.get_first_frame()
-        src.release()
 
+        # Not Release
+        src = app.config[SRC][data[SOURCE]][OBJECT]
+        if src is not None:
+            logging.info('Get old source request')        
+            # Still Running
+            if src.t.is_alive():
+                ret = src.get_first_frame()
+            
+            # Not running but exist
+            else:
+                src.start()
+                ret = src.get_first_frame()
+                src.stop()
+            
+            return jsonify( frame2btye(ret) )
+
+    src = Pipeline( data[SOURCE], data[SOURCE_TYPE] )
+    src.start()
+    ret = src.get_first_frame()
+    src.release()
+    logging.info('Created new source and release directly')
     return jsonify( frame2btye(ret) )
 
 @bp_stream.route("/task/<uuid>/get_frame")
