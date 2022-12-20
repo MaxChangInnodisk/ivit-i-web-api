@@ -258,9 +258,9 @@ def stream_task(task_uuid, src, namespace):
         trg.release()
         # out.releaes()
 
-@bp_stream.route("/update_src/", methods=["POST"])
-@swag_from("{}/{}".format(YAML_PATH, "update_src.yml"))
-def update_src():
+@bp_stream.route("/add_src/", methods=["POST"])
+@swag_from("{}/{}".format(YAML_PATH, "add_src.yml"))
+def add_src():
     """ Get the first frame when upload a new file """
 
     # Get data: support form data and json
@@ -336,7 +336,7 @@ def start_stream(uuid):
     try:
         app.config[TASK][uuid][STREAM].start()
         logging.info('Stream is created')
-        return jsonify('Stream is created, The results is display in /task/<uuid>/stream'), PASS_CODE
+        return jsonify(f'rtsp://localhost:8554/{uuid}'), PASS_CODE
 
     except Exception as e:
         app.config[TASK][uuid][STREAM].join()
