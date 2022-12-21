@@ -147,13 +147,10 @@ def stream_task(task_uuid, src, namespace):
     ret_info, info  = dict(), None
     model_conf      = app.config[TASK][task_uuid][CONFIG]
     trg             = app.config[TASK][task_uuid][API]
-    runtime         = app.config[TASK][task_uuid][RUNTIME]
-    draw            = app.config[TASK][task_uuid][DRAW_TOOLS]
     platform        = app.config[PLATFORM]
     
-    temp_model_conf = copy.deepcopy(model_conf)
-
     # Get application executable function if has application
+    temp_model_conf = copy.deepcopy(model_conf)
     application = get_application(temp_model_conf)
 
     # Async Mode
@@ -173,13 +170,9 @@ def stream_task(task_uuid, src, namespace):
 
     logging.info('Gstreamer Pipeline: {}\n\n{}'.format(gst_pipeline, rtsp_url))
 
-    # if not out.isOpened():
-    #     raise Exception("can't open video writer")
-
     # start looping
     try:
         
-        cv_show = True
         cur_info, temp_info = None, None
         cur_fps, temp_fps = 30, 30
         temp_socket_time = 0
@@ -230,11 +223,10 @@ def stream_task(task_uuid, src, namespace):
                 FPS         : cur_fps,
                 LIVE_TIME   : round((time.time() - app.config[TASK][task_uuid][START_TIME]), 5),
             }
-            # Send Information
-            if(time.time() - temp_socket_time >= 1):   
-                target_result = { task_uuid: json.dumps(get_pure_jsonify(ret_info)) }
-                app.config[SOCK_POOL][SOCK_RES].update( target_result )
-                temp_socket_time = time.time()
+            
+            # Update Sending Information
+            target_result = { task_uuid: json.dumps(get_pure_jsonify(ret_info)) }
+            app.config[SOCK_POOL][SOCK_RES].update( target_result )
 
             # Delay to fix in 30 fps
             t_cost, t_expect = (time.time()-t1), (1/src_fps)
