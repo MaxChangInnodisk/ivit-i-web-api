@@ -149,29 +149,24 @@ def create_app():
     # Define Sock Event
     @sock.route(f'/{SOCK_ENDPOINT}')
     def message(sock):
-
+        
         # Socket Loop
         while(True):
 
             # Receive Data
             sock_key = sock.receive()
-
+            
             # Check Key
             if app.config[SOCK_POOL].get(sock_key) is None:
                 logging.warning(f'Got unexcepted socket key: {sock_key}')
-                continue
-
-            # Check Data
-            if app.config[SOCK_POOL].get(sock_key) == {}:
-                continue
-            
+                sock.send(None); continue
+                            
             # Send Data
             send_data = { sock_key: app.config[SOCK_POOL].get(sock_key) }
             sock.send ( json.dumps( send_data ) )
             
             # Clear Data
             app.config[SOCK_POOL][sock_key] = dict()
-
 
     logging.info("Finish Initializing.")
     return app, sock
