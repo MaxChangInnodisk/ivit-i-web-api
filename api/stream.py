@@ -331,7 +331,7 @@ def start_stream(uuid):
     # check if thread is alive
     if app.config[TASK][uuid][STREAM].is_alive():
         logging.info('Stream is running')
-        return jsonify('Stream is running'), 200
+        return jsonify(f'rtsp://localhost:8554/{uuid}'), PASS_CODE
 
     try:
         app.config[TASK][uuid][STREAM].start()
