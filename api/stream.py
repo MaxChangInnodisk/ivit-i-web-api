@@ -64,6 +64,9 @@ DRAW_TOOLS  = "draw_tools"
 PALETTE     = "palette"
 FRAME_IDX   = "frame_index"
 STREAM      = "stream"
+STREAM_DRAW = "draw"
+STREAM_INFER = "infer"
+STREAM_WS   = "ws"
 
 # Define SocketIO Parameters
 IDX         = "idx"
@@ -133,6 +136,7 @@ def define_gst_pipeline(src_wid, src_hei, src_fps, rtsp_url, platform='intel'):
     logging.info(f'Parse {platform} Gstreamer Pipeline ')
     return maps.get(platform)
 
+
 def stream_task(task_uuid, src, namespace):
     '''
     Stream event: sending 'image' and 'result' to '/app/<uuid>/stream' via socketio
@@ -148,6 +152,13 @@ def stream_task(task_uuid, src, namespace):
     model_conf      = app.config[TASK][task_uuid][CONFIG]
     trg             = app.config[TASK][task_uuid][API]
     platform        = app.config[PLATFORM]
+
+    # 
+    if app.config[TASK][task_uuid].get(STREAM_DRAW) is None:
+        app.config[TASK][task_uuid].update( {STREAM_DRAW: True} )
+    
+    if app.config[TASK][task_uuid].get(STREAM_INFER) is None:
+        app.config[TASK][task_uuid].update( {STREAM_INFER: True} )
     
     # Get application executable function if has application
     temp_model_conf = copy.deepcopy(model_conf)
@@ -173,9 +184,8 @@ def stream_task(task_uuid, src, namespace):
     # start looping
     try:
         
-        cur_info, temp_info = None, None
-        cur_fps, temp_fps = 30, 30
-        temp_socket_time = 0
+        cur_info, prev_info = None, None
+        runtime_fps = 30
 
         while(app.config[SRC][src_name][STATUS]==RUN):
             
@@ -195,32 +205,36 @@ def stream_task(task_uuid, src, namespace):
             # If got frame then add the frame index
             app.config[TASK][task_uuid][FRAME_IDX] += 1
             
-            t2 = time.time()
-
             # Copy frame for drawing
             draw = frame.copy()
 
             # Start to Inference and update info
-            temp_info = trg.inference( frame )
+            cur_info = None
+            if app.config[TASK][task_uuid][STREAM_INFER]:
+                
+                t2 = time.time()
 
-            if(temp_info):
-                cur_info, cur_fps = temp_info, temp_fps
+                # Inference
+                cur_info = trg.inference( frame )
 
-            t3 = time.time()
+                # Update Result
+                prev_info = cur_info if(cur_info) else prev_info
+                    
+                t3 = time.time()
 
-            # Draw something
-            if(cur_info):
-                draw, app_info = application(draw, cur_info)
-            
+                # Draw something and make sure previous information is exist
+                if app.config[TASK][task_uuid][STREAM_DRAW] and prev_info:
+                        draw, app_info = application(draw, prev_info)
+                
             # Send RTSP
             out.write(draw)
 
             # Combine the return information
             ret_info = {
                 IDX         : int(app.config[TASK][task_uuid][FRAME_IDX]),
-                DETS        : temp_info[DETS] if temp_info is not None else None,
+                DETS        : prev_info[DETS] if prev_info is not None else None,
                 INFER       : round((t3-t2)*1000, 3),
-                FPS         : cur_fps,
+                FPS         : runtime_fps,
                 LIVE_TIME   : round((time.time() - app.config[TASK][task_uuid][START_TIME]), 5),
             }
             
@@ -236,8 +250,10 @@ def stream_task(task_uuid, src, namespace):
             # Update Live Time and FPS
             app.config[TASK][task_uuid][LIVE_TIME] = int((time.time() - app.config[TASK][task_uuid][START_TIME]))
             
-            if(temp_info):
-                temp_fps = int(1/(time.time()-t1))
+            # If detected something then update FPS
+            # If not do infererence then update fps
+            if(app.config[TASK][task_uuid][STREAM_INFER] and cur_info):
+                runtime_fps = int(1/(time.time()-t1))
 
         logging.info('Stop streaming')
 
@@ -354,3 +370,34 @@ def stop_stream(uuid):
     app.config[TASK][uuid][STREAM]=None
     logging.warning('Clear Stream ...')
     return jsonify('Stop stream success ! '), 200
+
+
+@bp_stream.route("/task/<uuid>/stream/draw", methods=["PUT"])
+def stream_draw(uuid):
+    
+    # Get Data
+    data = dict(request.form) if bool(request.form) else request.get_json()
+
+    # Double Check
+    if not data['data'] in [ True, False ]:
+        return jsonify( 'Excepted [ True, False ] , but got "{}"'.format(data['data']) ), 400
+    
+    # Update Key
+    app.config[TASK][uuid].update( { STREAM_DRAW: data['data'] } )
+    
+    return jsonify('Updated {} to {}'.format(STREAM_DRAW, app.config[TASK][uuid][STREAM_DRAW]))
+
+@bp_stream.route("/task/<uuid>/stream/infer", methods=["PUT"])
+def stream_infer(uuid):
+    
+    # Get Data
+    data = dict(request.form) if bool(request.form) else request.get_json()
+
+    # Double Check
+    if not data['data'] in [ True, False ]:
+        return jsonify( 'Excepted [ True, False ] , but got "{}"'.format(data['data']) ), 400
+    
+    # Update Key
+    app.config[TASK][uuid].update( { STREAM_INFER: data['data'] } )
+    
+    return jsonify('Updated {} to {}'.format(STREAM_INFER, app.config[TASK][uuid][STREAM_INFER]))
