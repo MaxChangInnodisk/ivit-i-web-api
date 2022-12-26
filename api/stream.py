@@ -274,7 +274,7 @@ def add_src():
     # Get data: support form data and json
     data = dict(request.form) if bool(request.form) else request.get_json()
 
-    # Source: If got new source
+    # Source: If got new file
     if bool(request.files):
         # Saving file
         file = request.files[SOURCE]
@@ -283,33 +283,37 @@ def add_src():
         file.save( file_path )
         # Update data information
         data[SOURCE]=file_path
-        logging.info('Get new file: {}'.format(file_path))
-        
+
+    # Check If the source is already exist 
     if data[SOURCE] in app.config[SRC]:
 
-        # Not Release
-        src = app.config[SRC][data[SOURCE]][OBJECT]
+        # If exist and initialize
+        src = app.config[SRC][data[SOURCE]].get(OBJECT)
         if src is not None:
-            logging.info('Get old source request')        
-            # Still Running
+            ret = None
+
+            # If Alive
             if src.t.is_alive():
                 ret = src.get_first_frame()
             
-            # Not running but exist
+            # Not Alive
             else:
                 src.start()
                 ret = src.get_first_frame()
                 src.stop()
-            
-            return jsonify( frame2btye(ret) )
+                src.release()
 
+            # Return Frame
+            if ret:
+                return jsonify( frame2btye(ret) )
+
+    # If not exist then create a new Source
     src = Pipeline( data[SOURCE], data[SOURCE_TYPE] )
     src.start()
     ret = src.get_first_frame()
     src.release()
-    logging.info('Created new source and release directly')
     return jsonify( frame2btye(ret) )
-
+    
 @bp_stream.route("/task/<uuid>/get_frame")
 @swag_from("{}/{}".format(YAML_PATH, "get_frame.yml"))
 def get_first_frame(uuid):
