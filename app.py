@@ -8,13 +8,14 @@ from ivit_i.web.api.task import bp_tasks
 from ivit_i.web.api.operator import bp_operators
 from ivit_i.web.api.application import bp_application
 from ivit_i.web.api.stream import bp_stream
+from ivit_i.web.api.icap import bp_icap
 
 from ivit_i.utils import handle_exception
 
 from ivit_i.web.tools.parser import get_pure_jsonify
 from ivit_i.web.tools.handler import get_tasks
 from ivit_i.web.tools.thingsboard import get_api, post_api
-
+from ivit_i.web.api.icap import init_for_icap, register_mqtt_event
 DIV         = "*" * 20
 TASK        = "TASK"
 UUID        = "UUID"
@@ -45,6 +46,7 @@ def create_app():
     app.register_blueprint(bp_system)        # some utils, like 'v4l2', 'device' ... etc
     app.register_blueprint(bp_application)
     app.register_blueprint(bp_stream)
+    app.register_blueprint(bp_icap)
 
     # define the web api
     @app.before_first_request
@@ -98,49 +100,8 @@ def create_app():
             return f"Unexcepted Route ({key}), Please check /routes.", 400
         return jsonify( get_pure_jsonify(ret) ), 200
 
-    if(mqtt!=None):
-        @mqtt.on_connect()
-        def handle_mqtt_connect(client, userdata, flags, rc):
-            logging.info("Connecting to Thingsboard")
-            if rc == 0:
-                logging.info('Connected successfully')
-                _topic = app.config['TB_TOPIC_REC_RPC']+'+'
-                mqtt.subscribe(_topic)
-            else:
-                logging.error('Bad connection. Code:', rc)
-
-        @mqtt.on_message()
-        def handle_mqtt_message(client, userdata, message):
-            
-            topic = message.topic
-            payload = message.payload.decode()
-            data = json.loads(payload)
-
-            logging.warning("Receive Data from Thingsboard \n  - Topic : {} \n  - Data: {}".format(topic, data))
-            request_idx = topic.split('/')[-1]
-            
-            method  = data["method"].upper()
-            params  = data["params"]
-            web_api = params["api"]
-            data    = params["data"] if "data" in params else None
-
-            trg_url = "http://{}:{}{}".format(app.config['HOST'], app.config['PORT'], web_api)
-
-            # send_data = json.dumps({ "data": "test" })
-            ret, resp = get_api(trg_url) if method.upper() == "GET" else post_api(trg_url, data)
-            
-            if(ret):
-                send_data = json.dumps(resp)
-                send_topic  = app.config['TB_TOPIC_SND_RPC']+f"{request_idx}"
-
-                logging.warning("Send Data from iVIT-I \n  - Topic : {} \n  - Data: {}".format(
-                    send_topic, 
-                    send_data
-                ))
-                
-                mqtt.publish(send_topic, send_data)
-            else:
-                logging.error("Got error: {}".format(resp))
+    # Init iCAP first time
+    init_for_icap()
 
     # Define Parameters
     app.config[SOCK_POOL].update( { SOCK_SYS: dict() } )
