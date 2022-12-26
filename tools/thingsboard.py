@@ -74,7 +74,7 @@ def register_tb_device(tb_url):
     
     create_time, device_id, device_token = "", "", ""
 
-    data = { 
+    send_data = { 
         TB_KEY_NAME  : TB_NAME,
         TB_KEY_TYPE  : TB_TYPE,
         TB_KEY_ALIAS : TB_ALIAS
@@ -84,10 +84,10 @@ def register_tb_device(tb_url):
     if ( not header in tb_url ): tb_url = header + tb_url
 
     timeout = 3
-    logging.warning("[ iCAP ] Register Thingsboard Device ... ( Time Out: {}s ) \n{}".format(timeout, data))
+    logging.warning("[ iCAP ] Register Thingsboard Device ... ( Time Out: {}s ) \n{}".format(timeout, send_data))
     print('')
     
-    ret, data    = post_api(tb_url, data, timeout=timeout, stderr=False)
+    ret, data    = post_api(tb_url, send_data, timeout=timeout, stderr=False)
 
     if(ret):
         logging.warning("[ iCAP ] Register Thingsboard Device ... Pass ! \n{}".format(data))
