@@ -111,3 +111,15 @@ def read_file():
         return jsonify( ret_data ), 200
     except Exception as e:
         return handle_exception(error=e, title="Could not load application ... set app to None", exit=False), 400
+
+@bp_system.route("/get_ip", methods=['GET'])
+def get_ip():
+    return jsonify(current_app.config['HOST']), 200
+
+@bp_system.route("/get_port", methods=['GET'])
+def get_port():
+    return jsonify(current_app.config['PORT']), 200
+
+@bp_system.route("/get_addr", methods=['GET'])
+def get_addr():
+    return jsonify('{}:{}'.format(current_app.config['HOST'], current_app.config['PORT'])), 200
