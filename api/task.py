@@ -12,6 +12,9 @@ from ivit_i.web.tools.handler import get_tasks
 from ivit_i.web.tools.parser import get_pure_jsonify
 from ivit_i.utils.err_handler import handle_exception
 from ivit_i.web.ai.get_api import get_api
+from .common import get_request_data, print_title
+from ..tools.handler import edit_task, add_task, get_tasks, remove_task, import_task
+
 
 YAML_PATH   = "/workspace/ivit_i/web/docs/task"
 BP_NAME     = 'task'
@@ -74,10 +77,65 @@ def entrance():
 def get_uuid():
     return jsonify( current_app.config[UUID] ), 200
 
-@bp_tasks.route("/task/<uuid>/")
+@bp_tasks.route("/task/<uuid>", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "task_info.yml"))
 def task_info(uuid):
     return jsonify(get_pure_jsonify(current_app.config[TASK][uuid])), 200
+
+@bp_tasks.route("/task/<uuid>/", methods=["DELETE"])
+def remove_task(uuid):
+    
+    status, message = 200, ""
+    
+    try:
+        # Return state and message
+        ret, ret_msg = remove_task(uuid)
+        
+        # Setup information
+        status  = 200 if ret==True else 400
+        message = ret_msg
+        
+    except Exception as e:
+        
+        status = 400
+        message = handle_exception(e, "Remove Error")
+
+    finally:
+
+        get_tasks()
+        return jsonify(message), status
+
+
+@bp_tasks.route("/task/<uuid>/", methods=["PUT"])
+@swag_from("{}/{}".format(YAML_PATH, "edit.yml"))
+def restful_edit_event(uuid):
+
+    print_title("Edit {}".format(uuid))
+    
+    # Get Data and Check
+    data = get_request_data()
+
+    # Edit Event
+    try:
+        edit_task(data, uuid)
+        return jsonify("Edit successed ( {}:{} )".format(uuid, current_app.config['UUID'][uuid])), 200
+
+    except Exception as e:
+        return handle_exception(e, "Edit error"), 400
+
+
+def get_simple_task():
+    _tasks = [] 
+    for task in current_app.config[TASK_LIST]['ready']:
+        _info = {}
+        for key in [ 'name', 'uuid', 'status', 'model', 'tag', 'framework']:
+            _info.update( {key: task.get(key)} )
+        _tasks.append( _info )
+    return _tasks
+
+@bp_tasks.route('/task/simple/', methods=['GET'])
+def simple_task():
+    return jsonify(get_simple_task()), 200
 
 @bp_tasks.route("/task/<uuid>/info/")
 @swag_from("{}/{}".format(YAML_PATH, "task_simple_info.yml"))
@@ -119,7 +177,6 @@ def task_label(uuid):
 
     return jsonify( message ), status
     
-
 @bp_tasks.route("/task/<uuid>/<key>/")
 @swag_from("{}/{}".format(YAML_PATH, "universal_cmd.yml"))
 def task_status(uuid, key):

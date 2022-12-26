@@ -77,23 +77,6 @@ def after_request(response):
 
     return response
 
-@bp_operators.route("/edit/<uuid>", methods=["PUT"])
-@swag_from("{}/{}".format(YAML_PATH, "edit.yml"))
-def edit_event(uuid):
-
-    print_title("Edit {}".format(uuid))
-    
-    # Get Data and Check
-    data = get_request_data()
-    
-    # Edit Event
-    try:
-        edit_task(data, uuid)
-        return jsonify("Edit successed ( {}:{} )".format(uuid, current_app.config['UUID'][uuid])), 200
-
-    except Exception as e:
-        return handle_exception(e, "Edit error"), 400
-
 @bp_operators.route("/add/", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "add.yml"))
 def add_event():
@@ -428,7 +411,9 @@ def import_event():
         current_app.config[TASK_LIST]=get_tasks()
         return jsonify( message ), status
 
-
+"""
+Old Web API which not fit the Restful API
+"""
 @bp_operators.route("/remove/", methods=["DELETE"])
 @swag_from("{}/{}".format(YAML_PATH, "remove.yml"))
 def remove_application():
@@ -456,3 +441,19 @@ def remove_application():
         get_tasks()
         return jsonify(message), status
 
+@bp_operators.route("/edit/<uuid>", methods=["PUT"])
+@swag_from("{}/{}".format(YAML_PATH, "edit.yml"))
+def edit_event(uuid):
+
+    print_title("Edit {}".format(uuid))
+    
+    # Get Data and Check
+    data = get_request_data()
+    
+    # Edit Event
+    try:
+        edit_task(data, uuid)
+        return jsonify("Edit successed ( {}:{} )".format(uuid, current_app.config['UUID'][uuid])), 200
+
+    except Exception as e:
+        return handle_exception(e, "Edit error"), 400
