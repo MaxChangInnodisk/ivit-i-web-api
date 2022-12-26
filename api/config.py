@@ -1,4 +1,5 @@
 class config(object):
+
     JSONIFY_PRETTYPRINT_REGULAR = True
     JSON_SORT_KEYS              = False
     TASK_ROOT       = "./task"
@@ -22,6 +23,14 @@ class config(object):
     TB_TOPIC_REC_RPC    = "v1/devices/me/rpc/request/"
     TB_TOPIC_SND_RPC    = "v1/devices/me/rpc/response/"
     
+    # "TB": "10.204.16.110",
+    # "TB_PORT": 3000
+    TB                  = ''
+    TB_PORT             = ''
     TB_DEVICE_ID        = ''
     TB_TOKEN            = ''
     TB_CREATE_TIME      = ''
+
+    MQTT_KEEPALIVE      = 5
+    MQTT_REFRESH_TIME   = 1.0
+
