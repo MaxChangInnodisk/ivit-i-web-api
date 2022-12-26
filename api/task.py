@@ -1,17 +1,17 @@
 import logging, copy, time, os
 from flask import Blueprint, jsonify, current_app
 from flasgger import swag_from
-from ivit_i.web.api.stream import FAIL_CODE
+from web.api.stream import FAIL_CODE
 
 # From /ivit_i/web/api
-from ivit_i.web.api.common import get_src, stop_src
+from web.api.common import get_src, stop_src
 
 # From /ivit_i/web
-from ivit_i.web.tools.parser import get_pure_jsonify
-from ivit_i.web.tools.handler import get_tasks
-from ivit_i.web.tools.parser import get_pure_jsonify
+from web.tools.parser import get_pure_jsonify
+from web.tools.handler import get_tasks
+from web.tools.parser import get_pure_jsonify
 from ivit_i.utils.err_handler import handle_exception
-from ivit_i.web.ai.get_api import get_api
+from web.ai.get_api import get_api
 from .common import get_request_data, print_title
 from ..tools.handler import edit_task, add_task, get_tasks, remove_task, import_task
 

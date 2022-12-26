@@ -2,9 +2,9 @@ import logging, subprocess, json, os
 from flask import Blueprint, abort, jsonify, request
 from flasgger import swag_from
 from ivit_i.utils.err_handler import handle_exception
-from ivit_i.web.tools.thingsboard import get_api, post_api
+from web.tools.thingsboard import get_api, post_api
 from .common import sock, app, mqtt
-from ivit_i.web.tools.common import get_address
+from web.tools.common import get_address
 from .task import get_simple_task
 
 YAML_PATH   = "/workspace/ivit_i/web/docs/icap"
