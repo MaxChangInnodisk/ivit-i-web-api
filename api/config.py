@@ -34,3 +34,4 @@ class config(object):
     MQTT_KEEPALIVE      = 5
     MQTT_REFRESH_TIME   = 1.0
 
+    APP_PATH            = 'apps'
