@@ -110,6 +110,12 @@ SOCK_POOL       = "SOCK_POOL"
 SOCK_SYS        = "sys"
 SOCK_RES        = "result"
 
+# App - Basic
+APP_HANDLER     = "APP_HANDLER"
+APP_KEY         = "application"
+APP_KEY_NAME    = "name"
+
+
 def define_gst_pipeline(src_wid, src_hei, src_fps, rtsp_url, platform='intel'):
     base = 'appsrc is-live=true block=true format=GST_FORMAT_TIME ' + \
             f'caps=video/x-raw,format=BGR,width={src_wid},height={src_hei},framerate={src_fps}/1 ' + \
@@ -162,8 +168,20 @@ def stream_task(task_uuid, src, namespace):
     
     # Get application executable function if has application
     temp_model_conf = copy.deepcopy(model_conf)
-    application = get_application(temp_model_conf)
 
+    # Define Application
+    try:
+        # Version 1.0.4
+        app_name = temp_model_conf[APP_KEY][APP_KEY_NAME]
+        app_module = app.config[APP_HANDLER].get_all_apps()[app_name]
+        application = app_module(
+            config=temp_model_conf[APP_KEY],
+            label=temp_model_conf['openvino']['label_path']
+        )
+    except:
+        # Version 1.0.3
+        application = get_application(temp_model_conf)
+    
     # Async Mode
     trg.set_async_mode()
 
