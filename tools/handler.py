@@ -28,13 +28,15 @@ MODEL_EXT       = [ '.trt', '.engine', '.xml', '.xmodel' ]
 
 
 def init_task_app(task_uuid):
+    """ Create the relationship between `task` and `application`
+    ---
+    Update 3 Key in flask config
+        1.`APPLICATION`   : relationship between the application and the task ( uuid ) 
+        2.`APP_MODEL`     : relationship between the application and the model 
+        3.`TAG_APP`       : tag means the model type
     """
-    Initial application , app_model in configuration
-        - application: relationship between the application and the task ( uuid ) 
-        - app_model: relationship between the application and the model 
-    """
+    
     # initialize 
-    task_app_key = APP_KEY.lower()
     task_apps = current_app.config['TASK'][task_uuid]['application']['name']
     info_table = {
         APP_KEY: task_uuid,
@@ -48,13 +50,16 @@ def init_task_app(task_uuid):
 
     # update information in app.config[...]
     if (task_apps != []) or (task_apps != None) or (task_apps != ""):
+
         # capture the application information and make sure list and string both are work like a charm
-        apps = [task_apps] if type(task_apps)==str else task_apps
-        for app in apps:
+        for app in [task_apps] if type(task_apps)==str else task_apps:
+            
             # update each KEY about application
             for KEY in [APP_KEY, APP_MODEL_KEY]:
+                
                 if not (app in current_app.config[KEY]): 
                     current_app.config[KEY].update( { app : list() } )    
+                
                 # update infomration
                 info = info_table[KEY]
                 if not (info in current_app.config[ KEY ][app]): 
@@ -66,21 +71,22 @@ def init_task_app(task_uuid):
 def init_task_model(task_uuid):
     """
     Initial model , model_app in configuration
-        - model: relationship between the model and the task ( uuid ) 
-        - model_app: relationship between the model and the application
+        - `MODEL`: relationship between the model and the task ( uuid ) 
+        - `MODEL_APP`: relationship between the model and the application
     """
     task_framework = current_app.config['AF']
     task_tag = current_app.config['TASK'][task_uuid]['tag']
     task_model = current_app.config['TASK'][task_uuid]['model']
     task_apps = current_app.config['TASK'][task_uuid]['application']['name']
+    
     # update the key in config
     for KEY in [MODEL_KEY, MODEL_APP_KEY]:
         if not ( KEY in current_app.config.keys()):
             current_app.config.update( {KEY:dict()} )
         if not (task_model in current_app.config[KEY].keys()):
             current_app.config[KEY].update( {task_model:list()} )
-    # update task uuid in model
     
+    # update task uuid in model
     if not (task_uuid in current_app.config[MODEL_KEY][task_model]):
         current_app.config[MODEL_KEY][task_model].append(task_uuid)
 
@@ -128,12 +134,15 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
 
     # Name
     name = name
+
     # UUID
     task_path = os.path.join( current_app.config["TASK_ROOT"], name )
     task_uuid = gen_uuid(name=name, len=8)
+    
     if (name in current_app.config["UUID"].values()) and ( fix_uuid == None ):             
         # no need to initialize application if UUID is already exists
         logging.debug("UUID ({}) had already exist.".format(task_uuid))
+    
     else:
         task_uuid = fix_uuid if fix_uuid != None else task_uuid 
         logging.debug("{} UUID hash table! {}:{}".format( 
