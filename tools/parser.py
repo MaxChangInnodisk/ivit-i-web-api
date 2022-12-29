@@ -3,6 +3,7 @@ from typing import Tuple
 from flask import current_app, request
 import numpy as np
 from ivit_i.utils.err_handler import handle_exception
+from ivit_i.utils.devices import get_framework
 
 DIV = "-"*3 + "\n"
 FRAMEWORK_LIST = ['tensorrt', 'openvino' ]
@@ -21,7 +22,7 @@ def special_situation(model_cfg):
     
     return True if get_framework(model_cfg)=="openvino" and model_cfg['tag']=="pose" else False    
 
-def parse_task_info(path:str, pure_content:bool=False) -> Tuple[bool, tuple, str]:
+def _parse_task_info(path:str, pure_content:bool=False) -> Tuple[bool, tuple, str]:
     """
     Parsing the application informations and return the initialize status, error message and relative informations.
     
@@ -96,6 +97,79 @@ def parse_task_info(path:str, pure_content:bool=False) -> Tuple[bool, tuple, str
     if err != "": logging.error(err)
     return ret, (task_cfg_path, model_cfg_path, task_cfg, model_cfg), err
 
+def parse_task_info(path:str, pure_content:bool=False) -> Tuple[bool, tuple, str]:
+    """
+    Parsing the application informations and return the initialize status, error message and relative informations.
+    
+    - args
+        - path              : path to application folder
+        - pure_content      : the task_cfg will merge to model_cfg when pure_content is False
+    - return
+        * `return (ret, (task_cfg_path, model_cfg_path, task_cfg, model_cfg), err)`
+            - ret               : if application initailize failed the 'ret' will be False
+            - task_cfg_path      : path to application configuration
+            - model_cfg_path    : path to model configuration
+            - task_cfg           : the content of application configuration with json format
+            - model_cfg         : the content of model configuration with json format
+            - err               : if application initailize failed the error message will push into 'err'.
+    """
+    # placeholder for each variable
+    task_cfg_path, model_cfg_path, task_cfg, model_cfg, err = None, None, None, None, ""
+    
+    # get the configuration path
+    try:
+        
+        # Get task config
+        task_dir = os.path.join(current_app.config["TASK_ROOT"], path)
+        task_cfg_path = os.path.join(task_dir , current_app.config["TASK_CFG_NAME"])
+        assert os.path.exists(task_cfg_path), "Task config not exist"
+
+        # Load task config
+        task_cfg = load_json(task_cfg_path)
+        assert task_cfg!="", "Get empty task config"
+
+        # Get model config
+        model_cfg_path = task_cfg["prim"].get("model_json") if "prim" in task_cfg.keys() \
+            else task_cfg.get("model_json")
+        assert os.path.exists(model_cfg_path), "Model config not exist" 
+
+        # Load model config
+        model_cfg = load_json(model_cfg_path)
+        assert (model_cfg != None), "Could not find the 'model_cfg' in task config"
+
+        # Merge config   
+        if not pure_content:
+            model_cfg.update(task_cfg)
+        
+        # Get framework
+        af = model_cfg.get("framework")
+        af = af if af is not None else get_framework()
+
+        # Check model_path key and model   
+        model_path = model_cfg[af].get('model_path')
+        assert model_path!=None, "Could not find 'model_path' in config"
+        assert os.path.exists(model_path), "Model file no exist"
+
+        # Special Case won't check label
+        if special_situation(model_cfg):
+            return True, (task_cfg_path, model_cfg_path, task_cfg, model_cfg), err
+
+        # Check label_path key and label 
+        label_path = model_cfg[af].get('label_path')
+        assert label_path!=None, "Could not find 'label_path' in config"
+        assert os.path.exists(label_path), "Label file no exist"
+        
+        # All DOne
+        return True, (task_cfg_path, model_cfg_path, task_cfg, model_cfg), err
+
+    except AssertionError as e:
+        err = str(e)
+        logging.error(err)
+        return False, (task_cfg_path, model_cfg_path, task_cfg, model_cfg), err
+
+    except Exception as e:
+        raise Exception(handle_exception(e), 'Parsing Task Error')
+    
 # ------------------------------------------------------------------------------------------------------------------------------------------------------
 
 def print_dict(input:dict):
