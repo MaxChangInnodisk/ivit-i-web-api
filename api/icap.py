@@ -45,7 +45,7 @@ TB_ALIAS        = TB_NAME
 def register_tb_device(tb_url):
     """
     Register Thingsboard Device
-    ---
+
     - Web API: http://10.204.16.110:3000/api/v1/devices
     - Method: POST
     - Data:

@@ -29,7 +29,7 @@ MODEL_EXT       = [ '.trt', '.engine', '.xml', '.xmodel' ]
 
 def init_task_app(task_uuid):
     """ Create the relationship between `task` and `application`
-    ---
+
     Update 3 Key in flask config
         1.`APPLICATION`   : relationship between the application and the task ( uuid ) 
         2.`APP_MODEL`     : relationship between the application and the model 
@@ -403,7 +403,7 @@ def edit_task(form, src_uuid):
     3. 根據相關資訊修改 app 與 config 內容
     4. 更新 HASH table 的 key （不更新 uuid 會被洗掉）
     4. 重新 initial 一次
-    ---
+
     Form 
     Key: name, category, application, framework, device, source, thres
     """
@@ -438,7 +438,7 @@ def add_task(form):
     新增新的應用
     1. 根據選擇的 Application，去複製對應的模型、標籤、配置檔案
     2. 修改配置檔案的內容
-    ---
+
     Form 
     Key: name, model, application, device, source, thres
     """

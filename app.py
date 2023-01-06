@@ -39,7 +39,7 @@ TAG_APP         = "TAG_APP"
 def create_app():
     """
     Create Flask Application
-    ---
+
     1. Create Empty Folder
     2. Register Blue Print
     3. Initialize `iCAP` if need which means the `TB` and `TB_PORT` in `ivit-i.json`.

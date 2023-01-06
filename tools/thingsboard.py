@@ -49,7 +49,7 @@ def get_api(tb_url, h_type='json', timeout=10):
 def register_tb_device(tb_url):
     """
     Register Thingsboard Device
-    ---
+
     - Web API: http://10.204.16.110:3000/api/v1/devices
     - Method: POST
     - Data:

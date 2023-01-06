@@ -259,7 +259,7 @@ def extract_zip_event():
     2. extract it and check is 'Classification' or 'Object Detection' ( subprocess.run )
     3. convert model ( background : subprocess.Popen )
     4. return information and successs code
-    ---
+
     Provide web api to check file is convert
     """
     try:
