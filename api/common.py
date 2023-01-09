@@ -255,13 +255,10 @@ def get_src(task_uuid, reload_src=False):
 
     if ( src_obj == None ) or reload_src:
         logging.info('Initialize a new source.')
-        try: 
-            # app.config[SRC][src_name][OBJECT] = Source(src_name, app.config[SRC][src_name][TYPE])
-            app.config[SRC][src_name][OBJECT] = Pipeline(src_name, app.config[SRC][src_name][TYPE])
-            app.config[SRC][src_name][OBJECT].start()
-        except Exception as e:
-            handle_exception(e)
-            raise (handle_exception(e))
+
+        # app.config[SRC][src_name][OBJECT] = Source(src_name, app.config[SRC][src_name][TYPE])
+        app.config[SRC][src_name][OBJECT] = Pipeline(src_name, app.config[SRC][src_name][TYPE])
+        app.config[SRC][src_name][OBJECT].start()
     
     # setup status and error message in source config
     status, err = app.config[SRC][src_name][OBJECT].get_status()
@@ -314,3 +311,6 @@ def stop_src(task_uuid, release=False):
         logging.info('Stop the source.')
     else:
         logging.warning("Stop failed, source ({}) accessed by {} ".format(src_name, access_proc))
+
+def check_uuid_in_config(uuid):
+    return app.config[TASK].get(uuid) is not None
