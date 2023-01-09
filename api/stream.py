@@ -221,16 +221,23 @@ def stream_task(task_uuid, src, namespace):
             t3 = time.time()
 
             # Draw something
-            if(cur_info):
-                draw, app_info = application(draw, cur_info)
-            
+            if not (cur_info is None):
+                draw, cur_info = application(draw, cur_info)
+
+            # Display
+            cv2.imshow("test", draw)
+            cv2.waitKey(1)
+
             # Send RTSP
             out.write(draw)
+
+            # Select Information to send
+            info = cur_info
 
             # Combine the return information
             ret_info = {
                 IDX         : int(app.config[TASK][task_uuid][FRAME_IDX]),
-                DETS        : temp_info[DETS] if temp_info is not None else None,
+                DETS        : info,
                 INFER       : round((t3-t2)*1000, 3),
                 FPS         : cur_fps,
                 LIVE_TIME   : round((time.time() - app.config[TASK][task_uuid][START_TIME]), 5),
@@ -243,7 +250,7 @@ def stream_task(task_uuid, src, namespace):
             # Delay to fix in 30 fps
             t_cost, t_expect = (time.time()-t1), (1/src_fps)
             
-            time.sleep(t_expect-t_cost if(t_cost<t_expect) else 1e-5)
+            # time.sleep(t_expect-t_cost if(t_cost<t_expect) else 1e-4)
             
             # Update Live Time and FPS
             app.config[TASK][task_uuid][LIVE_TIME] = int((time.time() - app.config[TASK][task_uuid][START_TIME]))
@@ -259,15 +266,24 @@ def stream_task(task_uuid, src, namespace):
         raise Exception(err)
     
     finally:
+        try: cv2.destroyAllWindows()
+        except: pass
+
         trg.release()
         # out.releaes()
 
 # Define Sock Event
 @sock.route(f'/{RES_EVENT}')
 def message(sock):
+    temp_data = None
     while(True):
-        sock.send( json.dumps(app.config[SOCK_POOL]) )
-        time.sleep(33e-3)
+        cur_data = json.dumps(app.config[SOCK_POOL])
+        if temp_data != cur_data:
+            sock.send( cur_data )
+            temp_data = cur_data
+            time.sleep(33e-3)
+
+        time.sleep(0.01)
 
 @bp_stream.route("/update_src/", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "update_src.yml"))
