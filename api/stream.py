@@ -4,7 +4,7 @@ from werkzeug.utils import secure_filename
 from flasgger import swag_from
 
 # Load Module from `web/api`
-from .common import frame2btye, get_src, stop_src, stop_task_thread
+from .common import frame2btye, get_src, stop_src, stop_task_thread, check_uuid_in_config
 from .common import sock, app
 from ..tools.handler import get_tasks
 from ..tools.parser import get_pure_jsonify
@@ -194,11 +194,12 @@ def stream_task(task_uuid, src, namespace):
             t1 = time.time()
 
             # Get the frame from source
-            success, frame = src.read()    
-            
+            success, frame = src.read()   
+             
             # Check frame
             if not success:
-                if src.get_type() == 'v4l2': break
+                if src.get_type() == 'v4l2': 
+                    raise RuntimeError('USB Camera Error')
                 else:
                     application.reset()
                     src.reload()
@@ -224,10 +225,6 @@ def stream_task(task_uuid, src, namespace):
             if not (cur_info is None):
                 draw, cur_info = application(draw, cur_info)
 
-            # Display
-            cv2.imshow("test", draw)
-            cv2.waitKey(1)
-
             # Send RTSP
             out.write(draw)
 
@@ -249,8 +246,7 @@ def stream_task(task_uuid, src, namespace):
 
             # Delay to fix in 30 fps
             t_cost, t_expect = (time.time()-t1), (1/src_fps)
-            
-            # time.sleep(t_expect-t_cost if(t_cost<t_expect) else 1e-4)
+            time.sleep(t_expect-t_cost if(t_cost<t_expect) else 1e-5)
             
             # Update Live Time and FPS
             app.config[TASK][task_uuid][LIVE_TIME] = int((time.time() - app.config[TASK][task_uuid][START_TIME]))
@@ -261,16 +257,13 @@ def stream_task(task_uuid, src, namespace):
         logging.info('Stop streaming')
 
     except Exception as e:
-        err = handle_exception(e, "Stream Error")
+        app.config[TASK][task_uuid][ERROR] = \
+            err = handle_exception(e, "Stream Error")
         stop_task_thread(task_uuid, err)
         raise Exception(err)
     
     finally:
-        try: cv2.destroyAllWindows()
-        except: pass
-
         trg.release()
-        # out.releaes()
 
 # Define Sock Event
 @sock.route(f'/{RES_EVENT}')
@@ -337,6 +330,11 @@ def update_src():
 @swag_from("{}/{}".format(YAML_PATH, "get_frame.yml"))
 def get_first_frame(uuid):
     """ Get target task first frame via web api """
+
+    if not check_uuid_in_config(uuid):
+        return 'Support Task UUID is ({}) , but got {}.'.format(
+            ', '.join(app.config[UUID].keys()), uuid ), FAIL_CODE
+        
     src = get_src(uuid)
     ret = frame2btye(src.get_first_frame())
     # return '<img src="data:image/jpeg;base64,{}">'.format(frame_base64)
@@ -346,40 +344,57 @@ def get_first_frame(uuid):
 @swag_from("{}/{}".format(YAML_PATH, "stream_start.yml"))
 def start_stream(uuid):      
 
+    if not check_uuid_in_config(uuid):
+        return 'Support Task UUID is ({}) , but got {}.'.format(
+            ', '.join(app.config[UUID].keys()), uuid ), FAIL_CODE
+
     [ logging.info(cnt) for cnt in [DIV, f'Start stream ... destination of socket event: "/task/{uuid}/stream"', DIV] ]
 
     # create stream object
-    if app.config[TASK][uuid][STREAM]==None:
-        logging.info('Create a new stream thread')
+    if app.config[TASK][uuid][STREAM] is None:
         app.config[TASK][uuid][STREAM] = threading.Thread(
             target  = stream_task, 
             args    = (uuid, get_src(uuid), f'/task/{uuid}/stream', ), 
             name    = f"{uuid}",
             daemon  = True
         )
-        time.sleep(1)
-
+        logging.info('Created a new stream thread ( {} )'.format(app.config[TASK][uuid][STREAM]))
+    
     # check if thread is alive
     if app.config[TASK][uuid][STREAM].is_alive():
         logging.info('Stream is running')
-        return jsonify('Stream is running'), 200
-
+        return jsonify('Stream is running, Stream (WebRTC): /task/{}/stream , Log (WebSocket): "/task/results" '), PASS_CODE
+    
+    # trying to start the stream
     try:
+        # wait for thread
+        while(app.config[TASK][uuid][STREAM] is None):
+            time.sleep(1)
+        
+        # start the thread
         app.config[TASK][uuid][STREAM].start()
-        logging.info('Stream is created')
-        return jsonify('Stream is created, The results is display in /task/<uuid>/stream'), PASS_CODE
+        msg = 'Stream is running, Stream (WebRTC): /task/{}/stream , Log (WebSocket): "/task/results" '
+        logging.info(msg)
+        return jsonify(msg), PASS_CODE
 
     except Exception as e:
-        app.config[TASK][uuid][STREAM].join()
-        if app.config[TASK][uuid]["error"] == "":
-            app.config[TASK][uuid]["error"] = handle_exception(e)
-            app.config[TASK][uuid]["status"] = STOP
-        return jsonify(app.config[TASK][uuid]["error"]), FAIL_CODE
+        
+        if app.config[TASK][uuid][STREAM] is not None:  
+            if app.config[TASK][uuid][STREAM].is_alive():
+                os.kill(app.config[TASK][uuid][STREAM])
+        
+        app.config[TASK][uuid][ERROR] = msg = handle_exception(e)
+        app.config[TASK][uuid]["status"] = STOP
+        return jsonify(msg), FAIL_CODE
 
 @bp_stream.route("/task/<uuid>/stream/stop/", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "stream_stop.yml"))
 def stop_stream(uuid):
-    
+
+    if not check_uuid_in_config(uuid):
+        return 'Support Task UUID is ({}) , but got {}.'.format(
+            ', '.join(app.config[UUID].keys()), uuid ), FAIL_CODE
+
     if app.config[TASK][uuid][STATUS]==ERROR:
         return jsonify('Stream Error ! '), 400
         
