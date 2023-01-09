@@ -4,7 +4,8 @@ from flasgger import swag_from
 
 # Load Module from `web/tools`
 from ..tools.parser import get_pure_jsonify
-from ..tools.common import get_v4l2, handle_exception
+from ..tools.common import ( get_v4l2, handle_exception )
+from .common import PASS_CODE, FAIL_CODE
 
 YAML_PATH   = "/workspace/ivit_i/web/docs/system"
 BP_NAME     = "system"
@@ -53,6 +54,18 @@ def web_device_info():
             ret = get_xlnx_info()
 
     return jsonify(ret)
+
+@bp_system.route("/ls_path", methods=["GET"])
+def ls_path():
+    _data = request.get_json()
+    _path = _data.get('path')
+    if _path is None: return 'Excepted content is { "path" : "/path/to/xxx" }', FAIL_CODE
+    try:
+        return jsonify(os.listdir(_path)), PASS_CODE
+    except FileNotFoundError:
+        return "Path not found", FAIL_CODE
+    except Exception as e:
+        return "Unkown Error ({})".format(handle_exception(e)), FAIL_CODE
 
 @bp_system.route("/source")
 @swag_from("{}/{}".format(YAML_PATH, "source.yml"))
