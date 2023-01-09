@@ -4,7 +4,7 @@ from flasgger import swag_from
 from ivit_i.web.api.stream import FAIL_CODE
 
 # From /ivit_i/web/api
-from ivit_i.web.api.common import get_src, stop_src
+from ivit_i.web.api.common import get_src, stop_src, check_uuid_in_config
 
 # From /ivit_i/web
 from ivit_i.web.tools.parser import get_pure_jsonify
@@ -77,12 +77,22 @@ def get_uuid():
 @bp_tasks.route("/task/<uuid>/")
 @swag_from("{}/{}".format(YAML_PATH, "task_info.yml"))
 def task_info(uuid):
-    return jsonify(get_pure_jsonify(current_app.config[TASK][uuid])), 200
+    info = current_app.config[TASK].get(uuid)
+    if info is None:
+        return 'Support Task UUID is ({}) , but got {}.'.format(
+            ', '.join(current_app.config[UUID].keys()), uuid ), FAIL_CODE
+
+    return jsonify(get_pure_jsonify(info)), PASS_CODE
 
 @bp_tasks.route("/task/<uuid>/info/")
 @swag_from("{}/{}".format(YAML_PATH, "task_simple_info.yml"))
 def task_simple_info(uuid):
-    af = current_app.config[TASK][uuid][FRAMEWORK]
+
+    if not check_uuid_in_config(uuid):
+        return 'Support Task UUID is ({}) , but got {}.'.format(
+            ', '.join(current_app.config[UUID].keys()), uuid ), FAIL_CODE
+
+    af = current_app.config[TASK][uuid].get(FRAMEWORK)
     simple_config = {
         FRAMEWORK   : af, 
         APPLICATION : current_app.config[TASK][uuid][APPLICATION] if APPLICATION in current_app.config[TASK][uuid] else None,
@@ -99,30 +109,31 @@ def task_simple_info(uuid):
 @bp_tasks.route("/task/<uuid>/label/")
 @swag_from("{}/{}".format(YAML_PATH, "task_label.yml"))
 def task_label(uuid):
+    """ Get the model label in target task """
+    if not check_uuid_in_config(uuid):
+        return 'Support Task UUID is ({}) , but got {}.'.format(
+            ', '.join(current_app.config[UUID].keys()), uuid ), FAIL_CODE
 
-    message = ""
-    status  = 200
-
-    try:
-        message = [ ]
-        
-        is_err_path = current_app.config[TASK][uuid][LABEL_PATH] in [ "", "None", None, False ]
-        if is_err_path:
-            logging.warning("Could not found label file")
+    # Check if label exist
+    if current_app.config[TASK][uuid].get(LABEL_PATH) in [ "", "None", None, False ]:
+        return "Could not found label file", FAIL_CODE
     
-        with open( current_app.config[TASK][uuid][LABEL_PATH], 'r') as f:
-            message = [ line.rstrip("\n") for line in f.readlines() ]
+    # Label
+    message = None
+    with open( current_app.config[TASK][uuid][LABEL_PATH], 'r') as f:
+        message = [ line.rstrip("\n") for line in f.readlines() ]
 
-    except Exception as e:
-        message = handle_exception(e)
-        status = 400
-
-    return jsonify( message ), status
+    return jsonify( message ), PASS_CODE
     
 
 @bp_tasks.route("/task/<uuid>/<key>/")
 @swag_from("{}/{}".format(YAML_PATH, "universal_cmd.yml"))
 def task_status(uuid, key):
+
+    if not check_uuid_in_config(uuid):
+        return 'Support Task UUID is ({}) , but got {}.'.format(
+            ', '.join(current_app.config[UUID].keys()), uuid ), FAIL_CODE
+
     trg_key, org_key_list = None, current_app.config[TASK][uuid].keys()
     for org_key in org_key_list:
         if org_key == key:
@@ -135,54 +146,65 @@ def task_status(uuid, key):
 @bp_tasks.route("/task/<uuid>/run/", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "task_run.yml"))
 def run_task(uuid):
-    
+
+    if not check_uuid_in_config(uuid):
+        return 'Support Task UUID is ({}) , but got {}.'.format(
+            ', '.join(current_app.config[UUID].keys()), uuid ), FAIL_CODE
+
     # check if the task is ready to inference
     if current_app.config[TASK][uuid][STATUS] == ERROR:
-        msg  = 'The task is not ready... {}'.format( current_app.config[TASK][uuid][ERROR])
-        return msg, FAIL_CODE
+        return 'The task is not ready... {}'.format( 
+            current_app.config[TASK][uuid][ERROR]), FAIL_CODE
 
     if current_app.config[TASK][uuid][STATUS] == RUN:
-        msg  = 'The task is still running ... '
-        code = 200
-        return msg, PASS_CODE
+        return 'The task is still running ... ', PASS_CODE
     
     # create a source object if it is not exist
-    src = get_src(uuid)
-    src_status, src_err = src.get_status()
-    if not src_status:
-        logging.error('get source error')
-        current_app.config[TASK][uuid][ERROR] = src_err
-        return src_err, PASS_CODE
-    
+    try:
+        src = get_src(uuid)
+        src_status, src_err = src.get_status()
+        if not src_status:
+            current_app.config[TASK][uuid][ERROR] \
+                = msg = "Init Source Failed ( {} )".format(src_err)
+            return msg, FAIL_CODE
+    except Exception as e:
+        current_app.config[TASK][uuid][ERROR] \
+            = msg = "Init Source Failed ( {} )".format(handle_exception(e))
+        return msg, FAIL_CODE
+        
     # avoid changing the configuration data during initailization ( init_ai_model)
     temp_config = copy.deepcopy(current_app.config[TASK][uuid][CONFIG]) 
     
     # get ai objects
-    init_ai_model = get_api()
+    try:
+
+        init_ai_model = get_api()
+
+        # only pose estimation in openvino have to input a frame
+        is_openvino = (current_app.config[TASK][uuid].get(FRAMEWORK)==OV)
+        is_pose = (current_app.config[TASK][uuid][CONFIG].get(TAG)=='pose')
+        input_frame = src.read()[1] if is_openvino and is_pose else None
+            
+        current_app.config[TASK][uuid][API] = init_ai_model(temp_config, input_frame)
     
-    # only pose estimation in openvino have to input a frame
-    is_openvino = (current_app.config[TASK][uuid][FRAMEWORK]==OV)
-    is_pose = (current_app.config[TASK][uuid][CONFIG][TAG]=='pose')
-    input_frame = src.read()[1] if is_openvino and is_pose else None
-        
-    current_app.config[TASK][uuid][API] = init_ai_model(temp_config, input_frame)
+    except Exception as e:
+        current_app.config[TASK][uuid][ERROR] = msg = handle_exception(e) 
+        return "Init iVIT-I API Failed ( {} ), Please restart ivit-i".format(
+            msg), FAIL_CODE
     
-    # send info to web and update current_app.config
+    # update running status
     current_app.config[TASK][uuid][STATUS] = RUN
     
-    # set initialize time
+    # update basic parameters
     current_app.config[TASK][uuid][START_TIME]  = time.time()
     current_app.config[TASK][uuid][LIVE_TIME]   = 0
     current_app.config[TASK][uuid][FIRST_TIME]  = True
-    
-    # set frame information
     current_app.config[TASK][uuid][FRAME_IDX]   = 0
 
-    # update list
+    # update task list
     current_app.config[TASK_LIST]=get_tasks()
 
-    msg = 'Run Application ({}) !'.format(uuid)
-    return jsonify(msg), PASS_CODE
+    return jsonify('Run Application ({}) !'.format(uuid)), PASS_CODE
 
 @bp_tasks.route("/task/<uuid>/stop/", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "task_stop.yml"))
@@ -190,29 +212,36 @@ def stop_task(uuid):
     """ 
     Stop the task: release source, set relative object to None, set task status to stop, reload task list 
     """
+
+    # Check uuid
+    if not check_uuid_in_config(uuid):
+        return 'Support Task UUID is ({}) , but got {}.'.format(
+            ', '.join(current_app.config[UUID].keys()), uuid ), FAIL_CODE
+
+    # Stop task
     try:
         logging.info("Stopping task ...")
-        
-        # stop source and release source
         stop_src(uuid, release=True)
-        
-        # set relative object to None
-        for key in [API, RUNTIME, DRAW_TOOLS, PALETTE, STREAM]:
-            current_app.config[TASK][uuid][key] = None
-            logging.debug(" - setting current_app.config[TASK][{}][{}] to None".format(
-                uuid,
-                key ))
-        
-        # set the status of task to STOP
-        current_app.config[TASK][uuid][STATUS] = STOP
-
-        # update list
-        current_app.config["TASK_LIST"] = get_tasks()
-        
-        # msg
-        msg = f"Stop the task ({uuid})"
-        logging.info( msg )
-        return jsonify( msg ), PASS_CODE
-
     except Exception as e:
-        return jsonify(handle_exception(e)), FAIL_CODE
+        current_app.config[TASK][uuid] = \
+            msg = 'Stopping Task Failed ... ({})'.format(
+                handle_exception(e))
+        return jsonify(msg), FAIL_CODE
+
+    # set relative object to None
+    for key in [API, RUNTIME, DRAW_TOOLS, PALETTE, STREAM]:
+        current_app.config[TASK][uuid][key] = None
+        logging.debug(" - setting current_app.config[TASK][{}][{}] to None".format(
+            uuid,
+            key ))
+    
+    # set the status of task to STOP
+    current_app.config[TASK][uuid][STATUS] = STOP
+
+    # update list
+    current_app.config["TASK_LIST"] = get_tasks()
+    
+    # msg
+    msg = f"Stop the task ({uuid})"
+    logging.info( msg )
+    return jsonify( msg ), PASS_CODE
