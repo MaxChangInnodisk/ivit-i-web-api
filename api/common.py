@@ -258,6 +258,10 @@ def get_src(task_uuid, reload_src=False):
 
         # app.config[SRC][src_name][OBJECT] = Source(src_name, app.config[SRC][src_name][TYPE])
         app.config[SRC][src_name][OBJECT] = Pipeline(src_name, app.config[SRC][src_name][TYPE])
+
+        # setup camera
+        app.config[SRC][src_name][OBJECT].set_cam(height=720, width=1280, fps=30)
+
         app.config[SRC][src_name][OBJECT].start()
     
     # setup status and error message in source config
