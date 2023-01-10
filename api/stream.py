@@ -185,8 +185,8 @@ def stream_task(task_uuid, src, namespace):
     try:
         
         cv_show = True
-        cur_info, temp_info = None, None
-        cur_fps, temp_fps = 30, 30
+        cur_info, temp_info, app_info = None, None, None
+        cur_fps, fps_pool = 30, []
         temp_socket_time = 0
 
         while(app.config[SRC][src_name][STATUS]==RUN):
@@ -214,22 +214,25 @@ def stream_task(task_uuid, src, namespace):
             draw = frame.copy()
 
             # Start to Inference and update info
-            temp_info = trg.inference( frame )
+            cur_info = trg.inference( frame )
 
-            if(temp_info):
-                cur_info, cur_fps = temp_info, temp_fps
+            # Update temp_info
+            if(cur_info is not None):
+                if cur_info.get(DETS) is not None:
+                    temp_info = cur_info
 
             t3 = time.time()
 
             # Draw something
-            if not (cur_info is None):
-                draw, cur_info = application(draw, cur_info)
+            if (temp_info is not None):
+                draw, app_info = application(draw, temp_info)
 
             # Send RTSP
             out.write(draw)
 
             # Select Information to send
-            info = cur_info
+            info = temp_info.get(DETS) if (temp_info is not None) else ''
+
 
             # Combine the return information
             ret_info = {
@@ -251,8 +254,11 @@ def stream_task(task_uuid, src, namespace):
             # Update Live Time and FPS
             app.config[TASK][task_uuid][LIVE_TIME] = int((time.time() - app.config[TASK][task_uuid][START_TIME]))
             
-            if(temp_info):
-                temp_fps = int(1/(time.time()-t1))
+            # Average FPS
+            if(cur_info):
+                fps_pool.append(int(1/(time.time()-t1)))
+                cur_fps = sum(fps_pool)//len(fps_pool) if len(fps_pool)>10 else cur_fps
+                 
 
         logging.info('Stop streaming')
 
