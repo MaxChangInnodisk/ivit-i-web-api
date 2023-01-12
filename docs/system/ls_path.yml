@@ -1,0 +1,33 @@
+Parse the JSON or TXT file and get the content
+---
+tags:
+  - system
+
+parameters:
+  - in: body
+    name: path
+    required: true
+    schema:
+      type: object
+      description: "Provide the path you want to check file"
+      properties:
+        path:
+          type: string
+          example: "/workspace"
+
+responses:
+  200:
+    description: success message
+    schema:
+      type: list
+      example: [ 
+        'parking-lot-detect',
+        'yolov4-tiny-sample',
+        'object-detection-sample',
+        'wrong-side-detect',
+        'classification-sample',
+        'traffic-flow-detect' 
+      ]
+  400:
+    description: error message
+    

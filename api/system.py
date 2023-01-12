@@ -56,6 +56,7 @@ def web_device_info():
     return jsonify(ret)
 
 @bp_system.route("/ls_path", methods=["GET"])
+@swag_from('{}/{}'.format(YAML_PATH, "ls_path.yml"))
 def ls_path():
     _data = request.get_json()
     _path = _data.get('path')
