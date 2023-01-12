@@ -125,7 +125,6 @@ def task_label(uuid):
 
     return jsonify( message ), PASS_CODE
     
-
 @bp_tasks.route("/task/<uuid>/<key>/")
 @swag_from("{}/{}".format(YAML_PATH, "universal_cmd.yml"))
 def task_status(uuid, key):

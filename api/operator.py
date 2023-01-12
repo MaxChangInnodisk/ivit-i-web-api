@@ -94,8 +94,6 @@ def edit_event(uuid):
     except Exception as e:
         return handle_exception(e, "Edit error"), 400
 
-
-
 @bp_operators.route("/add/", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "add.yml"))
 def add_event():
@@ -354,7 +352,6 @@ def import_url_event():
     finally:
         return jsonify( message ), status
 
-
 @bp_operators.route("/import_proc/", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "import_proc.yml"))
 def import_process_default_event():
@@ -429,7 +426,6 @@ def import_event():
 
         current_app.config[TASK_LIST]=get_tasks()
         return jsonify( message ), status
-
 
 @bp_operators.route("/remove/", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "remove.yml"))
