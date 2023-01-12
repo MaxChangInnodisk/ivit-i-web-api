@@ -335,7 +335,6 @@ def extract_url_event():
     finally:
         return jsonify( message ), status
 
-
 @bp_operators.route("/import_proc/", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "import_proc.yml"))
 def import_process_default_event():

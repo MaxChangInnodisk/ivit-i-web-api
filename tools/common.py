@@ -46,6 +46,7 @@ def get_nv_info():
 
 def get_intel_info():
     avg = 0
+    ret = {}
     try:
         import psutil
         KEY  ="coretemp"
@@ -56,17 +57,21 @@ def get_intel_info():
         handle_exception(e, "Get temperature error")
         avg = 0
 
-    ret  = {
-        "CPU": {
-            "id": 0,
-            "name": "CPU",
-            "uuid": "", 
-            "load": 0, 
-            "memoryUtil": 0, 
-            "temperature": avg
-        }
+    cpu_info  = {
+        "id": 0,
+        "name": "CPU",
+        "uuid": "", 
+        "load": 0, 
+        "memoryUtil": 0, 
+        "temperature": avg
     }
-    ret.update( { "GPU": ret["CPU"] } )
+    
+    # Copy CPU infor to GPU
+    gpu_info = cpu_info.copy()
+    gpu_info['name'] = 'GPU'
+
+    # Update information
+    ret.update( { "CPU": cpu_info, "GPU": gpu_info } )    
     return ret
 
 def get_xlnx_info():
