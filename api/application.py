@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, current_app
 from flasgger import swag_from
 
-YAML_PATH   = "/workspace/ivit_i/web/docs/application"
+YAML_PATH   = "/workspace/web/docs/application"
 BP_NAME     = "application"
 bp_application = Blueprint(BP_NAME, __name__)
 

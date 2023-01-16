@@ -1,0 +1,67 @@
+Edit AI task
+---
+tags:
+  - operator
+
+parameters:
+  - in: path
+    name: uuid
+    required: true
+    schema:
+      type: string
+
+  - in: body
+    name: data
+    schema:
+      type: object
+      properties:
+        "name":
+          type: string
+          example: test
+        
+        "application":
+          type: object
+          properties:
+            "name": 
+              type: string
+              required: true
+              example: "counting"
+            "depend_on":
+              type: array
+              required: false
+              items:
+                type: string
+              example: [ "person", "car" ]
+        
+        "model":
+          type: string
+          example: "yolo-v3-tf.xml"
+
+        "device":
+          type: string
+          example: "CPU"
+        
+        "source_type":
+          type: string
+          enum: [ "Image", "Video", "RTSP", "V4L2"]
+          default: "V4L2"
+
+        "source":
+          type: string
+          example: "/dev/video0"
+        
+        "thres":
+          type: float
+          example: 0.7
+        
+responses:
+  200:
+    schema:
+      type: string
+      description: success message
+      example: "{ success message }"
+  400:
+    schema:
+      type: string
+      description : error message
+      example: "{ error message }"

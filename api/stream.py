@@ -1,5 +1,5 @@
 import cv2, time, logging, base64, threading, os, copy, sys, json
-from flask import Blueprint, abort, jsonify, app, request
+from flask import Blueprint, abort, jsonify, request, send_file
 from werkzeug.utils import secure_filename
 from flasgger import swag_from
 
@@ -20,7 +20,7 @@ from ivit_i.app.handler import get_application
 YAML_PATH   = ""
 BP_NAME     = "stream"
 DIV         = "-" * 20
-YAML_PATH   = "/workspace/ivit_i/web/docs/stream"
+YAML_PATH   = "/workspace/web/docs/stream"
 bp_stream   = Blueprint(BP_NAME, __name__)
 
 # Define Status
@@ -142,7 +142,6 @@ def define_gst_pipeline(src_wid, src_hei, src_fps, rtsp_url, platform='intel'):
     logging.info(f'Parse {platform} Gstreamer Pipeline ')
     return maps.get(platform)
 
-
 def stream_task(task_uuid, src, namespace):
     '''
     Stream event: sending 'image' and 'result' to '/app/<uuid>/stream' via socketio
@@ -254,8 +253,7 @@ def stream_task(task_uuid, src, namespace):
             ret_info = {
                 IDX         : int(app.config[TASK][task_uuid][FRAME_IDX]),
                 DETS        : info,
-                INFER       : round((t3-t2)*1000, 3),
-                FPS         : runtime_fps,
+                FPS         : cur_fps,
                 LIVE_TIME   : round((time.time() - app.config[TASK][task_uuid][START_TIME]), 5),
             }
             
@@ -334,6 +332,60 @@ def add_src():
     ret = src.get_first_frame()
     src.release()
     return jsonify( frame2btye(ret) )
+
+@bp_stream.route("/add_src_test/", methods=["POST"])
+def add_src_test():
+    """ Get the first frame when upload a new file """
+
+    # Get data: support form data and json
+    data = dict(request.form) if bool(request.form) else request.get_json()
+    
+    # Source: If got new file
+    if bool(request.files):
+        
+        # Check the file is not empty
+        file = request.files[SOURCE]
+        if (bool(file)):
+            file_name = secure_filename(file.filename)
+            file_path = os.path.join(app.config["DATA"], file_name)
+            file.save( file_path )
+            
+            data[SOURCE]=file_path
+            logging.info('Get New Source: {}'.format(data[SOURCE]))
+
+    # Check If the source is already exist 
+    if data[SOURCE] in app.config[SRC]:
+
+        # If exist and initialize
+        src = app.config[SRC][data[SOURCE]].get(OBJECT)
+        if src is not None:
+            
+            ret = None
+            
+            # If Alive
+            if src.t.is_alive():
+                ret = src.get_first_frame()
+            
+            # Not Alive
+            else:
+                src.start()
+                ret = src.get_first_frame()
+                src.stop()
+                src.release()
+
+            # Return Frame
+            if ret:
+                return send_file(ret_path)
+
+    # If not exist then create a new Source
+    src = Pipeline( data[SOURCE], data[SOURCE_TYPE] )
+    src.start()
+    ret = src.get_first_frame()
+    
+    ret_path = '/workspace/data/test.jpg'
+    cv2.imwrite(ret_path, ret)
+    src.release()
+    return send_file(ret_path)
     
 @bp_stream.route("/task/<uuid>/get_frame")
 @swag_from("{}/{}".format(YAML_PATH, "get_frame.yml"))
@@ -369,6 +421,11 @@ def start_stream(uuid):
         )
         logging.info('Created a new stream thread ( {} )'.format(app.config[TASK][uuid][STREAM]))
     
+    # wait stream thread
+    while(app.config[TASK][uuid][STREAM] == None):
+        print('wait')
+        time.sleep(1)
+
     # check if thread is alive
     if app.config[TASK][uuid][STREAM].is_alive():
         logging.info('Stream is running')
@@ -402,20 +459,24 @@ def stop_stream(uuid):
         return 'Support Task UUID is ({}) , but got {}.'.format(
             ', '.join(app.config[UUID].keys()), uuid ), FAIL_CODE
 
+    print(app.config[TASK][uuid][API])
+
     if app.config[TASK][uuid][STATUS]==ERROR:
         return jsonify('Stream Error ! '), 400
         
     if app.config[TASK][uuid][STREAM]!=None:
         try:        
+            src_name = app.config[TASK][uuid][SOURCE]
+            app.config[SRC][src_name][STATUS] = STOP
             app.config[TASK][uuid][STREAM].join()
             logging.warning('Stopped stream !')
         except Exception as e:
             logging.warning(e)
 
+    print(app.config[TASK][uuid][API])
     app.config[TASK][uuid][STREAM]=None
     logging.warning('Clear Stream ...')
-    return jsonify('Stop stream success ! '), 200
-
+    return jsonify('Stop stream success ! ( {}:{} ) '.format(uuid, app.config[TASK][uuid]['name'])), 200
 
 @bp_stream.route("/task/<uuid>/stream/draw", methods=["PUT"])
 def stream_draw(uuid):

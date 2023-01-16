@@ -14,7 +14,7 @@ from werkzeug.utils import secure_filename
 from flasgger import swag_from
 
 # Define API Docs path and Blue Print
-YAML_PATH       = "/workspace/ivit_i/web/docs/operator"
+YAML_PATH       = "/workspace/web/docs/operator"
 BP_NAME         = "operator"
 bp_operators = Blueprint(BP_NAME, __name__)
 

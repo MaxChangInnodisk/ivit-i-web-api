@@ -1,5 +1,5 @@
 import logging, subprocess, json, os
-from flask import Blueprint, abort, jsonify, current_app, request
+from flask import Blueprint, abort, jsonify, current_app, request, send_file
 from flasgger import swag_from
 
 # Load Module from `web/tools`
@@ -7,7 +7,7 @@ from ..tools.parser import get_pure_jsonify
 from ..tools.common import ( get_v4l2, handle_exception )
 from .common import PASS_CODE, FAIL_CODE
 
-YAML_PATH   = "/workspace/ivit_i/web/docs/system"
+YAML_PATH   = "/workspace/web/docs/system"
 BP_NAME     = "system"
 bp_system = Blueprint(BP_NAME, __name__)
 
@@ -55,7 +55,7 @@ def web_device_info():
 
     return jsonify(ret)
 
-@bp_system.route("/ls_path", methods=["GET"])
+@bp_system.route("/ls_path", methods=["POST"])
 @swag_from('{}/{}'.format(YAML_PATH, "ls_path.yml"))
 def ls_path():
     _data = request.get_json()
@@ -125,6 +125,20 @@ def read_file():
         return jsonify( ret_data ), 200
     except Exception as e:
         return handle_exception(error=e, title="Could not load application ... set app to None", exit=False), 400
+
+@bp_system.route("/read_image/", methods=["POST"])
+def read_image():
+
+    data = request.get_json()
+
+    image_path = data.get('path')
+    
+    if image_path is None:
+        return jsonify( "Content is empty" ), FAIL_CODE
+    if not os.path.exists(image_path):
+        return jsonify( "Could not found image" ), FAIL_CODE
+
+    return send_file(image_path)
 
 @bp_system.route("/get_ip", methods=['GET'])
 def get_ip():

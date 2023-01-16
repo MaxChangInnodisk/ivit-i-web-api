@@ -7,7 +7,7 @@ from .common import sock, app, mqtt
 from web.tools.common import get_address
 from .task import get_simple_task
 
-YAML_PATH   = "/workspace/ivit_i/web/docs/icap"
+YAML_PATH   = "/workspace/web/docs/icap"
 BP_NAME     = "icap"
 bp_icap = Blueprint(BP_NAME, __name__)
 

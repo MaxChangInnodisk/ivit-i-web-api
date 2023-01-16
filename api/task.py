@@ -3,20 +3,19 @@ from flask import Blueprint, jsonify, current_app
 from flasgger import swag_from
 from web.api.stream import FAIL_CODE
 
-# From /ivit_i/web/api
-from ivit_i.web.api.common import get_src, stop_src, check_uuid_in_config
+from ivit_i.utils.err_handler import handle_exception
 
 # From /ivit_i/web
 from web.tools.parser import get_pure_jsonify
 from web.tools.handler import get_tasks
 from web.tools.parser import get_pure_jsonify
-from ivit_i.utils.err_handler import handle_exception
 from web.ai.get_api import get_api
+from web.api.common import get_src, stop_src, check_uuid_in_config
 from .common import get_request_data, print_title
 from ..tools.handler import edit_task, add_task, get_tasks, remove_task, import_task
 
 
-YAML_PATH   = "/workspace/ivit_i/web/docs/task"
+YAML_PATH   = "/workspace/web/docs/task"
 BP_NAME     = 'task'
 bp_tasks    = Blueprint(BP_NAME, __name__)
 
@@ -261,7 +260,7 @@ def run_task(uuid):
     # update task list
     current_app.config[TASK_LIST]=get_tasks()
 
-    return jsonify('Run Application ({}) !'.format(uuid)), PASS_CODE
+    return jsonify('Run Application ( {}:{} ) !'.format(uuid, current_app.config[TASK][uuid][NAME])), PASS_CODE
 
 @bp_tasks.route("/task/<uuid>/stop/", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "task_stop.yml"))
@@ -299,6 +298,6 @@ def stop_task(uuid):
     current_app.config["TASK_LIST"] = get_tasks()
     
     # msg
-    msg = f"Stop the task ({uuid})"
+    msg = f"Stop the task ( {uuid}:{current_app.config[TASK][uuid][NAME]} )"
     logging.info( msg )
     return jsonify( msg ), PASS_CODE

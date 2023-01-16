@@ -122,7 +122,6 @@ def create_app():
             handle_exception(e)
             return "Initialize Failed ({})".format(e), 400
 
-
     @app.before_request
     def before_request():
         # request.remote_addr, request.method, request.scheme, request.full_path, response.status

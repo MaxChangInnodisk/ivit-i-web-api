@@ -1,0 +1,23 @@
+Remove AI task via UUID
+---
+tags:
+  - operator
+parameters:
+  - in: body
+    name: data
+    schema:
+      type: object
+      properties:
+        uuid:
+          type: string
+responses:
+  200:
+    schema:
+      type: string
+      description: success message
+      example: "{ success message }"
+  400:
+    schema:
+      type: string
+      description : error message
+      example: "{ error message }"
