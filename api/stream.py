@@ -150,39 +150,40 @@ def stream_task(task_uuid, src, namespace):
     draw            = app.config[TASK][task_uuid][DRAW_TOOLS]
     platform        = app.config[PLATFORM]
     
-    temp_model_conf = copy.deepcopy(model_conf)
-
-    # Get application executable function if has application
-    application = get_application(temp_model_conf)
-
     # Async Mode
     trg.set_async_mode()
 
+    # Get application executable function if has application
+    application = get_application(model_conf)
+
     # Define RTSP pipeline
-    src_name    = app.config[TASK][task_uuid][SOURCE]
+    src_name = app.config[TASK][task_uuid][SOURCE]
     (src_hei, src_wid), src_fps = src.get_shape(), src.get_fps()
 
     # Define RTSP
     rtsp_url = f"rtsp://localhost:8554/{task_uuid}"
-    gst_pipeline = define_gst_pipeline(
-        src_wid, src_hei, src_fps, rtsp_url, platform
-    )
+    gst_pipeline = define_gst_pipeline( src_wid, src_hei, src_fps, rtsp_url, platform )
     out = cv2.VideoWriter(  gst_pipeline, cv2.CAP_GSTREAMER, 0, 
                             src_fps, (src_wid, src_hei), True )
-
     logging.info('Gstreamer Pipeline: {}\n\n{}'.format(gst_pipeline, rtsp_url))
 
     # if not out.isOpened():
     #     raise Exception("can't open video writer")
 
-    # start looping
+    # Set cv2 window
+    win_name = f'CV Display: {app.config[TASK][task_uuid][NAME]} ({task_uuid})'
+    cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
+    cv2.setWindowProperty(win_name, cv2.WND_PROP_TOPMOST, 1)
+    cv2.resizeWindow(win_name, src_wid, src_hei) 
+    need_display = True
+
     try:
-        
-        cv_show = True
+
+        # Setup Parameters
         cur_info, temp_info, app_info = None, None, None
         cur_fps, fps_pool = 30, []
-        display_win = True
 
+        # start looping
         while(app.config[SRC][src_name][STATUS]==RUN):
             
             t1 = time.time()
@@ -222,11 +223,11 @@ def stream_task(task_uuid, src, namespace):
                 draw, app_info = application(draw, temp_info)
 
             # NOTE: Local Display
-            if(display_win):
-                cv2.imshow(f'Local Display: ({task_uuid})', draw)
+            if(need_display):
+                cv2.imshow(win_name, draw)
                 if cv2.waitKey(1) in [ ord('q'), ord('Q'), 27 ]:
-                    cv2.destroyAllWindows()
-                    display_win = False
+                    cv2.destroyWindow(win_name);cv2.waitKey(1)
+                    need_display = False
                     logging.info('Destroy CV Windows')
 
             # Send RTSP
@@ -270,8 +271,8 @@ def stream_task(task_uuid, src, namespace):
     finally:
         
         # Try to destroy windows
-        try:cv2.destroyAllWindows()
-        except: pass
+        if(need_display):
+            cv2.destroyWindow(win_name);cv2.waitKey(1)
 
         trg.release()
 
