@@ -106,12 +106,6 @@ OV          = "openvino"
 XLNX        = "xilinx"
 VTS         = "vitis-ai"
 
-# def send_socketio(frame, socketio, namespace):
-#     # Convert to base64 format
-#     frame_base64 = base64.encodebytes(cv2.imencode(BASE64_EXT, frame)[1].tobytes()).decode(BASE64_DEC)
-#     # Send socketio to client
-#     socketio.emit(IMG_EVENT, frame_base64, namespace=namespace)
-
 def define_gst_pipeline(src_wid, src_hei, src_fps, rtsp_url, platform='intel'):
     base = 'appsrc is-live=true block=true format=GST_FORMAT_TIME ' + \
             f'caps=video/x-raw,format=BGR,width={src_wid},height={src_hei},framerate={src_fps}/1 ' + \
@@ -187,7 +181,7 @@ def stream_task(task_uuid, src, namespace):
         cv_show = True
         cur_info, temp_info, app_info = None, None, None
         cur_fps, fps_pool = 30, []
-        temp_socket_time = 0
+        display_win = True
 
         while(app.config[SRC][src_name][STATUS]==RUN):
             
@@ -227,12 +221,19 @@ def stream_task(task_uuid, src, namespace):
             if (temp_info is not None):
                 draw, app_info = application(draw, temp_info)
 
+            # NOTE: Local Display
+            if(display_win):
+                cv2.imshow(f'Local Display: ({task_uuid})', draw)
+                if cv2.waitKey(1) in [ ord('q'), ord('Q'), 27 ]:
+                    cv2.destroyAllWindows()
+                    display_win = False
+                    logging.info('Destroy CV Windows')
+
             # Send RTSP
             out.write(draw)
 
-            # Select Information to send
+            # Select Information to send ( detection result or application result )
             info = temp_info.get(DETS) if (temp_info is not None) else ''
-
 
             # Combine the return information
             ret_info = {
@@ -243,9 +244,7 @@ def stream_task(task_uuid, src, namespace):
                 LIVE_TIME   : round((time.time() - app.config[TASK][task_uuid][START_TIME]), 5),
             }
             # Send Information
-            if(time.time() - temp_socket_time >= 1):                
-                app.config[SOCK_POOL].update({ task_uuid: json.dumps(get_pure_jsonify(ret_info)) })
-                temp_socket_time = time.time()
+            app.config[SOCK_POOL].update({ task_uuid: json.dumps(get_pure_jsonify(ret_info)) })
 
             # Delay to fix in 30 fps
             t_cost, t_expect = (time.time()-t1), (1/src_fps)
@@ -255,7 +254,7 @@ def stream_task(task_uuid, src, namespace):
             app.config[TASK][task_uuid][LIVE_TIME] = int((time.time() - app.config[TASK][task_uuid][START_TIME]))
             
             # Average FPS
-            if(cur_info):
+            if(cur_info is not None):
                 fps_pool.append(int(1/(time.time()-t1)))
                 cur_fps = sum(fps_pool)//len(fps_pool) if len(fps_pool)>10 else cur_fps
                  
@@ -269,6 +268,11 @@ def stream_task(task_uuid, src, namespace):
         raise Exception(err)
     
     finally:
+        
+        # Try to destroy windows
+        try:cv2.destroyAllWindows()
+        except: pass
+
         trg.release()
 
 # Define Sock Event
