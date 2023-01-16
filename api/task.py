@@ -1,17 +1,17 @@
 import logging, copy, time, os
 from flask import Blueprint, jsonify, current_app
 from flasgger import swag_from
-from ivit_i.web.api.stream import FAIL_CODE
+from .stream import FAIL_CODE
 
 # From /ivit_i/web/api
-from ivit_i.web.api.common import get_src, stop_src, check_uuid_in_config
+from .common import get_src, stop_src, check_uuid_in_config
 
 # From /ivit_i/web
-from ivit_i.web.tools.parser import get_pure_jsonify
-from ivit_i.web.tools.handler import get_tasks
-from ivit_i.web.tools.parser import get_pure_jsonify
+from ..tools.parser import get_pure_jsonify
+from ..tools.handler import get_tasks
+from ..tools.parser import get_pure_jsonify
 from ivit_i.utils.err_handler import handle_exception
-from ivit_i.web.ai.get_api import get_api
+from ..ai.get_api import get_api
 
 YAML_PATH   = "/workspace/ivit_i/web/docs/task"
 BP_NAME     = 'task'

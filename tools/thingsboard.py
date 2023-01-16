@@ -1,6 +1,6 @@
 import requests, json, logging, os, sys
 sys.path.append(os.getcwd())
-from ivit_i.web.tools.common import get_address
+from .common import get_address
 
 TB_KEY_NAME     = "name" 
 TB_KEY_TYPE     = "type" 
