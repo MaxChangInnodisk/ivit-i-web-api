@@ -307,7 +307,10 @@ def update_src():
 
         # If exist and initialize
         src = app.config[SRC][data[SOURCE]].get(OBJECT)
+        
         if src is not None:
+            
+            src.set_cam(height=720, width=1280, fps=30)
             ret = None
 
             # If Alive
@@ -327,6 +330,7 @@ def update_src():
 
     # If not exist then create a new Source
     src = Pipeline( data[SOURCE], data[SOURCE_TYPE] )
+    src.set_cam(height=720, width=1280, fps=30)
     src.start()
     ret = src.get_first_frame()
     src.release()
