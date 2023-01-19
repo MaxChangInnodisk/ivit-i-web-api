@@ -214,62 +214,76 @@ def str_to_json(val):
         return json.loads(val)
     return val
 
-def modify_basic_app_params(new_conf, pre_conf):
+def modify_basic_app_params(new_conf, app_conf):
     """ Update the basic parameters of the application """
 
     trg_key = "name"
     if trg_key in new_conf:    
         app_name = new_conf[trg_key]
-        pre_conf[app_key] = { trg_key: app_name }
+        app_conf.update({ trg_key: app_name })
     
     trg_key = "depend_on"
     if trg_key in new_conf:
         depend_list = str_to_json(new_conf[trg_key])
         if depend_list != []:
-            pre_conf[app_key].update( { trg_key: depend_list } )
+            app_conf.update( { trg_key: depend_list } )
 
-    return pre_conf
+    return app_conf
 
-def modify_area_app_params(new_conf, pre_conf):
+def modify_area_app_params(new_conf, app_conf):
     """ Update the area parameters of the application """
+    app_key = "application"
     
     trg_key = "area_points"
     if trg_key in new_conf:
         area_points = str_to_json(new_conf[trg_key])
         if area_points != []:
-            pre_conf[app_key].update( { trg_key: area_points } )
+            app_conf.update( { trg_key: area_points } )
 
     trg_key = "sensitivity"
     if trg_key in new_conf:
-        pre_conf[app_key].update( { trg_key: new_conf[trg_key] } )
+        app_conf.update( { trg_key: new_conf[trg_key] } )
 
-def modify_vector_app_params(new_conf, pre_conf):
+    return app_conf
+
+def modify_vector_app_params(new_conf, app_conf):
     """ Update the vector parameters of the application """
+    app_key = "application"
+    
     trg_key = "area_vector"
     if trg_key in new_conf:
         area_vector = str_to_json(new_conf[trg_key])
 
         if area_vector != []:
-            pre_conf[app_key].update( { trg_key: area_vector } )
+            app_conf.update( { trg_key: area_vector } )
 
-def modify_logic_app_params(new_conf, pre_conf):
+    return app_conf
+
+def modify_logic_app_params(new_conf, app_conf):
     """ Update the logic parameters of the application """
-
+    app_key = "application"
+    
     trg_key = "logic"
     if trg_key in new_conf:
-        pre_conf[app_key].update( { trg_key: new_conf[trg_key] } )
+        app_conf.update( { trg_key: new_conf[trg_key] } )
     
     trg_key = "logic_thres"
     if trg_key in new_conf:
-        pre_conf[app_key].update( { trg_key: int(new_conf[trg_key]) } )
+        app_conf.update( { trg_key: int(new_conf[trg_key]) } )
 
-def modify_event_app_params(new_conf, pre_conf):
+    return app_conf
+
+def modify_event_app_params(new_conf, app_conf):
     """ Update the event parameters of the application """
+    app_key = "application"
+    
     trg_key = "alarm"
     if trg_key in new_conf:
-        pre_conf[app_key].update( { trg_key: new_conf[trg_key] } )
+        app_conf.update( { trg_key: new_conf[trg_key] } )
 
-def modify_application_json(new_conf, app_conf):
+    return app_conf
+
+def modify_application_json(new_conf, pre_conf):
     """
     Update the application parameters
     """
@@ -280,7 +294,10 @@ def modify_application_json(new_conf, app_conf):
     # Convert to dictionary and update new_conf
     try: new_conf[app_key] = json.loads(new_conf[app_key])
     except: pass
+    
     new_conf = new_conf[app_key]
+    print(pre_conf)
+    app_conf = pre_conf.get(app_key, {})
 
     # Basic    
     app_conf = modify_basic_app_params(new_conf, app_conf)
@@ -297,9 +314,11 @@ def modify_application_json(new_conf, app_conf):
     # Event
     app_conf = modify_event_app_params(new_conf, app_conf)
 
-    logging.warning("Update Application Setting: {}".format(app_conf[app_key]))
-    
-    return app_conf
+    logging.warning("Update Application Setting: {}".format(app_conf))
+
+    # Update the configuration of the application
+    pre_conf.update({app_key:app_conf})    
+    return pre_conf
 
 def modify_task_json(src_uuid:str, task_name:str, form:dict, need_copy:bool=False):
     try:
@@ -328,11 +347,9 @@ def modify_task_json(src_uuid:str, task_name:str, form:dict, need_copy:bool=Fals
 
         # Update Basic Parameters
         logging.debug('Update information in {}'.format(app_cfg_path))
-        form["thres"] = float(form["thres"])
         app_cfg["prim"]["model_json"] = app_cfg["prim"]["model_json"].replace(src_an, task_name, 1)
         
         for key in ['name', 'source', 'source_type']:
-            # the source key is different with configuration ( source )
             logging.debug(f' - update ({key}): {app_cfg[key]} -> {form[key]}')
             app_cfg[key] = form[ key ]
         
@@ -340,13 +357,9 @@ def modify_task_json(src_uuid:str, task_name:str, form:dict, need_copy:bool=Fals
         app_cfg = modify_application_json(form, app_cfg)
 
         # Update model information
+        form["thres"] = float(form["thres"])
         logging.debug('Update information in {}'.format(model_cfg_path))
         for key, val in model_cfg[af].items():
-            # if key in ['model_path', 'label_path']: 
-            #     if model_cfg["tag"]=='pose' and key=="label_path":
-            #         pass
-            #     else:
-            #         model_cfg[af][key] = val.replace(src_an, task_name, 1) 
             if key in ['device', 'thres']:
                 model_cfg[af][key] = form[key]  
             logging.debug(f' - update ({key}): {val} -> { model_cfg[af][key] if key in model_cfg[af] else val}')
@@ -354,6 +367,7 @@ def modify_task_json(src_uuid:str, task_name:str, form:dict, need_copy:bool=Fals
         # Update json file
         write_json(app_cfg_path, app_cfg)
         write_json(model_cfg_path, model_cfg)
+
     except Exception as e:
         msg = handle_exception(e, 'Modify JSON Error')
         logging.error(msg); raise Exception(msg)
