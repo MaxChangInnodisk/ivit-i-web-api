@@ -214,79 +214,99 @@ def str_to_json(val):
         return json.loads(val)
     return val
 
-def modify_application_json(form, app_cfg):
+def modify_basic_app_params(new_conf, pre_conf):
+    """ Update the basic parameters of the application """
+
+    trg_key = "name"
+    if trg_key in new_conf:    
+        app_name = new_conf[trg_key]
+        app_cfg[app_key] = { trg_key: app_name }
+    
+    trg_key = "depend_on"
+    if trg_key in new_conf:
+        new_conf[trg_key] = str_to_json(new_conf[trg_key])
+
+        if new_conf[trg_key] != []:
+            app_cfg[app_key].update( { trg_key: new_conf[trg_key] } )
+
+    return app_cfg
+
+def modify_area_app_params(new_conf, pre_conf):
+    """ Update the area parameters of the application """
+    
+    trg_key = "area_points"
+    if trg_key in new_conf:
+        new_conf[trg_key] = str_to_json(new_conf[trg_key])
+
+        if new_conf[trg_key] != []:
+            app_cfg[app_key].update( { trg_key: new_conf[trg_key] } )
+
+    trg_key = "sensitivity"
+    if trg_key in new_conf:
+        app_cfg[app_key].update( { trg_key: new_conf[trg_key] } )
+
+def modify_vector_app_params(new_conf, pre_conf):
+    """ Update the vector parameters of the application """
+    trg_key = "area_vector"
+    if trg_key in new_conf:
+        new_conf[trg_key] = str_to_json(new_conf[trg_key])
+
+        if new_conf[trg_key] != []:
+            app_cfg[app_key].update( { trg_key: new_conf[trg_key] } )
+    pass
+
+def modify_logic_app_params(new_conf, pre_conf):
+    """ Update the logic parameters of the application """
+
+    trg_key = "logic"
+    if trg_key in new_conf:
+        app_cfg[app_key].update( { trg_key: new_conf[trg_key] } )
+    
+    trg_key = "logic_thres"
+    if trg_key in new_conf:
+        app_cfg[app_key].update( { trg_key: int(new_conf[trg_key]) } )
+
+def modify_event_app_params(new_conf, pre_conf):
+    """ Update the event parameters of the application """
+    trg_key = "alarm"
+    if trg_key in new_conf:
+        app_cfg[app_key].update( { trg_key: new_conf[trg_key] } )
+
+
+def modify_application_json(new_conf, app_conf):
     """
     Update the application parameters
     """
 
-
-    # check if dictionary in string
+    # Convert to dictionary
     try:
-        form["application"] = json.loads(form["application"])
-        logging.info("Application is an string json ... ")
-    except:
-        form["application"] = form["application"]
-        logging.info("Application is an dictionary")
+        new_conf["application"] = json.loads(new_conf["application"])
+    except: pass
 
     app_key  = "application"
-    app_form = form[app_key]
+    assert app_key in new_conf, "Could not find `application` in input config, please check again."
+
+    # Update new_conf
+    new_conf = new_conf[app_key]
+
+    # Basic    
+    app_conf = modify_basic_app_params(new_conf, app_conf)
+
+    # Area
+    app_conf = modify_area_app_params(new_conf, app_conf)
+
+    # Vector
+    app_conf = modify_vector_app_params(new_conf, app_conf)
+
+    # Logic
+    app_conf = modify_logic_app_params(new_conf, app_conf)
     
-    # Update Each Key and Value
-    trg_key = "name"
-    if trg_key in app_form:    
-        app_name = app_form[trg_key]
-        app_cfg[app_key] = { trg_key: app_name }
-        
-        # Update application with correct pattern
-        # tag_app_list = current_app.config[TAG_APP] if not ( TAG_APP in current_app.config ) else get_tag_app_list()
-        # available_app_list = [ app for apps in tag_app_list.values() for app in apps  ]        
-        # if not (app_name in available_app_list):
-        #     logging.warning("Could not found application ({}) in available list ({})".format(app_name, available_app_list))
-        #     app_name = "default"
-        
-        # app_cfg[app_key] = { trg_key: app_name }
+    # Event
+    app_conf = modify_event_app_params(new_conf, app_conf)
 
-    trg_key = "depend_on"
-    if trg_key in app_form:
-        app_form[trg_key] = str_to_json(app_form[trg_key])
-
-        if app_form[trg_key] != []:
-            app_cfg[app_key].update( { trg_key: app_form[trg_key] } )
-
-    trg_key = "logic"
-    if trg_key in app_form:
-        app_cfg[app_key].update( { trg_key: app_form[trg_key] } )
+    logging.warning("Update Application Setting: {}".format(app_conf[app_key]))
     
-    trg_key = "logic_thres"
-    if trg_key in app_form:
-        app_cfg[app_key].update( { trg_key: int(app_form[trg_key]) } )
-    
-    trg_key = "alarm"
-    if trg_key in app_form:
-        app_cfg[app_key].update( { trg_key: app_form[trg_key] } )
-
-    trg_key = "area_points"
-    if trg_key in app_form:
-        app_form[trg_key] = str_to_json(app_form[trg_key])
-
-        if app_form[trg_key] != []:
-            app_cfg[app_key].update( { trg_key: app_form[trg_key] } )
-
-    trg_key = "area_vector"
-    if trg_key in app_form:
-        app_form[trg_key] = str_to_json(app_form[trg_key])
-
-        if app_form[trg_key] != []:
-            app_cfg[app_key].update( { trg_key: app_form[trg_key] } )
-
-    trg_key = "sensitivity"
-    if trg_key in app_form:
-        app_cfg[app_key].update( { trg_key: app_form[trg_key] } )
-    
-
-    logging.warning("Update Application Setting: {}".format(app_cfg[app_key]))
-    
-    return app_cfg
+    return app_conf
 
 def modify_task_json(src_uuid:str, task_name:str, form:dict, need_copy:bool=False):
     try:
