@@ -84,6 +84,16 @@ def task_info(uuid):
 
     return jsonify(get_pure_jsonify(info)), PASS_CODE
 
+def get_simple_task():
+    _tasks = [] 
+    for stats in [ 'ready', 'failed']:
+        for task in current_app.config[TASK_LIST][stats]:
+            _info = {}
+            for key in [ 'name', 'uuid', 'status', 'model', 'tag', 'framework', 'error']:
+                _info.update( {key: task.get(key)} )
+            _tasks.append( _info )
+    return _tasks
+
 @bp_tasks.route("/task/<uuid>/info/")
 @swag_from("{}/{}".format(YAML_PATH, "task_simple_info.yml"))
 def task_simple_info(uuid):

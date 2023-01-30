@@ -8,6 +8,7 @@ from .api.task import bp_tasks
 from .api.operator import bp_operators
 from .api.application import bp_application
 from .api.stream import bp_stream
+from .api.icap import bp_icap, init_for_icap, register_mqtt_event
 
 from ivit_i.utils import handle_exception
 
@@ -39,25 +40,27 @@ def create_app():
     app.register_blueprint(bp_system)        # some utils, like 'v4l2', 'device' ... etc
     app.register_blueprint(bp_application)
     app.register_blueprint(bp_stream)
-
+    app.register_blueprint(bp_icap)
+    
     # define the web api
     @app.before_first_request
     @app.route("/reset/")
     def first_time():
         # """ loading the tasks at first time or need to reset, the uuid and relatived information will be generated at same time."""
-        logging.info("Start to initialize task and generate uuid for each task ... ")
+        # logging.info("Start to initialize task and generate uuid for each task ... ")
         
-        for key in [ TASK, UUID, TASK_LIST, APPLICATION ]:
-            if key in app.config:
-                app.config[key].clear()
+        # for key in [ TASK, UUID, TASK_LIST, APPLICATION ]:
+        #     if key in app.config:
+        #         app.config[key].clear()
                 
-        try:
-            app.config[TASK_LIST]=get_tasks(need_reset=True)
-            return app.config[TASK_LIST], 200
-        except Exception as e:
-            handle_exception(e)
-            return "Initialize Failed ({})".format(e), 400
-
+        # try:
+        #     app.config[TASK_LIST]=get_tasks(need_reset=True)
+        #     return app.config[TASK_LIST], 200
+        # except Exception as e:
+        #     handle_exception(e)
+        #     return "Initialize Failed ({})".format(e), 400
+        return app.config[TASK_LIST], 200
+        
     @app.before_request
     def before_request():
         # request.remote_addr, request.method, request.scheme, request.full_path, response.status
@@ -92,49 +95,15 @@ def create_app():
             return f"Unexcepted Route ({key}), Please check /routes.", 400
         return jsonify( get_pure_jsonify(ret) ), 200
 
-    if(mqtt!=None):
-        @mqtt.on_connect()
-        def handle_mqtt_connect(client, userdata, flags, rc):
-            logging.info("Connecting to Thingsboard")
-            if rc == 0:
-                logging.info('Connected successfully')
-                _topic = app.config['TB_TOPIC_REC_RPC']+'+'
-                mqtt.subscribe(_topic)
-            else:
-                logging.error('Bad connection. Code:', rc)
-
-        @mqtt.on_message()
-        def handle_mqtt_message(client, userdata, message):
+    # Init Task
+    with app.app_context():
+        for key in [ TASK, UUID, TASK_LIST, APPLICATION ]:
+            if key in app.config:
+                app.config[key].clear()    
+        app.config[TASK_LIST]=get_tasks(need_reset=True)
             
-            topic = message.topic
-            payload = message.payload.decode()
-            data = json.loads(payload)
-
-            logging.warning("Receive Data from Thingsboard \n  - Topic : {} \n  - Data: {}".format(topic, data))
-            request_idx = topic.split('/')[-1]
-            
-            method  = data["method"].upper()
-            params  = data["params"]
-            web_api = params["api"]
-            data    = params["data"] if "data" in params else None
-
-            trg_url = "http://{}:{}{}".format(app.config['HOST'], app.config['PORT'], web_api)
-
-            # send_data = json.dumps({ "data": "test" })
-            ret, resp = get_api(trg_url) if method.upper() == "GET" else post_api(trg_url, data)
-            
-            if(ret):
-                send_data = json.dumps(resp)
-                send_topic  = app.config['TB_TOPIC_SND_RPC']+f"{request_idx}"
-
-                logging.warning("Send Data from iVIT-I \n  - Topic : {} \n  - Data: {}".format(
-                    send_topic, 
-                    send_data
-                ))
-                
-                mqtt.publish(send_topic, send_data)
-            else:
-                logging.error("Got error: {}".format(resp))
+    if(init_for_icap()):
+        register_mqtt_event()
 
     logging.info("Finish Initializing.")
     return app, sock

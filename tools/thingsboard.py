@@ -11,8 +11,8 @@ TB_KEY_TOKEN_TYPE   = "credentialsType"
 TB_KEY_ID           = "id"
 TB_KEY_TOKEN        = "accessToken"
 
-TB_TYPE         = "iCAP-Client"
-TB_NAME         = "ivit-{}".format(get_address())
+TB_TYPE         = "iVIT-I"
+TB_NAME         = "iVIT-I-{}".format(get_address())
 TB_ALIAS        = TB_NAME
 
 HEAD_MAP = {
@@ -56,7 +56,7 @@ def register_tb_device(tb_url):
         - Type: JSON
         - Content: {
                 "name"  : "ivit-i-{IP}",
-                "type"  : "iCAP-Client",
+                "type"  : "iVIT-I",
                 "alias" : "ivit-i-{IP}"
             }
     - Response:

@@ -17,7 +17,6 @@ from flask_cors import CORS as cors
 from .tools.logger import config_logger
 from .tools.common import get_address
 from .api.config import config
-from .tools.thingsboard import register_tb_device
 
 # MQTT
 from flask_mqtt import Mqtt
@@ -64,40 +63,6 @@ def init_flask():
 
     return app
 
-def init_for_icap():
-    """
-    Check if need iCAP
-
-        1. Check configuration
-        2. Concatenate URL for thingsboard
-        3. Registering thingsboard device
-        4. Init MQTT
-    """
-    mqtt, start_icap = None, app.config["ICAP"]
-    logging.info("[ iCAP ] Enable iCAP: {}".format( start_icap ))
-
-    if( start_icap == True ):
-
-        logging.info("[ iCAP ] Enabled iCAP, start to init MQTT and register device ...")
-        app.config["MQTT_BROKER_URL"] = app.config["TB"]
-        
-        # - combine URL
-        register_url = "{}:{}{}".format(
-            app.config["TB"], 
-            app.config["TB_PORT"],
-            app.config["TB_API_REG_DEVICE"]
-        )
-        # - register thingboard device
-        ret, (create_time, device_id, device_token) = register_tb_device(register_url)
-
-        if(ret):
-            app.config['TB_CREATE_TIME'] = create_time
-            app.config['TB_DEVICE_ID'] = device_id
-            app.config['TB_TOKEN'] = app.config['MQTT_USERNAME'] = device_token
-            
-            # - init            
-            mqtt = Mqtt(app)
-
 def create_non_exist_folder():
     # creat data folder if it's not exsit
     if not (os.path.exists(app.config["DATA"])):
@@ -120,7 +85,7 @@ cors(app)
 sock  = Sock(app)
 
 # Define MQTT For iCAP 
-mqtt = init_for_icap()
+mqtt = Mqtt()
 
 # Create Folder For iVIT_I
 create_non_exist_folder()

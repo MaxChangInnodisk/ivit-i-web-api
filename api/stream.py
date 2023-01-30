@@ -369,7 +369,7 @@ def start_stream(uuid):
     # check if thread is alive
     if app.config[TASK][uuid][STREAM].is_alive():
         logging.info('Stream is running')
-        return jsonify('Stream is running, Stream (WebRTC): /task/{}/stream , Log (WebSocket): "/task/results" '), PASS_CODE
+        return jsonify(f'Stream is running, Stream (WebRTC): /task/{uuid}/stream , Log (WebSocket): "/task/results" '), PASS_CODE
     
     # trying to start the stream
     try:
@@ -379,7 +379,7 @@ def start_stream(uuid):
         
         # start the thread
         app.config[TASK][uuid][STREAM].start()
-        msg = 'Stream is running, Stream (WebRTC): /task/{}/stream , Log (WebSocket): "/task/results" '
+        msg = f'Stream is running, Stream (WebRTC): /task/{uuid}/stream , Log (WebSocket): "/task/results" '
         logging.info(msg)
         return jsonify(msg), PASS_CODE
 
@@ -405,7 +405,10 @@ def stop_stream(uuid):
         return jsonify('Stream Error ! '), 400
         
     if app.config[TASK][uuid][STREAM]!=None:
-        try:        
+        try:
+            src_name = app.config[TASK][uuid][SOURCE]
+            app.config[SRC][src_name][STATUS] = STOP
+            
             app.config[TASK][uuid][STREAM].join()
             logging.warning('Stopped stream !')
         except Exception as e:
