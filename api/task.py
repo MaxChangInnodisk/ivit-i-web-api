@@ -81,8 +81,9 @@ def task_info(uuid):
     if info is None:
         return 'Support Task UUID is ({}) , but got {}.'.format(
             ', '.join(current_app.config[UUID].keys()), uuid ), FAIL_CODE
-
-    return jsonify(get_pure_jsonify(info)), PASS_CODE
+    
+    _info = copy.deepcopy(info)
+    return jsonify(get_pure_jsonify(_info)), PASS_CODE
 
 def get_simple_task():
     _tasks = [] 
