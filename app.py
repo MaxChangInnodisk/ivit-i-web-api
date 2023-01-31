@@ -3,6 +3,9 @@ from flask import jsonify, request
 
 # ivit_i 
 sys.path.append(os.getcwd())
+from ivit_i.utils import handle_exception
+from ivit_i.app.handler import ivitAppHandler
+# web api
 from .api.system import bp_system
 from .api.task import bp_tasks
 from .api.operator import bp_operators
@@ -10,11 +13,8 @@ from .api.application import bp_application
 from .api.stream import bp_stream
 from .api.icap import bp_icap, init_for_icap, register_mqtt_event
 
-from ivit_i.utils import handle_exception
-
 from .tools.parser import get_pure_jsonify
 from .tools.handler import get_tasks
-from .tools.thingsboard import get_api, post_api
 
 DIV         = "*" * 20
 TASK        = "TASK"
@@ -23,9 +23,12 @@ TASK_LIST   = "TASK_LIST"
 APPLICATION = "APPLICATION"
 ICO         = "favicon.ico"
 
+APP_CTRL    = "APP_CTRL"
+APP_DIR     = "APP_DIR"
+
 def create_app():
     
-    from web import app, sock, mqtt
+    from . import app, sock, mqtt
 
     # create basic folder
     for path in ["TEMP_PATH", "DATA"]:
@@ -43,23 +46,23 @@ def create_app():
     app.register_blueprint(bp_icap)
     
     # define the web api
-    @app.before_first_request
-    @app.route("/reset/")
-    def first_time():
-        # """ loading the tasks at first time or need to reset, the uuid and relatived information will be generated at same time."""
-        # logging.info("Start to initialize task and generate uuid for each task ... ")
+    # @app.before_first_request
+    # @app.route("/reset/")
+    # def first_time():
+    #     """ loading the tasks at first time or need to reset, the uuid and relatived information will be generated at same time."""
+    #     logging.info("Start to initialize task and generate uuid for each task ... ")
         
-        # for key in [ TASK, UUID, TASK_LIST, APPLICATION ]:
-        #     if key in app.config:
-        #         app.config[key].clear()
+    #     for key in [ TASK, UUID, TASK_LIST, APPLICATION ]:
+    #         if key in app.config:
+    #             app.config[key].clear()
                 
-        # try:
-        #     app.config[TASK_LIST]=get_tasks(need_reset=True)
-        #     return app.config[TASK_LIST], 200
-        # except Exception as e:
-        #     handle_exception(e)
-        #     return "Initialize Failed ({})".format(e), 400
-        return app.config[TASK_LIST], 200
+    #     try:
+    #         app.config[TASK_LIST]=get_tasks(need_reset=True)
+    #         return app.config[TASK_LIST], 200
+    #     except Exception as e:
+    #         handle_exception(e)
+    #         return "Initialize Failed ({})".format(e), 400
+    #     return app.config[TASK_LIST], 200
         
     @app.before_request
     def before_request():
@@ -101,9 +104,16 @@ def create_app():
             if key in app.config:
                 app.config[key].clear()    
         app.config[TASK_LIST]=get_tasks(need_reset=True)
-            
+    
+    # For iCAP
     if(init_for_icap()):
         register_mqtt_event()
+
+    # For ivitApp
+    app.config[APP_CTRL] = ivitAppHandler()
+    
+    # Clear path, the ivitAppHandler must to pure address
+    app.config[APP_CTRL].register_from_folder( app.config[APP_DIR] )
 
     logging.info("Finish Initializing.")
     return app, sock
