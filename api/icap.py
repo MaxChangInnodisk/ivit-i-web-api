@@ -116,7 +116,10 @@ def send_basic_attr():
 
     # Get Host IP
     from subprocess import check_output
-    ips = check_output(['hostname', '--all-ip-addresses']).decode("utf-8").split(' ')[0]
+    ips = check_output(['hostname', '--all-ip-addresses']).decode("utf-8").strip()
+    ips = ips.split(' ')
+    logging.info('Auto filter IP Address: {}'.format(ips))
+    
     trg_ip = ips[0]
     for ip in ips:
         if ip.split('.')[0] == app.config[TB].split('.')[0]:
