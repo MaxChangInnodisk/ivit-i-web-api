@@ -107,30 +107,20 @@ def send_basic_attr():
     """
     ADDR_KEY    = "web_forward_url"
     TASK_KEY    = "task"
-    READY       = 'ready'
 
     send_topic  = "v1/devices/me/attributes"
 
     with app.app_context():
         ret_data = get_simple_task()
 
-    # Get Host IP
-    from subprocess import check_output
-    ips = check_output(['hostname', '--all-ip-addresses']).decode("utf-8").strip()
-    ips = ips.split(' ')
-    logging.info('Auto filter IP Address: {}'.format(ips))
-    
-    trg_ip = ips[0]
-    for ip in ips:
-        if ip.split('.')[0] == app.config[TB].split('.')[0]:
-            trg_ip = ip
-    
     json_data   = {
-        ADDR_KEY: f'{trg_ip}:{app.config["DEMO_SITE_PORT"]}',
+        ADDR_KEY: f'{app.config[HOST]}:{app.config["DEMO_SITE_PORT"]}',
         TASK_KEY: ret_data
     }
+    logging.info('Send Shared Attributes at first time...\n * Topic: {}\n * Content: {}'.format(
+        send_topic, json_data
+    ))
 
-    logging.info(f'Topic: {send_topic} \nContent: {json_data}')
     mqtt.publish(send_topic, json.dumps(json_data))
 
 def init_for_icap():
