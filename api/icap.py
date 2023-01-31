@@ -82,8 +82,9 @@ def register_tb_device(tb_url):
     # logging.warning("[ iCAP ] Register Thingsboard Device ... ( Time Out: {}s ) \n{}".format(timeout, send_data))
     
     ret, data    = post_api(tb_url, send_data, timeout=timeout, stderr=False)
-
-    if(ret):
+    data = data["data"]
+    
+    if(ret==200):
         logging.info("[ iCAP ] Register Thingsboard Device ... Pass !")
         logging.info("Send Request: {}".format(data))        
         logging.info("Get Response: {}".format(data))
@@ -210,19 +211,15 @@ def register_mqtt_event():
         # send_data = json.dumps({ "data": "test" })
         ret, resp = get_api(trg_url) if method.upper() == "GET" else post_api(trg_url, data)
         
-        if(ret):
-            send_data = json.dumps(resp)
-            send_topic  = app.config['TB_TOPIC_SND_RPC']+f"{request_idx}"
+        send_data = json.dumps(resp)
+        send_topic  = app.config['TB_TOPIC_SND_RPC']+f"{request_idx}"
 
-            logging.warning("Send Data from iVIT-I \n  - Topic : {} \n  - Data: {}".format(
-                send_topic, 
-                send_data
-            ))
-            
-            mqtt.publish(send_topic, send_data)
-
-        else:
-            logging.error("Got error: {}".format(resp))
+        logging.warning("Send Data from iVIT-I \n  - Topic : {} \n  - Data: {}".format(
+            send_topic, 
+            send_data
+        ))
+        
+        mqtt.publish(send_topic, send_data)
 
 @bp_icap.route("/get_my_ip/", methods=['GET'])
 def get_my_ip():

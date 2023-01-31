@@ -1,5 +1,7 @@
 import requests, json, logging, os, sys
 sys.path.append(os.getcwd())
+from ivit_i.utils.err_handler import handle_exception
+
 from .common import get_address
 
 TB_KEY_NAME     = "name" 
@@ -20,31 +22,48 @@ HEAD_MAP = {
 }
 
 def post_api(tb_url, data, h_type='json', timeout=10, stderr=True):
+    """ Using request to simulate POST method """
     headers     = HEAD_MAP[h_type]
-    ret = False
+    
     try:
         resp = requests.post(tb_url, data=json.dumps(data), headers=headers, timeout=timeout)
-        try: resp = json.loads(resp.text)
-        except: resp = { "data": resp.text }
-        ret = True
-    except requests.Timeout: resp = "Request Time Out !!! ({})".format(tb_url)
-    except requests.ConnectionError: resp = "Connect Error !!! ({})".format(tb_url)
-    
-    if(not ret and stderr): logging.error(resp)
-    return ret, resp
+        code = resp.status_code
 
+        # Convert Json
+        try: data = json.loads(resp.text)
+        except Exception as e: data = resp.text
+        print(code, resp)
+        return code, { 
+            "data": data,
+            "status": code
+        }
+
+    except requests.Timeout:
+        return 400, "Request Time Out !!! ({})".format(tb_url)
+
+    except requests.ConnectionError:
+        return 400, "Connect Error !!! ({})".format(tb_url)
+    
 def get_api(tb_url, h_type='json', timeout=10):
+    """ Using request to simulate GET method """
     headers     = HEAD_MAP[h_type]
-    ret = False
+
     try:
         resp = requests.get(tb_url, headers=headers, timeout=10)
-        try: resp = json.loads(resp.text)
-        except Exception as e: resp = { "data": resp.text }
-        ret = True
-    except Exception as e: resp = e
-
-    if(not ret): logging.error(resp)
-    return ret, resp
+        code = resp.status_code
+        
+        # Convert Json
+        try: data = json.loads(resp.text)
+        except Exception as e: data = resp.text
+        
+        # Update Status Code into Response
+        return code, { 
+            "data": data,
+            "status": code
+        }
+        
+    except Exception as e: 
+        return 400, { "data": handle_exception(e) }
     
 def register_tb_device(tb_url):
     """
