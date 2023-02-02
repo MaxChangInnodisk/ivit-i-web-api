@@ -11,36 +11,44 @@ YAML_PATH   = "/workspace/ivit_i/web/docs/icap"
 BP_NAME     = "icap"
 bp_icap = Blueprint(BP_NAME, __name__)
 
+DEVICE_TYPE         = "IVIT-I"
+DEVICE_NAME         = "ivit-{}".format(get_address())
+DEVICE_ALIAS        = DEVICE_NAME
+
+# Basic
 TASK        = "TASK"
 TASK_LIST   = "TASK_LIST"
 HOST        = "HOST"
 PORT        = "PORT"
 
+# Define App Config Key
 TB                  = "TB"
 TB_PORT             = "TB_PORT"
 TB_API_REG_DEVICE   = "TB_API_REG_DEVICE"
 
-TB_CREATE_TIME  = "TB_CREATE_TIME"
-TB_DEVICE_ID    = "TB_DEVICE_ID"
-TB_TOKEN        = "TB_TOKEN"
+KEY_TB_CREATE_TIME  = "TB_CREATE_TIME"
+KEY_TB_DEVICE_ID    = "TB_DEVICE_ID"
+KEY_TB_TOKEN        = "TB_TOKEN"
+
+KEY_TB_STATS        = "TB_STATS"
+KEY_DEVICE_TYPE     = "TB_DEV_TYPE"
+KEY_DEVICE_NAME     = "TB_DEV_NAME"
+KEY_DEVICE_ALIAS    = "TB_DEV_ALAIS"
 
 MQTT_BROKER_URL = "MQTT_BROKER_URL"
 MQTT_USERNAME   = "MQTT_USERNAME"
 
 TB_TOPIC_REC_RPC = "TB_TOPIC_REC_RPC"
 
+# Define Thingsboard return key
 TB_KEY_NAME     = "name" 
 TB_KEY_TYPE     = "type" 
 TB_KEY_ALIAS    = "alias"
 
-TB_KEY_TIME_CREATE  = "createdTime"
+TB_KEY_TIME         = "createdTime"
 TB_KEY_TOKEN_TYPE   = "credentialsType"
 TB_KEY_ID           = "id"
 TB_KEY_TOKEN        = "accessToken"
-
-TB_TYPE         = "IVIT-I"
-TB_NAME         = "ivit-{}".format(get_address())
-TB_ALIAS        = TB_NAME
 
 def register_tb_device(tb_url):
     """
@@ -70,9 +78,9 @@ def register_tb_device(tb_url):
     create_time, device_id, device_token = "", "", ""
 
     send_data = { 
-        TB_KEY_NAME  : TB_NAME,
-        TB_KEY_TYPE  : TB_TYPE,
-        TB_KEY_ALIAS : TB_ALIAS
+        TB_KEY_NAME  : DEVICE_NAME,
+        TB_KEY_TYPE  : DEVICE_TYPE,
+        TB_KEY_ALIAS : DEVICE_ALIAS
     }
 
     header = "http://"
@@ -84,13 +92,14 @@ def register_tb_device(tb_url):
     ret, data    = post_api(tb_url, send_data, timeout=timeout, stderr=False)
     data = data["data"]
     
+    # Register sucess
     if(ret==200):
         logging.info("[ iCAP ] Register Thingsboard Device ... Pass !")
         logging.info("Send Request: {}".format(data))        
         logging.info("Get Response: {}".format(data))
 
         data            = data["data"]
-        create_time     = data[TB_KEY_TIME_CREATE]
+        create_time     = data[TB_KEY_TIME]
         device_id       = data[TB_KEY_ID]
         device_token    = data[TB_KEY_TOKEN]
     else:
@@ -106,7 +115,7 @@ def send_basic_attr():
     
     IP, PORT, AI Tasks
     """
-    ADDR_KEY    = "web_forward_url"
+    K_IP    = "web_forward_url"
     TASK_KEY    = "task"
 
     send_topic  = "v1/devices/me/attributes"
@@ -115,7 +124,7 @@ def send_basic_attr():
         ret_data = get_simple_task()
 
     json_data   = {
-        ADDR_KEY: f'{app.config[HOST]}:{app.config["DEMO_SITE_PORT"]}',
+        K_IP: f'{app.config[HOST]}:{app.config["DEMO_SITE_PORT"]}',
         TASK_KEY: ret_data
     }
     logging.info('Send Shared Attributes at first time...\n * Topic: {}\n * Content: {}'.format(
@@ -137,6 +146,14 @@ def init_for_icap():
     if app.config.get(TB)=='' or app.config[TB_PORT]== '':
         return None 
 
+    # Store value in app.config
+    app.config.update({
+        KEY_TB_STATS: False,
+        KEY_DEVICE_TYPE: DEVICE_TYPE,
+        KEY_DEVICE_NAME: DEVICE_NAME,
+        KEY_DEVICE_ALIAS: DEVICE_ALIAS
+    })
+
     # Define MQTT URL
     app.config[MQTT_BROKER_URL] = app.config[TB]
     
@@ -151,10 +168,11 @@ def init_for_icap():
     ret, (create_time, device_id, device_token) = register_tb_device(register_url)
 
     # Update Information
-    if(ret):
-        app.config[TB_CREATE_TIME] = create_time
-        app.config[TB_DEVICE_ID] = device_id
-        app.config[TB_TOKEN] = app.config[MQTT_USERNAME] = device_token
+    if(ret==200):
+        app.config[KEY_TB_CREATE_TIME] = create_time
+        app.config[KEY_TB_DEVICE_ID] = device_id
+        app.config[KEY_TB_TOKEN] = app.config[MQTT_USERNAME] = device_token
+        app.config[KEY_TB_STATS] = True
         mqtt.init_app(app)
     return ret
 
@@ -221,90 +239,76 @@ def register_mqtt_event():
         
         mqtt.publish(send_topic, send_data)
 
+def get_tb_info():
+    return {
+        KEY_TB_STATS: app.config[KEY_TB_STATS],
+        KEY_DEVICE_NAME: app.config[KEY_DEVICE_NAME],
+        KEY_DEVICE_TYPE: app.config[KEY_DEVICE_TYPE],
+        KEY_DEVICE_ALIAS: app.config[KEY_DEVICE_ALIAS],
+        KEY_TB_CREATE_TIME: app.config[KEY_TB_CREATE_TIME],
+        KEY_TB_DEVICE_ID: app.config[KEY_TB_DEVICE_ID],
+        KEY_TB_TOKEN: app.config[KEY_TB_TOKEN],
+    }
+
 @bp_icap.route("/get_my_ip/", methods=['GET'])
 def get_my_ip():
-    return jsonify({'ip': request.remote_addr}), 200
+    return jsonify( {'ip': request.remote_addr} ), 200
 
+@bp_icap.route("/icap/info/", methods=['GET'])
+def icap_info():
+    return jsonify(get_tb_info()), 200
+
+@bp_icap.route("/icap/device/id/", methods=['GET'])
+def get_device_id():
+    return jsonify( { "device_id": app.config.get(KEY_TB_DEVICE_ID) } ), 200
+
+@bp_icap.route("/icap/device/type/", methods=['GET'])
+def get_device_type():
+    return jsonify( { "device_type": app.config.get(KEY_DEVICE_TYPE) } ), 200
+
+@bp_icap.route("/icap/addr/", methods=['GET'])
+def get_addr():
+    return jsonify( { "ip" : str(app.config[TB]), "port": str(app.config[TB_PORT]) } ), 200
+
+@bp_icap.route("/icap/addr/", methods=['POST'])
 @bp_icap.route("/icap/register/", methods=['POST'])
-def icap_register():
+def modify_addr():
 
-    ADDR_KEY = "address"
+    K_IP = "ip"
+    K_PORT = "port"
 
     # Get data: support form data and json
     data = dict(request.form) if bool(request.form) else request.get_json()
 
+    # Check data
     if data is None:
-        logging.info('Using default address: "{}:{}"'.format(
-            app.config.get(TB), app.config.get(TB_PORT)
-        ))
-    else:
-        new_addr = data.get(ADDR_KEY)
-        if new_addr is None:
-            msg = "Unexcepted data, make sure the key is {} ... ".format(ADDR_KEY)
-            logging.error(msg); 
-            return jsonify(msg), 400
-        
-        ip,port = new_addr.split(':')
-        app.config.update({
-            TB: ip,
-            TB_PORT: port 
-        })
+        msg = 'Get empty data, please make sure the content include "ip" and "port". '
+        logging.error(msg)        
+        return jsonify(msg), 400
+
+    # Check ip
+    ip = data.get(K_IP)
+    if ip is None:
+        msg = "Get empty ip address ... "
+        logging.error(msg); 
+        return jsonify(msg), 400
+    
+    # Check port
+    port = data.get(K_PORT)
+    if port is None:
+        msg = "Get empty port number ... "
+        logging.error(msg); 
+        return jsonify(msg), 400
+    
+    app.config.update({
+        TB: ip,
+        TB_PORT: port 
+    })
         
     try:
         if(init_for_icap()):
             register_mqtt_event()
-            
-            return jsonify( app.config.get(TB_DEVICE_ID) ), 200
-        else:
-            return jsonify( 'Connect to iCAP ... Failed' ), 400
-
-    except Exception as e:
-        return jsonify( handle_exception(e) ), 400
-
-@bp_icap.route("/icap/get_device_id/", methods=['GET'])
-def get_tb_id():
-    return jsonify( app.config.get(TB_DEVICE_ID) ), 200
-
-@bp_icap.route("/icap/device/info/", methods=['GET'])
-def icap_info():
-    return jsonify({
-        TB_CREATE_TIME:app.config[TB_CREATE_TIME],
-        TB_DEVICE_ID:app.config[TB_DEVICE_ID],
-        TB_TOKEN: app.config[TB_TOKEN]
-    })
-
-@bp_icap.route("/icap/addr/", methods=['GET'])
-def get_addr():
-    return jsonify({"address":"{}:{}".format(app.config[TB], app.config[TB_PORT])}), 200
-
-@bp_icap.route("/icap/addr/", methods=['PUT'])
-def put_addr():
-    ADDR_KEY = "address"
-
-    # Get data: support form data and json
-    data = dict(request.form) if bool(request.form) else request.get_json()
-
-    if data is None:
-        logging.info('Using default address: "{}:{}"'.format(
-            app.config.get(TB), app.config.get(TB_PORT)
-        ))
-    else:
-        new_addr = data.get(ADDR_KEY)
-        if new_addr is None:
-            msg = "Unexcepted data, make sure the key is {} ... ".format(ADDR_KEY)
-            logging.error(msg); 
-            return jsonify(msg), 400
-        
-        ip,port = new_addr.split(':')
-        app.config.update({
-            TB: ip,
-            TB_PORT: port 
-        })
-        
-    try:
-        if(init_for_icap()):
-            # register_mqtt_event()
-            return jsonify( app.config.get(TB_DEVICE_ID) ), 200
+            return jsonify( get_tb_info() ), 200
         else:
             return jsonify( 'Connect to iCAP ... Failed' ), 400
 
