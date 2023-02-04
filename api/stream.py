@@ -12,7 +12,7 @@ from ..ai.get_api import get_api
 
 # Get Application Module From iVIT-I
 sys.path.append(os.getcwd())
-from ivit_i.common.pipeline import Source, Pipeline
+from ivit_i.common.pipeline import Source, Pipeline, DP_Output, set_dp_display
 from ivit_i.utils.err_handler import handle_exception
 from ivit_i.app.handler import get_application
 
@@ -176,6 +176,13 @@ def stream_task(task_uuid, src, namespace):
     out = cv2.VideoWriter(  gst_pipeline, cv2.CAP_GSTREAMER, 0, 
                             src_fps, (src_wid, src_hei), True )
 
+    # Define DP Display
+    try:
+        set_dp_display()
+        dp_output = DP_Output(width=src_wid, height=src_hei)
+    except Exception as e:
+        logging.error(handle_exception(e))
+            
     logging.info('Gstreamer Pipeline: {}\n\n{}'.format(gst_pipeline, rtsp_url))
 
     # if not out.isOpened():
@@ -229,6 +236,10 @@ def stream_task(task_uuid, src, namespace):
 
             # Send RTSP
             out.write(draw)
+            
+            # Display
+            try: dp_output.imshow(draw)
+            except: pass
 
             # Select Information to send
             info = temp_info.get(DETS) if (temp_info is not None) else ''

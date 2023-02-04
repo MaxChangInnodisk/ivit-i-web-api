@@ -25,7 +25,16 @@ from flask_mqtt import Mqtt
 # Basic Parameters
 ENV_CONF_KEY = "IVIT_I"
 ENV_CONF = "/workspace/ivit-i.json"
+HOST = "HOST"
 
+def get_all_addr():
+    """ Get All Available IP Address """
+    from subprocess import check_output
+    ips = check_output(['hostname', '--all-ip-addresses']).decode("utf-8").strip()
+    ips = ips.split(' ')
+    logging.info('Detected available IP Address: {}'.format(ips))
+    return ips
+    
 # Basic Function
 def init_flask():
     """
@@ -57,10 +66,18 @@ def init_flask():
     app.config.from_file( os.environ[ENV_CONF_KEY], load=json.load )
 
     # update ip address
-    if app.config['HOST'] == "":
-        addr = get_address()
-        app.config['HOST']=addr
-        logging.info('Update HOST to {}'.format(addr))
+    if app.config[HOST] == "":
+        # if app.config.get(HOST) in [ None, "" ]:
+        #     ips = get_all_addr()
+        #     host_ip = ips[0]
+        #     if not (app.config.get(TB) in [ None, "" ]):
+        #         # if setup icap then compare the first domain is the same
+        #         for ip in ips:
+        #             if ip.split('.')[0] == app.config.get(TB).split('.')[0]:
+        #                 host_ip = ip
+        host_ip = get_address()
+        app.config[HOST]=host_ip
+        logging.info('Update HOST to {}'.format(host_ip))
 
     return app
 
