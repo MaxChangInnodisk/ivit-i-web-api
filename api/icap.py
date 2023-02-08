@@ -105,7 +105,7 @@ def register_tb_device(tb_url):
     else:
         logging.warning("[ iCAP ] Register Thingsboard Device ... Failed !")
         logging.warning("   - API: {}".format( tb_url ))
-        logging.warning("   - TOKEN: {}".format( TB_KEY_TOKEN ))
+        logging.warning("   - Message: {}".format(data))
         
     return ret, (create_time, device_id, device_token)
 
