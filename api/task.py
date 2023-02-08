@@ -1,17 +1,17 @@
 import logging, copy, time, os
 from flask import Blueprint, jsonify, current_app
 from flasgger import swag_from
-from ivit_i.web.api.stream import FAIL_CODE
+from .stream import FAIL_CODE
 
 # From /ivit_i/web/api
-from ivit_i.web.api.common import get_src, stop_src, check_uuid_in_config
+from .common import get_src, stop_src, check_uuid_in_config
 
 # From /ivit_i/web
-from ivit_i.web.tools.parser import get_pure_jsonify
-from ivit_i.web.tools.handler import get_tasks
-from ivit_i.web.tools.parser import get_pure_jsonify
+from ..tools.parser import get_pure_jsonify
+from ..tools.handler import get_tasks
+from ..tools.parser import get_pure_jsonify
 from ivit_i.utils.err_handler import handle_exception
-from ivit_i.web.ai.get_api import get_api
+from ..ai.get_api import get_api
 
 YAML_PATH   = "/workspace/ivit_i/web/docs/task"
 BP_NAME     = 'task'
@@ -81,8 +81,19 @@ def task_info(uuid):
     if info is None:
         return 'Support Task UUID is ({}) , but got {}.'.format(
             ', '.join(current_app.config[UUID].keys()), uuid ), FAIL_CODE
+    
+    _info = copy.deepcopy(info)
+    return jsonify(get_pure_jsonify(_info)), PASS_CODE
 
-    return jsonify(get_pure_jsonify(info)), PASS_CODE
+def get_simple_task():
+    _tasks = [] 
+    for stats in [ 'ready', 'failed']:
+        for task in current_app.config[TASK_LIST][stats]:
+            _info = {}
+            for key in [ 'name', 'uuid', 'status', 'model', 'tag', 'framework', 'error']:
+                _info.update( {key: task.get(key)} )
+            _tasks.append( _info )
+    return _tasks
 
 @bp_tasks.route("/task/<uuid>/info/")
 @swag_from("{}/{}".format(YAML_PATH, "task_simple_info.yml"))
