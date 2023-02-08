@@ -25,3 +25,5 @@ class config(object):
     TB_DEVICE_ID        = ''
     TB_TOKEN            = ''
     TB_CREATE_TIME      = ''
+
+    DEMO_SITE_PORT      = 4999
