@@ -20,6 +20,8 @@ from .api.config import config
 # MQTT
 from flask_mqtt import Mqtt
 
+from .tools.common import get_address
+
 # Basic Parameters
 ENV_CONF_KEY = "IVIT_I"
 ENV_CONF = "/workspace/ivit-i.json"
