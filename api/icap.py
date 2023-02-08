@@ -2,18 +2,22 @@ import logging, subprocess, json, os
 from flask import Blueprint, abort, jsonify, request
 from flasgger import swag_from
 from ivit_i.utils.err_handler import handle_exception
-from ..tools.thingsboard import get_api, post_api
+from ..tools.thingsboard import send_get_api, send_post_api
 from .common import sock, app, mqtt
 from ..tools.common import get_address
 from .task import get_simple_task
 
-YAML_PATH   = "/workspace/ivit_i/web/docs/icap"
+YAML_PATH   = "/workspace/web/docs/icap"
 BP_NAME     = "icap"
 bp_icap = Blueprint(BP_NAME, __name__)
 
 DEVICE_TYPE         = "IVIT-I"
 DEVICE_NAME         = "ivit-{}".format(get_address())
 DEVICE_ALIAS        = DEVICE_NAME
+
+# API Method
+GET     = 'GET'
+POST    = 'POST'
 
 # Basic
 TASK        = "TASK"
@@ -89,11 +93,10 @@ def register_tb_device(tb_url):
     timeout = 3
     # logging.warning("[ iCAP ] Register Thingsboard Device ... ( Time Out: {}s ) \n{}".format(timeout, send_data))
     
-    ret, data    = post_api(tb_url, send_data, timeout=timeout, stderr=False)
-    data = data["data"]
-    
+    ret, data = send_post_api(tb_url, send_data, timeout=timeout, stderr=False)
+
     # Register sucess
-    if(ret==200):
+    if(ret):
         logging.info("[ iCAP ] Register Thingsboard Device ... Pass !")
         logging.info("Send Request: {}".format(data))        
         logging.info("Get Response: {}".format(data))
@@ -105,7 +108,7 @@ def register_tb_device(tb_url):
     else:
         logging.warning("[ iCAP ] Register Thingsboard Device ... Failed !")
         logging.warning("   - API: {}".format( tb_url ))
-        logging.warning("   - TOKEN: {}".format( TB_KEY_TOKEN ))
+        logging.warning("   - Message: {}".format(data))
         
     return ret, (create_time, device_id, device_token)
 
@@ -134,28 +137,27 @@ def send_basic_attr():
     mqtt.publish(send_topic, json.dumps(json_data))
 
 def init_for_icap():
-    """
-    Check if need iCAP
+    """ Register iCAP
+    ---
+    1. Update `MQTT_BROKER_URL` from `ivit-i.json`
+    2. Update `KEY_TB_STATS`, `KEY_DEVICE_TYPE`, `KEY_DEVICE_NAME`, `KEY_DEVICE_ALIAS` to 
 
-        1. Check configuration
-        2. Concatenate URL for thingsboard
-        3. Registering thingsboard device
     """
     
     # Pass the init icap if not setup
     if app.config.get(TB)=='' or app.config[TB_PORT]== '':
         return None 
 
-    # Store value in app.config
-    app.config.update({
-        KEY_TB_STATS: False,
-        KEY_DEVICE_TYPE: DEVICE_TYPE,
-        KEY_DEVICE_NAME: DEVICE_NAME,
-        KEY_DEVICE_ALIAS: DEVICE_ALIAS
-    })
-
-    # Define MQTT URL
+    # Update MQTT URL
     app.config[MQTT_BROKER_URL] = app.config[TB]
+
+    # Store value in app.config
+    ivit_device_info = {    KEY_TB_STATS: False,
+                            KEY_DEVICE_TYPE: DEVICE_TYPE,
+                            KEY_DEVICE_NAME: DEVICE_NAME,
+                            KEY_DEVICE_ALIAS: DEVICE_ALIAS  }
+    ( logging.info('Update {}: {}'.format(key, val)) for key, val in ivit_device_info.items() ) 
+    app.config.update(ivit_device_info)
     
     # Combine URL
     register_url = "{}:{}{}".format(
@@ -168,12 +170,15 @@ def init_for_icap():
     ret, (create_time, device_id, device_token) = register_tb_device(register_url)
 
     # Update Information
-    if(ret==200):
-        app.config[KEY_TB_CREATE_TIME] = create_time
-        app.config[KEY_TB_DEVICE_ID] = device_id
-        app.config[KEY_TB_TOKEN] = app.config[MQTT_USERNAME] = device_token
+    if(ret):
         app.config[KEY_TB_STATS] = True
+        for key, val in zip( [KEY_TB_CREATE_TIME, KEY_TB_DEVICE_ID, KEY_TB_TOKEN, MQTT_USERNAME], [create_time, device_id, device_token, device_token] ):
+            logging.info('Update {}: {}'.format(key, val))
+            app.config.update( {key:val} )
+        
         mqtt.init_app(app)
+        logging.info('Initialized MQTT for iVIT-I !')
+
     return ret
 
 def register_mqtt_event():
@@ -202,7 +207,7 @@ def register_mqtt_event():
             - params:
                 - method: 
                     - type: string
-                    - example: support 'GET', 'POST', 'PUT', 'DEL',
+                    - example: support GET, POST, 'PUT', 'DEL',
                 - params: 
                     - api   :
                         - type: string
@@ -227,7 +232,7 @@ def register_mqtt_event():
         trg_url = "http://{}:{}{}".format(app.config['HOST'], app.config['PORT'], web_api)
 
         # send_data = json.dumps({ "data": "test" })
-        ret, resp = get_api(trg_url) if method.upper() == "GET" else post_api(trg_url, data)
+        ret, resp = send_get_api(trg_url) if method.upper() == "GET" else send_post_api(trg_url, send_data)
         
         send_data = json.dumps(resp)
         send_topic  = app.config['TB_TOPIC_SND_RPC']+f"{request_idx}"
@@ -250,28 +255,28 @@ def get_tb_info():
         KEY_TB_TOKEN: app.config[KEY_TB_TOKEN],
     }
 
-@bp_icap.route("/get_my_ip/", methods=['GET'])
+@bp_icap.route("/get_my_ip/", methods=[GET])
 def get_my_ip():
     return jsonify( {'ip': request.remote_addr} ), 200
 
-@bp_icap.route("/icap/info/", methods=['GET'])
+@bp_icap.route("/icap/info/", methods=[GET])
 def icap_info():
     return jsonify(get_tb_info()), 200
 
-@bp_icap.route("/icap/device/id/", methods=['GET'])
+@bp_icap.route("/icap/device/id/", methods=[GET])
 def get_device_id():
     return jsonify( { "device_id": app.config.get(KEY_TB_DEVICE_ID) } ), 200
 
-@bp_icap.route("/icap/device/type/", methods=['GET'])
+@bp_icap.route("/icap/device/type/", methods=[GET])
 def get_device_type():
     return jsonify( { "device_type": app.config.get(KEY_DEVICE_TYPE) } ), 200
 
-@bp_icap.route("/icap/addr/", methods=['GET'])
+@bp_icap.route("/icap/addr/", methods=[GET])
 def get_addr():
     return jsonify( { "ip" : str(app.config[TB]), "port": str(app.config[TB_PORT]) } ), 200
 
-@bp_icap.route("/icap/addr/", methods=['POST'])
-@bp_icap.route("/icap/register/", methods=['POST'])
+@bp_icap.route("/icap/addr/", methods=[POST])
+@bp_icap.route("/icap/register/", methods=[POST])
 def modify_addr():
 
     K_IP = "ip"
