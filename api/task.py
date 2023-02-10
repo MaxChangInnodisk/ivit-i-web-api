@@ -13,7 +13,7 @@ from ..tools.parser import get_pure_jsonify
 from ivit_i.utils.err_handler import handle_exception
 from ..ai.get_api import get_api
 
-YAML_PATH   = "/workspace/ivit_i/web/docs/task"
+YAML_PATH   = "../docs/task"
 BP_NAME     = 'task'
 bp_tasks    = Blueprint(BP_NAME, __name__)
 
@@ -64,17 +64,17 @@ START_TIME  = "start_time"
 FIRST_TIME  = "first_time_flag"
 LIVE_TIME   = "live_time"
 
-@bp_tasks.route("/task/")
+@bp_tasks.route("/task", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "task.yml"))
 def entrance():
     return jsonify(current_app.config[TASK_LIST]), 200
 
-@bp_tasks.route("/uuid/")
+@bp_tasks.route("/uuid", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "uuid.yml"))
 def get_uuid():
     return jsonify( current_app.config[UUID] ), 200
 
-@bp_tasks.route("/task/<uuid>/")
+@bp_tasks.route("/task/<uuid>", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "task_info.yml"))
 def task_info(uuid):
     info = current_app.config[TASK].get(uuid)
@@ -95,7 +95,7 @@ def get_simple_task():
             _tasks.append( _info )
     return _tasks
 
-@bp_tasks.route("/task/<uuid>/info/")
+@bp_tasks.route("/task/<uuid>/info", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "task_simple_info.yml"))
 def task_simple_info(uuid):
 
@@ -117,7 +117,7 @@ def task_simple_info(uuid):
     }
     return jsonify(simple_config), 200
 
-@bp_tasks.route("/task/<uuid>/label/")
+@bp_tasks.route("/task/<uuid>/label", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "task_label.yml"))
 def task_label(uuid):
     """ Get the model label in target task """
@@ -136,7 +136,7 @@ def task_label(uuid):
 
     return jsonify( message ), PASS_CODE
     
-@bp_tasks.route("/task/<uuid>/<key>/")
+@bp_tasks.route("/task/<uuid>/<key>", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "universal_cmd.yml"))
 def task_status(uuid, key):
 
@@ -153,7 +153,7 @@ def task_status(uuid, key):
     else:
         return jsonify(current_app.config[TASK][uuid][trg_key]), 200
 
-@bp_tasks.route("/task/<uuid>/run/", methods=["GET"])
+@bp_tasks.route("/task/<uuid>/run", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "task_run.yml"))
 def run_task(uuid):
 
@@ -216,7 +216,7 @@ def run_task(uuid):
 
     return jsonify('Run Application ({}) !'.format(uuid)), PASS_CODE
 
-@bp_tasks.route("/task/<uuid>/stop/", methods=["GET"])
+@bp_tasks.route("/task/<uuid>/stop", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "task_stop.yml"))
 def stop_task(uuid):
     """ 

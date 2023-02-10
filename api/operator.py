@@ -14,7 +14,7 @@ from werkzeug.utils import secure_filename
 from flasgger import swag_from
 
 # Define API Docs path and Blue Print
-YAML_PATH       = "/workspace/ivit_i/web/docs/operator"
+YAML_PATH       = "../docs/operator"
 BP_NAME         = "operator"
 bp_operators = Blueprint(BP_NAME, __name__)
 
@@ -94,7 +94,7 @@ def edit_event(uuid):
     except Exception as e:
         return handle_exception(e, "Edit error"), 400
 
-@bp_operators.route("/add/", methods=["POST"])
+@bp_operators.route("/add", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "add.yml"))
 def add_event():
 
@@ -268,7 +268,7 @@ def parse_info_from_zip( zip_path ):
 
     return ret
 
-@bp_operators.route("/import_zip/", methods=["POST"])
+@bp_operators.route("/import_zip", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "extract_zip.yml"))
 def import_zip_event():
     """
@@ -306,7 +306,7 @@ def import_zip_event():
 
         return jsonify(handle_exception(e)), 400
 
-@bp_operators.route("/import_url/", methods=["POST"])
+@bp_operators.route("/import_url", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "extract_url.yml"))
 def import_url_event():
 
@@ -352,7 +352,7 @@ def import_url_event():
     finally:
         return jsonify( message ), status
 
-@bp_operators.route("/import_proc/", methods=["GET"])
+@bp_operators.route("/import_proc", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "import_proc.yml"))
 def import_process_default_event():
     status  = 200
@@ -380,7 +380,7 @@ def import_process_default_event():
 
     return jsonify( message ), status
 
-@bp_operators.route("/import_proc/<task_name>/", methods=["GET"])
+@bp_operators.route("/import_proc/<task_name>", methods=["GET"])
 @bp_operators.route("/import_proc/<task_name>/status", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "import_proc_status.yml"))
 def import_process_event(task_name):
@@ -400,7 +400,7 @@ def import_process_event(task_name):
         
     return jsonify( message ), status
 
-@bp_operators.route("/import/", methods=["POST"])
+@bp_operators.route("/import", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "import.yml"))
 def import_event():
 
@@ -427,7 +427,7 @@ def import_event():
         current_app.config[TASK_LIST]=get_tasks()
         return jsonify( message ), status
 
-@bp_operators.route("/remove/", methods=["POST"])
+@bp_operators.route("/remove", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "remove.yml"))
 def remove_application():
     

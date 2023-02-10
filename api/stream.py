@@ -20,7 +20,7 @@ from ivit_i.app.handler import get_application
 YAML_PATH   = ""
 BP_NAME     = "stream"
 DIV         = "-" * 20
-YAML_PATH   = "/workspace/ivit_i/web/docs/stream"
+YAML_PATH   = "../docs/stream"
 bp_stream   = Blueprint(BP_NAME, __name__)
 
 # Define Status
@@ -284,7 +284,7 @@ def message(sock):
 
         time.sleep(0.01)
 
-@bp_stream.route("/update_src/", methods=["POST"])
+@bp_stream.route("/update_src", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "update_src.yml"))
 def update_src():
     """ Get the first frame when upload a new file """
@@ -346,7 +346,7 @@ def get_first_frame(uuid):
     # return '<img src="data:image/jpeg;base64,{}">'.format(frame_base64)
     return jsonify( ret )
     
-@bp_stream.route("/task/<uuid>/stream/start/", methods=["GET"])
+@bp_stream.route("/task/<uuid>/stream/start", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "stream_start.yml"))
 def start_stream(uuid):      
 
@@ -393,7 +393,7 @@ def start_stream(uuid):
         app.config[TASK][uuid]["status"] = STOP
         return jsonify(msg), FAIL_CODE
 
-@bp_stream.route("/task/<uuid>/stream/stop/", methods=["GET"])
+@bp_stream.route("/task/<uuid>/stream/stop", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "stream_stop.yml"))
 def stop_stream(uuid):
 

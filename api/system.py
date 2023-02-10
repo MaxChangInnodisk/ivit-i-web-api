@@ -7,7 +7,7 @@ from ..tools.parser import get_pure_jsonify
 from ..tools.common import ( get_v4l2, handle_exception )
 from .common import PASS_CODE, FAIL_CODE
 
-YAML_PATH   = "/workspace/ivit_i/web/docs/system"
+YAML_PATH   = "../docs/system"
 BP_NAME     = "system"
 bp_system = Blueprint(BP_NAME, __name__)
 
@@ -19,19 +19,19 @@ LOGGER      = "LOGGER"
 TXT_EXT     = ".txt"
 JSON_EXT    = ".json"
 
-@bp_system.route("/platform")
+@bp_system.route("/platform", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "platform.yml"))
 def get_platform():
     return jsonify( current_app.config[PLATFORM] ), 200
 
-@bp_system.route("/v4l2/")
+@bp_system.route("/v4l2", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "v4l2.yml"))
 def web_v4l2():
     ret, message = get_v4l2()
     status = 200 if ret else 400
     return jsonify( message ), status
 
-@bp_system.route("/device/")
+@bp_system.route("/device", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "device.yml"))
 def web_device_info():
     """ Get available devices """
@@ -68,7 +68,7 @@ def ls_path():
     except Exception as e:
         return "Unkown Error ({})".format(handle_exception(e)), FAIL_CODE
 
-@bp_system.route("/source")
+@bp_system.route("/source", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "source.yml"))
 def web_source():
     
@@ -90,7 +90,7 @@ def web_source():
     except Exception as e:
         return handle_exception(e, "Get source error"), 400
 
-@bp_system.route("/log")
+@bp_system.route("/log", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "log.yml"))
 def get_log():
     data = []
@@ -104,7 +104,7 @@ def get_log():
 
     return jsonify( data ), 200
 
-@bp_system.route("/read_file/", methods=["POST"])
+@bp_system.route("/read_file", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "read_file.yml"))
 def read_file():
     """ Read Text and JSON file. """

@@ -1,4 +1,5 @@
 class config(object):
+    
     JSONIFY_PRETTYPRINT_REGULAR = True
     JSON_SORT_KEYS              = False
     TASK_ROOT       = "./task"
