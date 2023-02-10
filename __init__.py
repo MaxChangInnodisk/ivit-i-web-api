@@ -63,6 +63,9 @@ def init_flask():
     app.config.from_object(config)
     app.config.from_file( os.environ[ENV_CONF_KEY], load=json.load )
 
+    # update AF
+    app.config.update({"AF":app.config["FRAMEWORK"]})
+
     # update ip address
     if app.config.get(HOST) in [ None, "" ]:
         ips = get_all_addr()
