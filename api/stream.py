@@ -14,7 +14,12 @@ from ..ai.get_api import get_api
 sys.path.append(os.getcwd())
 from ivit_i.common.pipeline import Source, Pipeline
 from ivit_i.utils.err_handler import handle_exception
+
+# Legacy
 from ivit_i.app.handler import get_application
+
+# New
+from ivit_i.app.handler import ivitAppHandler
 
 # Define API Docs yaml
 YAML_PATH   = ""
@@ -158,9 +163,25 @@ def stream_task(task_uuid, src, namespace):
     
     temp_model_conf = copy.deepcopy(model_conf)
 
-    # Get application executable function if has application
-    application = get_application(temp_model_conf)
+    # Setup Application
+    try:
+        
+        # Custom Application using ivitAppHandler
+        app_handler = ivitAppHandler()
+        app_handler.register_from_folder('apps')
+        if temp_model_conf['application']['name'] in app_handler.get_all_apps():
+            app_object  = app_handler.get_app(temp_model_conf['application']['name'])
+            application = app_object(
+                params  = temp_model_conf,
+                label   = temp_model_conf[ temp_model_conf['framework'] ]['label_path'] )
+        
+        # Defualt application
+        else:
+            application = get_application(temp_model_conf)
 
+    except Exception as e: 
+        raise Exception( handle_exception(e) )
+    
     # Async Mode
     trg.set_async_mode()
 
