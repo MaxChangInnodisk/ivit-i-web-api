@@ -127,7 +127,7 @@ def send_basic_attr():
         ret_data = get_simple_task()
 
     json_data   = {
-        K_IP: f'{app.config[HOST]}:{app.config["DEMO_SITE_PORT"]}',
+        K_IP: f'{app.config[HOST]}:{app.config["WEB_PORT"]}',
         TASK_KEY: ret_data
     }
     logging.info('Send Shared Attributes at first time...\n * Topic: {}\n * Content: {}'.format(
