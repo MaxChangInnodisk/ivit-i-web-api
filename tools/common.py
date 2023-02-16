@@ -96,7 +96,12 @@ def get_xlnx_info():
         }
     }
     return ret
-    
+
+def get_mac_address():
+    macaddr = uuid.UUID(int = uuid.getnode()).hex[-12:]
+    return ":".join([macaddr[i:i+2] for i in range(0,11,2)])
+
+
 def get_address():
     st = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:       

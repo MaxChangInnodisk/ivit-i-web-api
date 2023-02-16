@@ -4,7 +4,7 @@ from flasgger import swag_from
 from ivit_i.utils.err_handler import handle_exception
 from ..tools.thingsboard import send_get_api, send_post_api
 from .common import sock, app, mqtt
-from ..tools.common import get_address
+from ..tools.common import get_address, get_mac_address
 from .task import get_simple_task
 
 YAML_PATH   = "../docs/icap"
@@ -12,7 +12,7 @@ BP_NAME     = "icap"
 bp_icap = Blueprint(BP_NAME, __name__)
 
 DEVICE_TYPE         = "IVIT-I"
-DEVICE_NAME         = "ivit-{}".format(get_address())
+DEVICE_NAME         = "{}-{}".format(DEVICE_TYPE, get_mac_address())
 DEVICE_ALIAS        = DEVICE_NAME
 
 # API Method
@@ -92,7 +92,7 @@ def register_tb_device(tb_url):
 
     timeout = 3
     # logging.warning("[ iCAP ] Register Thingsboard Device ... ( Time Out: {}s ) \n{}".format(timeout, send_data))
-    
+    logging.info('Register iCAP with: {}'.format(send_data))
     ret, data = send_post_api(tb_url, send_data, timeout=timeout, stderr=False)
     print(ret, data)
     # Register sucess
