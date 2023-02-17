@@ -206,11 +206,14 @@ def stream_task(task_uuid, src, namespace):
             # Check frame
             if not success:
                 if src.get_type() == 'v4l2': 
-                    raise RuntimeError('USB Camera Error')
-                else:
-                    application.reset()
-                    src.reload()
-                    continue    
+                    logging.error('USB Camera Error')
+
+                    # raise RuntimeError('USB Camera Error')
+                #else:
+                application.reset()
+                src.reload()
+                time.sleep(1/30)
+                continue    
                                 
             # If got frame then add the frame index
             app.config[TASK][task_uuid][FRAME_IDX] += 1
@@ -221,11 +224,13 @@ def stream_task(task_uuid, src, namespace):
             draw = frame.copy()
 
             # Start to Inference and update info
+            
             cur_info = trg.inference( frame )
 
             # Update temp_info
             if(cur_info is not None):
                 if cur_info.get(DETS) is not None:
+                    logging.info('[{:06}] Data: {}'.format( app.config[TASK][task_uuid][FRAME_IDX] , cur_info))
                     temp_info = cur_info
 
             t3 = time.time()
@@ -233,13 +238,18 @@ def stream_task(task_uuid, src, namespace):
             # Draw something
             if (temp_info is not None):
                 draw, app_info = application(draw, temp_info)
-
+            
             # Send RTSP
             out.write(draw)
+            logging.info('------------ Write to DP -------------')
             
             # Display
-            try: dp_output.imshow(draw)
-            except: pass
+            try: 
+                dp_output.imshow(draw)
+                logging.info('show dp')
+            except Exception as e: 
+                logging.warning('show dp error !!! {}'.format(handle_exception(e)))
+                pass
 
             # Select Information to send
             info = temp_info.get(DETS) if (temp_info is not None) else ''
@@ -257,6 +267,7 @@ def stream_task(task_uuid, src, namespace):
             if(time.time() - temp_socket_time >= 1):                
                 app.config[SOCK_POOL].update({ task_uuid: json.dumps(get_pure_jsonify(ret_info)) })
                 temp_socket_time = time.time()
+                # logging.info('update socket')
 
             # Delay to fix in 30 fps
             t_cost, t_expect = (time.time()-t1), (1/src_fps)
@@ -277,10 +288,13 @@ def stream_task(task_uuid, src, namespace):
         app.config[TASK][task_uuid][ERROR] = \
             err = handle_exception(e, "Stream Error")
         stop_task_thread(task_uuid, err)
-        raise Exception(err)
+        logging.error(err)
+        # raise Exception(err)
     
     finally:
         trg.release()
+
+    logging.info('Release')
 
 # Define Sock Event
 @sock.route(f'/{RES_EVENT}')
