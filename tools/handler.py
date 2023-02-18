@@ -3,7 +3,7 @@ import sys, os, shutil, time, logging, copy, json
 from typing import Tuple
 from flask import current_app
 
-from .parser import parse_task_info, write_json, check_src_type
+from .parser import parse_task_info, write_json, check_src_type, str_to_json
 from .common import gen_uuid, handle_exception
 
 
@@ -126,8 +126,6 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
     """
     [ logging.info(cnt) for cnt in [ DIV, f"[{index:02}] Start to initialize application ({name})"] ]
 
-    # Name
-    name = name
     # UUID
     task_path = os.path.join( current_app.config["TASK_ROOT"], name )
     task_uuid = gen_uuid(name=name, len=8)
@@ -209,11 +207,6 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
     
     return (task_status, task_uuid, current_app.config['TASK'][task_uuid])
 
-def str_to_json(val):
-    if type(val) == str:
-        return json.loads(val)
-    return val
-
 def modify_application_json(form, app_cfg):
     """
     Update the application parameters
@@ -236,15 +229,6 @@ def modify_application_json(form, app_cfg):
     if trg_key in app_form:    
         app_name = app_form[trg_key]
         app_cfg[app_key] = { trg_key: app_name }
-        
-        # Update application with correct pattern
-        # tag_app_list = current_app.config[TAG_APP] if not ( TAG_APP in current_app.config ) else get_tag_app_list()
-        # available_app_list = [ app for apps in tag_app_list.values() for app in apps  ]        
-        # if not (app_name in available_app_list):
-        #     logging.warning("Could not found application ({}) in available list ({})".format(app_name, available_app_list))
-        #     app_name = "default"
-        
-        # app_cfg[app_key] = { trg_key: app_name }
 
     trg_key = "depend_on"
     if trg_key in app_form:
