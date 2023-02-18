@@ -11,7 +11,7 @@ YAML_PATH   = "../docs/icap"
 BP_NAME     = "icap"
 bp_icap = Blueprint(BP_NAME, __name__)
 
-DEVICE_TYPE         = "IVIT-I"
+DEVICE_TYPE         = "iVIT-I"
 DEVICE_NAME         = "{}-{}".format(DEVICE_TYPE, get_mac_address())
 DEVICE_ALIAS        = DEVICE_NAME
 
@@ -48,6 +48,7 @@ TB_TOPIC_REC_RPC = "TB_TOPIC_REC_RPC"
 TB_KEY_NAME     = "name" 
 TB_KEY_TYPE     = "type" 
 TB_KEY_ALIAS    = "alias"
+TB_KEY_MODEL    = "productionModel"
 
 TB_KEY_TIME         = "createdTime"
 TB_KEY_TOKEN_TYPE   = "credentialsType"
@@ -84,7 +85,8 @@ def register_tb_device(tb_url):
     send_data = { 
         TB_KEY_NAME  : DEVICE_NAME,
         TB_KEY_TYPE  : DEVICE_TYPE,
-        TB_KEY_ALIAS : DEVICE_ALIAS
+        TB_KEY_ALIAS : DEVICE_ALIAS,
+        TB_KEY_MODEL : app.config.get("PLATFORM")
     }
 
     header = "http://"
