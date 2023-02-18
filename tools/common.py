@@ -15,92 +15,9 @@ def get_devcie_info():
 
     return ret 
 
-def get_nv_info():
-    ret  = {
-        "GPU": {
-            "id": -1,
-            "name": "GPU",
-            "uuid": "", 
-            "load": 0, 
-            "memoryUtil": 0, 
-            "temperature": 0
-        }
-    }
-    try:
-        import GPUtil
-        gpus = GPUtil.getGPUs()
-        ret = dict()
-        for gpu in gpus:
-            ret.update({ gpu.name: {
-                    "id": gpu.id,
-                    "name": gpu.name, 
-                    "uuid": gpu.uuid, 
-                    "load": round(gpu.load*100, 3), 
-                    "memoryUtil": round(gpu.memoryUtil*100, 3), 
-                    "temperature": gpu.temperature
-            }})
-    except Exception as e:
-        handle_exception(e, "Get temperature error")
-    
-    return ret
-
-def get_intel_info():
-    avg = 0
-    ret = {}
-    try:
-        import psutil
-        KEY  ="coretemp"
-        res  = psutil.sensors_temperatures() 
-        temp = [ float(core.current) for core in res[KEY] ]
-        avg  = sum(temp)/len(temp)
-    except Exception as e:
-        handle_exception(e, "Get temperature error")
-        avg = 0
-
-    cpu_info  = {
-        "id": 0,
-        "name": "CPU",
-        "uuid": "", 
-        "load": 0, 
-        "memoryUtil": 0, 
-        "temperature": avg
-    }
-    
-    # Copy CPU infor to GPU
-    gpu_info = cpu_info.copy()
-    gpu_info['name'] = 'GPU'
-
-    # Update information
-    ret.update( { "CPU": cpu_info, "GPU": gpu_info } )    
-    return ret
-
-def get_xlnx_info():
-    avg = 0
-    try:
-        cmd  = "xmutil platformstats -p | grep temperature | awk -F: {'print $2'} | awk {'print $1'}"
-        temp = sp.run(cmd, shell=True, stdout=sp.PIPE, encoding='utf8').stdout.strip().split('\n')
-        temp = [ float(val) for val in temp ]
-        avg  = sum(temp)/len(temp)
-    except Exception as e:
-        handle_exception(e, "Get temperature error")
-        avg = 0
-        
-    ret  = {
-        "DPU": {
-            "id": 0,
-            "name": "DPU",
-            "uuid": "", 
-            "load": 0, 
-            "memoryUtil": 0, 
-            "temperature": avg
-        }
-    }
-    return ret
-
 def get_mac_address():
     macaddr = uuid.UUID(int = uuid.getnode()).hex[-12:]
     return ":".join([macaddr[i:i+2] for i in range(0,11,2)])
-
 
 def get_address():
     st = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
