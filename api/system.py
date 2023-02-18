@@ -35,25 +35,8 @@ def web_v4l2():
 @swag_from("{}/{}".format(YAML_PATH, "device.yml"))
 def web_device_info():
     """ Get available devices """
-    ret = None
-    try:
-        from ..tools.common import get_devcie_info
-        logging.warning('using get_device_info')
-        ret = get_devcie_info()
-    except:
-        if current_app.config[PLATFORM] == NV:
-            from ..tools.common import get_nv_info
-            ret = get_nv_info()
-            
-        elif current_app.config[PLATFORM] == INTEL:
-            from ..tools.common import get_intel_info
-            ret = get_intel_info()
-
-        elif current_app.config[PLATFORM] == XLNX:
-            from ..tools.common import get_xlnx_info
-            ret = get_xlnx_info()
-
-    return jsonify(ret)
+    from ..tools.common import get_devcie_info
+    return jsonify(get_devcie_info())
 
 @bp_system.route("/ls_path", methods=["GET"])
 @swag_from('{}/{}'.format(YAML_PATH, "ls_path.yml"))
