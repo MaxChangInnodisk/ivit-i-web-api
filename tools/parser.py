@@ -2,24 +2,20 @@ import os, logging, json
 from typing import Tuple
 from flask import current_app, request
 import numpy as np
-from ivit_i.utils.err_handler import handle_exception
 
-DIV = "-"*3 + "\n"
-FRAMEWORK_LIST = ['tensorrt', 'openvino' ]
+def taskErrorHandler(title:str, content:str):
+    ret = "{}: {}".format(title[0].upper() + title[1:], content)
+    logging.error(ret)
+    return ret 
 
-def special_situation(model_cfg):
-    """
-    define custom situation for model_path and label path
-    """
-    def get_framework(model_cfg):
-        if ("framework" in model_cfg.keys()):
-            return model_cfg["framework"]
-        else:
-            for framework in FRAMEWORK_LIST:
-                if framework in model_cfg.keys():
-                    return framework
-    
-    return True if get_framework(model_cfg)=="openvino" and model_cfg['tag']=="pose" else False    
+def configError(content:str):
+    return taskErrorHandler("configError", content)
+
+def fileNotFoundError(content:str):
+    return taskErrorHandler("fileNotFoundError", content)
+
+def runtimeError(content:str):
+    return taskErrorHandler("runtimeError", content)
 
 def parse_task_info(path:str, pure_content:bool=False) -> Tuple[bool, tuple, str]:
     """
@@ -36,65 +32,55 @@ def parse_task_info(path:str, pure_content:bool=False) -> Tuple[bool, tuple, str
         - model_cfg         : the content of model configuration with json format
         - err               : if application initailize failed the error message will push into 'err'.
     """
-    # placeholder for each variable
-    ret, task_cfg_path, model_cfg_path, task_cfg, model_cfg, err = False, None, None, None, None, ""
+    # Define Variables
+    null_data = (None,None,None,None)
     
-    # get the configuration path
-    try:
-        task_cfg_path = os.path.join( os.path.join(current_app.config["TASK_ROOT"], path), current_app.config["TASK_CFG_NAME"])
-        
-        # checking the application path
-        if os.path.exists(task_cfg_path):
-            
-            task_cfg = load_json(task_cfg_path)
-            framework = task_cfg["framework"]
-            logging.debug(task_cfg)
-            if task_cfg=="":
-                logging.error("Configuration Error, please check again ...")
+    # Get the task folder and config path
+    task_dir_path = os.path.join(current_app.config["TASK_ROOT"], path )
+    task_cfg_path = os.path.join( task_dir_path, "task.json")
 
-            # capturing the model config path
-            if "prim" in task_cfg.keys():
-                model_cfg_path = task_cfg["prim"]["model_json"] if "model_json" in task_cfg["prim"] else None
-            else:
-                model_cfg_path = task_cfg["model_json"] if "model_json" in task_cfg else None
-            if model_cfg_path != None:
+    if not os.path.exists(task_cfg_path):
+        return False, null_data, \
+            fileNotFoundError(f"Can't find AI Task Configuration ({task_cfg_path})")
+    
+    # Load AI Task Config
+    task_cfg = load_json(task_cfg_path)
+    framework = task_cfg["framework"]
 
-                # cheching the model config path
-                if os.path.exists(model_cfg_path):
-                    model_cfg = load_json(model_cfg_path)
-                    
-                    # the python api have to merge each config
-                    if not pure_content:
-                        model_cfg.update(task_cfg)
-                    
-                    # checking the model path
-                    if "model_path" in model_cfg[framework]:
-                        
-                        if os.path.exists(model_cfg[framework]["model_path"]):
-                            
-                            # checking the label path
-                            if special_situation(model_cfg):
-                                ret=True
-                            else:
-                                if os.path.exists(model_cfg[framework]["label_path"]):
-                                    ret=True
-                                else:
-                                    err = "Could not find the path to label ({})".format(model_cfg['label_path'])
-                        else:
-                            err = "Could not find the path to model ({})".format(model_cfg[framework]['model_path']) 
-                    else:
-                        err = "Could not find the key of the model_path"
-                else:
-                    err = "Could not find the model configuration's path ({})".format(model_cfg_path)
-            else:
-                err = "Could not find the key of the model configuration ({})".format("model_path")    
-        else:
-            err = "Could not find the path to application's configuration ({})".format(task_cfg_path)
-    except Exception as e:
-        err = handle_exception(e)
+    # Check AI Task Config Content
+    if task_cfg=="" or task_cfg is None:
+        return False, null_data, \
+            fileNotFoundError(f"Get empty AI Task Configuration ! ({task_cfg_path})")
 
-    if err != "": logging.error(err)
-    return ret, (task_cfg_path, model_cfg_path, task_cfg, model_cfg), err
+    # Get the model config path
+    model_cfg_path = task_cfg["prim"].get("model_json")
+    if model_cfg_path is None or not os.path.exists(model_cfg_path):
+        return False, null_data, \
+            fileNotFoundError(f"Can't find AI Model Configuration ({model_cfg_path})")
+    
+    # Load AI Model Configuration
+    model_cfg = load_json(model_cfg_path)
+    if not pure_content:
+        # the python api have to merge model config and task config
+        model_cfg.update(task_cfg)
+    
+    # Get the AI Model Path
+    model_path = model_cfg[framework].get("model_path")
+    if model_path is None:
+        return False, null_data, \
+            configError(f"Can't find `.model_path` in Configuration ({model_cfg_path})")
+
+    if not os.path.exists(model_path):
+        return False, null_data, \
+            fileNotFoundError(f"Can't find AI Model ({model_path})")
+    
+    # Get the Label file
+    label_path = model_cfg[framework].get("label_path")
+    if label_path is None or not os.path.exists(label_path):
+        return False, null_data, \
+            fileNotFoundError(f"Can't find Label file ({label_path})")
+
+    return True, (task_cfg_path, model_cfg_path, task_cfg, model_cfg), ""
 
 # ------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -102,6 +88,10 @@ def print_dict(input:dict):
     for key, val in input.items():
         print(key, val)
 
+def str_to_json(val):
+    if type(val) == str:
+        return json.loads(val)
+    return val
 
 def load_json(path:str) -> dict:
     # --------------------------------------------------------------------
@@ -143,9 +133,6 @@ def check_json(s):
         return True
     except json.JSONDecodeError:
         return False
-
-def print_route():
-    logging.info("Call WEB API -> {}".format(request.path))
 
 def pure_jsonify_2(in_dict, ret_dict, exclude_key:list=['api', 'runtime', 'palette', 'drawer', 'draw_tools'], include_key=[dict, list, str, int, float, bool]):    
     for key, val in in_dict.items():
