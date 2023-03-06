@@ -7,7 +7,7 @@ from .stream import FAIL_CODE
 from .common import get_src, stop_src, check_uuid_in_config
 
 # From /ivit_i/web
-from ..tools.common import http_msg, simple_exception, handle_exception
+from ..tools.common import http_msg, simple_exception, handle_exception, json_exception
 from ..tools.parser import get_pure_jsonify
 from ..tools.handler import get_tasks
 from ..tools.parser import get_pure_jsonify
@@ -83,12 +83,12 @@ def get_uuid():
 @swag_from("{}/{}".format(YAML_PATH, "task_info.yml"))
 def task_info(uuid):
     info = current_app.config[TASK].get(uuid)
+    temp_info = copy.deepcopy(info)
     if info is None:
         return http_msg('Support Task UUID is ({}) , but got {}.'.format(
             ', '.join(current_app.config[UUID].keys()), uuid ), FAIL_CODE)
     
-    _info = copy.deepcopy(info)
-    return http_msg(get_pure_jsonify(_info), PASS_CODE)
+    return http_msg(get_pure_jsonify(temp_info), PASS_CODE)
 
 MODEL_TAG = {
     "cls": "classification",
@@ -117,6 +117,13 @@ def get_simple_task():
             _tasks.append( _info )
     
     return _tasks
+
+@bp_tasks.route("/task/simple", methods=["GET"])
+def return_simple_task():
+    try:
+        return http_msg(get_simple_task(), 200)
+    except Exception as e:
+        return http_msg(e, 500)
 
 @bp_tasks.route("/task/<uuid>/info", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "task_simple_info.yml"))
@@ -195,7 +202,7 @@ def run_task(uuid):
     # Error Task 
     if current_app.config[TASK][uuid][STATUS] == ERROR:
         return http_msg('The task is not ready... {}'.format( 
-            current_app.config[TASK][uuid][ERROR]), FAIL_CODE)
+            str(current_app.config[TASK][uuid][ERROR])), FAIL_CODE)
 
     # ------------------------------------
     # Running Task
@@ -208,14 +215,11 @@ def run_task(uuid):
         src = get_src(uuid)
         src_status, src_err = src.get_status()
         if not src_status:
-            current_app.config[TASK][uuid][ERROR] \
-                = msg = "Init Source Failed ( {} )".format(src_err)
-            return http_msg(msg, FAIL_CODE)
+            raise RuntimeError( f"Init Source Failed ( {handle_exception(e)} )" )
         
     except Exception as e:
-        current_app.config[TASK][uuid][ERROR] \
-            = msg = "Init Source Failed ( {} )".format(handle_exception(e) )
-        return http_msg(msg, FAIL_CODE)
+        current_app.config[TASK][uuid][ERROR] = json_exception(e)
+        return http_msg(e, FAIL_CODE)
 
     # ------------------------------------
     # Deep Copy Config to avoid modfiy ther source config
@@ -235,9 +239,8 @@ def run_task(uuid):
         current_app.config[TASK][uuid][API] = init_ai_model(temp_config)
     
     except Exception as e:
-        current_app.config[TASK][uuid][ERROR] = msg = handle_exception(e) 
-        return http_msg("Init iVIT-I API Failed ( {} ), Please restart ivit-i".format(
-            msg), FAIL_CODE)
+        current_app.config[TASK][uuid][ERROR] = json_exception(e)
+        return http_msg(e, FAIL_CODE)
     
     # ------------------------------------
     # Update running status and 

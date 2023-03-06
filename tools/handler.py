@@ -3,7 +3,7 @@ from typing import Tuple
 from flask import current_app
 
 from .parser import modify_task_json, modify_application_params, parse_task_info, write_json, check_src_type, str_to_json
-from .common import gen_uuid, handle_exception, simple_exception
+from .common import gen_uuid, handle_exception, simple_exception, json_exception
 from ivit_i.app.handler import get_tag_app_list, get_app_list
 
 DIV             = '-'*30
@@ -151,16 +151,15 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
     task_uuid = get_task_uuid(task_name = name, fix_uuid = fix_uuid)
 
     # Parse the information about this task
-    error, task_config, model_config = "", {}, {} 
+    error, task_config, model_config = {}, {}, {} 
     try:
         (task_config_path, model_config_path, task_config, model_config) = parse_task_info(name)
         task_status = "stop"
 
     except Exception as e:
         task_status = "error"
-        error = simple_exception(e)
-        
-        logging.error(error)
+        logging.exception(e)
+        error = json_exception(e)
 
     # -------------------------------------------------------------------------
     # Update basic information

@@ -10,6 +10,17 @@ K_CODE  = "status_code"
 K_DATA  = "data"
 K_TYPE  = "type"
 
+def json_exception(content):
+    err_type, err_detail = simple_exception(content)
+    
+    if not err_type in [ "ImageOpenError", "VideoOpenError", "RtspOpenError", "UsbCamOpenError" ]:
+        err_type = "RuntimeError"
+    
+    return { 
+        K_MESG: json.dumps(err_detail),
+        K_TYPE: err_type 
+    }
+
 def http_msg(content, status_code):
 
     # Checking Input Type
@@ -26,26 +37,17 @@ def http_msg(content, status_code):
 
     # If is Exception
     if isinstance(content, Exception):
-        err_type, err_detail = simple_exception(content)
+        ret.update(json_exception(content=content))
         
-        if not err_type in [ "ImageOpenError", "VideoOpenError", "RtspOpenError", "UsbCamOpenError" ]:
-            err_type = "RuntimeError"
-        
-        ret.update({ 
-            K_MESG: json.dumps(err_detail),
-            K_TYPE: err_type 
-        })
-        
-        return jsonify(ret), status_code
-
     # If not Exception, check input content is String or Object
-    if isinstance(content, str):
+    elif isinstance(content, str):
         ret[K_MESG] = content
+
     else:
         ret[K_DATA] = content
-        
+    
     return jsonify(ret), status_code
-
+    
 def get_devcie_info():
     ret  = {}
     try:

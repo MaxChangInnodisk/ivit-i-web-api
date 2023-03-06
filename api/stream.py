@@ -6,7 +6,7 @@ from flasgger import swag_from
 # Load Module from `web/api`
 from .common import frame2btye, get_src, stop_src, stop_task_thread, check_uuid_in_config
 from .common import sock, app
-from ..tools.common import handle_exception, simple_exception, http_msg
+from ..tools.common import handle_exception, simple_exception, http_msg, json_exception
 from ..tools.handler import get_tasks
 from ..tools.parser import get_pure_jsonify
 from ..ai.get_api import get_api
@@ -193,7 +193,9 @@ def stream_task(task_uuid, src, namespace):
     except Exception as e: 
         
         err_mesg = handle_exception(e)
-        stop_task_thread(task_uuid, err_mesg)
+        stop_task_thread(task_uuid, json_exception(e))
+        
+        # Runtime Error Message
         err_mesg.update({
             'uuid': task_uuid,
             'stop_task': True
