@@ -1,4 +1,4 @@
-import cv2, time, logging, os, sys, copy, json
+import cv2, time, logging, os, sys, copy, json, threading
 from flask import jsonify, request
 
 # ivit_i 
@@ -12,6 +12,7 @@ from .api.operator import bp_operators
 from .api.application import bp_application
 from .api.stream import bp_stream
 from .api.icap import bp_icap, init_for_icap, register_mqtt_event
+from .api.model import bp_model
 
 from .tools.parser import get_pure_jsonify
 from .tools.handler import get_tasks
@@ -22,6 +23,8 @@ UUID        = "UUID"
 TASK_LIST   = "TASK_LIST"
 APPLICATION = "APPLICATION"
 ICO         = "favicon.ico"
+
+IVIT_WS_POOL = "IVIT_WS_POOL"
 
 APP_CTRL    = "APP_CTRL"
 APP_DIR     = "APP_DIR"
@@ -44,25 +47,19 @@ def create_app():
     app.register_blueprint(bp_application)
     app.register_blueprint(bp_stream)
     app.register_blueprint(bp_icap)
+    app.register_blueprint(bp_model)
     
     # define the web api
     # @app.before_first_request
-    # @app.route("/reset/")
-    # def first_time():
-    #     """ loading the tasks at first time or need to reset, the uuid and relatived information will be generated at same time."""
-    #     logging.info("Start to initialize task and generate uuid for each task ... ")
-        
-    #     for key in [ TASK, UUID, TASK_LIST, APPLICATION ]:
-    #         if key in app.config:
-    #             app.config[key].clear()
-                
-    #     try:
-    #         app.config[TASK_LIST]=get_tasks(need_reset=True)
-    #         return app.config[TASK_LIST], 200
-    #     except Exception as e:
-    #         handle_exception(e)
-    #         return "Initialize Failed ({})".format(e), 400
-    #     return app.config[TASK_LIST], 200
+    @app.route("/reset")
+    def first_time():
+        # Init Task
+        with app.app_context():
+            for key in [ TASK, UUID, TASK_LIST, APPLICATION ]:
+                if key in app.config:
+                    app.config[key].clear()    
+            app.config[TASK_LIST]=get_tasks(need_reset=True)
+        return "Reset ... Done", 200
         
     @app.before_request
     def before_request():
@@ -86,17 +83,17 @@ def create_app():
         routes.pop("/static/<path:filename>")
         return jsonify(routes)
 
-    @app.route("/<key>/", methods=["GET"])
-    def return_config(key):
-        key_lower, key_upper = key.lower(), key.upper()
-        ret = None
-        if key_lower in app.config.keys():
-            ret = app.config[key_lower]
-        elif key_upper in app.config.keys():
-            ret = app.config[key_upper]
-        else:
-            return f"Unexcepted Route ({key}), Please check /routes.", 400
-        return jsonify( get_pure_jsonify(ret) ), 200
+    # @app.route("/<key>", methods=["GET"])
+    # def return_config(key):
+    #     key_lower, key_upper = key.lower(), key.upper()
+    #     ret = None
+    #     if key_lower in app.config.keys():
+    #         ret = app.config[key_lower]
+    #     elif key_upper in app.config.keys():
+    #         ret = app.config[key_upper]
+    #     else:
+    #         return f"Unexcepted Route ({key}), Please check /routes.", 400
+    #     return jsonify( get_pure_jsonify(ret) ), 200
 
     # Init Task
     with app.app_context():
@@ -106,14 +103,45 @@ def create_app():
         app.config[TASK_LIST]=get_tasks(need_reset=True)
     
     # For iCAP
-    if(init_for_icap()):
+    try:
+        init_for_icap()
+        
         register_mqtt_event()
+        
+    except Exception as e:
+        handle_exception(e)
+        pass
 
     # For ivitApp
     app.config[APP_CTRL] = ivitAppHandler()
     
     # Clear path, the ivitAppHandler must to pure address
     app.config[APP_CTRL].register_from_folder( app.config[APP_DIR] )
+
+    # Init WebSocket Event
+    @sock.route("/ivit")
+    def ivit_mesg(sock):
+        """ 
+        Define iVIT System Message
+        ---
+        'error': {
+            'type' : '',
+            'status_code': 0,
+            'message': 'xxx',
+            'uuid': 'xxx',
+            'stop_task': True
+        },
+        """
+        while(True):
+            
+            if app.config[IVIT_WS_POOL]=={}:
+                # Send daat
+                sock.send(app.config[IVIT_WS_POOL])
+                # Clear data
+                app.config[IVIT_WS_POOL].clear()
+
+            time.sleep(33e-3)
+            
 
     logging.info("Finish Initializing.")
     return app, sock
