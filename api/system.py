@@ -4,7 +4,7 @@ from flasgger import swag_from
 
 # Load Module from `web/tools`
 from ..tools.parser import get_pure_jsonify
-from ..tools.common import ( get_v4l2, handle_exception )
+from ..tools.common import get_v4l2, handle_exception, simple_exception, http_msg
 from .common import PASS_CODE, FAIL_CODE
 
 YAML_PATH   = "../docs/system"
@@ -22,21 +22,21 @@ JSON_EXT    = ".json"
 @bp_system.route("/platform", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "platform.yml"))
 def get_platform():
-    return jsonify( current_app.config[PLATFORM] ), 200
+    return http_msg( current_app.config[PLATFORM], PASS_CODE )
 
 @bp_system.route("/v4l2", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "v4l2.yml"))
 def web_v4l2():
     ret, message = get_v4l2()
-    status = 200 if ret else 400
-    return jsonify( message ), status
+    status = PASS_CODE if ret else FAIL_CODE
+    return http_msg( message , status)
 
 @bp_system.route("/device", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "device.yml"))
 def web_device_info():
     """ Get available devices """
     from ..tools.common import get_devcie_info
-    return jsonify(get_devcie_info())
+    return http_msg(get_devcie_info(), PASS_CODE)
 
 @bp_system.route("/ls_path", methods=["GET"])
 @swag_from('{}/{}'.format(YAML_PATH, "ls_path.yml"))
@@ -45,11 +45,13 @@ def ls_path():
     _path = _data.get('path')
     if _path is None: return 'Excepted content is { "path" : "/path/to/xxx" }', FAIL_CODE
     try:
-        return jsonify(os.listdir(_path)), PASS_CODE
-    except FileNotFoundError:
-        return "Path not found", FAIL_CODE
+        return http_msg(os.listdir(_path), PASS_CODE)
+    
+    except FileNotFoundError as e:
+        return http_msg(e, FAIL_CODE)
+    
     except Exception as e:
-        return "Unkown Error ({})".format(handle_exception(e)), FAIL_CODE
+        return http_msg(e, FAIL_CODE)
 
 @bp_system.route("/source", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "source.yml"))
@@ -69,9 +71,10 @@ def web_source():
     
     try:
         pure_src_config = get_pure_jsonify( temp_src_config )
-        return pure_src_config, 200
+        return http_msg(pure_src_config, PASS_CODE)
+    
     except Exception as e:
-        return handle_exception(e, "Get source error"), 400
+        return http_msg(e, FAIL_CODE)
 
 @bp_system.route("/log", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "log.yml"))
@@ -85,7 +88,7 @@ def get_log():
     if len(data) >= 1000:
         data = data[(len(data)-1000):]
 
-    return jsonify( data ), 200
+    return http_msg( data, PASS_CODE )
 
 @bp_system.route("/read_file", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "read_file.yml"))
@@ -105,6 +108,6 @@ def read_file():
             with open( path, 'r') as f:
                 ret_data = json.load(f)
         
-        return jsonify( ret_data ), 200
+        return http_msg( ret_data, PASS_CODE )
     except Exception as e:
-        return handle_exception(error=e, title="Could not load application ... set app to None", exit=False), 400
+        return http_msg( e, FAIL_CODE )

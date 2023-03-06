@@ -1,47 +1,32 @@
-import os, logging, json
+import os, shutil, logging, copy, json
 from typing import Tuple
-from flask import current_app, request
+from flask import current_app
 import numpy as np
 
-def taskErrorHandler(title:str, content:str):
-    ret = "{}: {}".format(title[0].upper() + title[1:], content)
-    logging.error(ret)
-    return ret 
-
-def configError(content:str):
-    return taskErrorHandler("configError", content)
-
-def fileNotFoundError(content:str):
-    return taskErrorHandler("fileNotFoundError", content)
-
-def runtimeError(content:str):
-    return taskErrorHandler("runtimeError", content)
+def clear_config_buf(uuid):
+    # Clear the UUID and TASK information
+    current_app.config['UUID'].pop(uuid, None)
+    current_app.config['TASK'].pop(uuid, None)
 
 def parse_task_info(path:str, pure_content:bool=False) -> Tuple[bool, tuple, str]:
-    """
-    Parsing the application informations and return the initialize status, error message and relative informations.
+    """ Parsing the application informations and return the initialize status, error message and relative informations.
     
     - Input
         - path              : path to application folder
         - pure_content      : the task_cfg will merge to model_cfg when pure_content is False
     - Output
-        - ret               : if application initailize failed the 'ret' will be False
         - task_cfg_path      : path to application configuration
         - model_cfg_path    : path to model configuration
         - task_cfg           : the content of application configuration with json format
         - model_cfg         : the content of model configuration with json format
-        - err               : if application initailize failed the error message will push into 'err'.
     """
-    # Define Variables
-    null_data = (None,None,None,None)
     
     # Get the task folder and config path
     task_dir_path = os.path.join(current_app.config["TASK_ROOT"], path )
     task_cfg_path = os.path.join( task_dir_path, "task.json")
 
     if not os.path.exists(task_cfg_path):
-        return False, null_data, \
-            fileNotFoundError(f"Can't find AI Task Configuration ({task_cfg_path})")
+        raise FileNotFoundError(f"Can't find AI Task Configuration ({task_cfg_path})")
     
     # Load AI Task Config
     task_cfg = load_json(task_cfg_path)
@@ -49,14 +34,12 @@ def parse_task_info(path:str, pure_content:bool=False) -> Tuple[bool, tuple, str
 
     # Check AI Task Config Content
     if task_cfg=="" or task_cfg is None:
-        return False, null_data, \
-            fileNotFoundError(f"Get empty AI Task Configuration ! ({task_cfg_path})")
+        raise ValueError(f"Get empty AI Task Configuration ! ({task_cfg_path})")
 
     # Get the model config path
     model_cfg_path = task_cfg["prim"].get("model_json")
     if model_cfg_path is None or not os.path.exists(model_cfg_path):
-        return False, null_data, \
-            fileNotFoundError(f"Can't find AI Model Configuration ({model_cfg_path})")
+        raise FileNotFoundError(f"Can't find AI Model Configuration ({model_cfg_path})")
     
     # Load AI Model Configuration
     model_cfg = load_json(model_cfg_path)
@@ -67,22 +50,141 @@ def parse_task_info(path:str, pure_content:bool=False) -> Tuple[bool, tuple, str
     # Get the AI Model Path
     model_path = model_cfg[framework].get("model_path")
     if model_path is None:
-        return False, null_data, \
-            configError(f"Can't find `.model_path` in Configuration ({model_cfg_path})")
+        raise KeyError(f"Can't find `.model_path` in Configuration ({model_cfg_path})")
 
     if not os.path.exists(model_path):
-        return False, null_data, \
-            fileNotFoundError(f"Can't find AI Model ({model_path})")
+        raise FileNotFoundError(f"Can't find AI Model ({model_path})")
     
     # Get the Label file
     label_path = model_cfg[framework].get("label_path")
     if label_path is None or not os.path.exists(label_path):
-        return False, null_data, \
-            fileNotFoundError(f"Can't find Label file ({label_path})")
+        raise FileNotFoundError(f"Can't find Label file ({label_path})")
 
-    return True, (task_cfg_path, model_cfg_path, task_cfg, model_cfg), ""
+    return (task_cfg_path, model_cfg_path, task_cfg, model_cfg)
 
-# ------------------------------------------------------------------------------------------------------------------------------------------------------
+def modify_basic_params(src_data, task_config):
+    """ Update Basic Parameters in Task Configuration """
+    logging.debug('Update Basic Parameters in Task Configuration')
+    for key in ['name', 'source', 'source_type']:
+        task_config[key] = src_data[ key ]
+        logging.debug(f' - update ({key}): {task_config[key]} -> {src_data[key]}')
+
+def modify_application_params(src_data, task_config):
+    """ Update Application Parameters in Task Configuration """
+
+    app_key  = "application"
+    app_form = str_to_json(src_data[app_key])
+
+    # Update Each Key and Value
+    trg_key = "name"
+    if trg_key in app_form:    
+        app_name = app_form[trg_key]
+        task_config[app_key] = { trg_key: app_name }
+
+    trg_key = "depend_on"
+    if trg_key in app_form:
+        app_form[trg_key] = str_to_json(app_form[trg_key])
+
+        if app_form[trg_key] != []:
+            task_config[app_key].update( { trg_key: app_form[trg_key] } )
+
+    trg_key = "logic"
+    if trg_key in app_form:
+        task_config[app_key].update( { trg_key: app_form[trg_key] } )
+    
+    trg_key = "logic_thres"
+    if trg_key in app_form:
+        task_config[app_key].update( { trg_key: int(app_form[trg_key]) } )
+    
+    trg_key = "alarm"
+    if trg_key in app_form:
+        task_config[app_key].update( { trg_key: app_form[trg_key] } )
+
+    trg_key = "area_points"
+    if trg_key in app_form:
+        app_form[trg_key] = str_to_json(app_form[trg_key])
+
+        if app_form[trg_key] != []:
+            task_config[app_key].update( { trg_key: app_form[trg_key] } )
+
+    trg_key = "area_vector"
+    if trg_key in app_form:
+        app_form[trg_key] = str_to_json(app_form[trg_key])
+
+        if app_form[trg_key] != []:
+            task_config[app_key].update( { trg_key: app_form[trg_key] } )
+
+    trg_key = "sensitivity"
+    if trg_key in app_form:
+        task_config[app_key].update( { trg_key: app_form[trg_key] } )
+    
+    logging.debug("Update Application Parameters in Task Configuration: \n{}".format(task_config[app_key]))
+    
+    return task_config
+
+def modify_model_params(src_data, model_config):
+    """ Update Parameters in Model Configuration """
+
+    logging.debug('Update Parameters in Model Configuration')
+
+    af = current_app.config['AF']
+    src_data["thres"] = float(src_data["thres"])
+    
+    for key, val in model_config[af].items():
+        if key in ['device', 'thres']:
+            model_config[af][key] = src_data[key]  
+        logging.debug(f' - update ({key}): {val} -> { model_config[af][key] if key in model_config[af] else val}')
+
+def modify_task_json(src_uuid:str, task_name:str, form:dict, need_copy:bool=False):
+    """ Modify AI Task Configuration, could be using on Add AI Task and Edit AI Task
+    
+    - args
+        - src_uuid  : reference UUID ( AI Task )
+        - task_name : target task name
+        - form      : target task configuration
+        - need_copy : if in ADD mode then need copy whole folder from reference uuid 
+    
+    - workflow
+        1. Get reference task information
+        2. Copy or Move to target path by task_name
+        3. Update new configuration via `form`
+    """
+    
+    mode = "ADD" if need_copy else "EDIT"
+    logging.info('Modify Task Configuration in [{}] mode'.format(mode))
+
+    # --------------------------------------------------------
+    # Pasre the old verions of task.json and model_config file
+    src_name = current_app.config['TASK'][src_uuid]['name']
+    src_path = current_app.config['TASK'][src_uuid]['path']
+
+    ( src_task_config_path, src_model_config_path, task_cfg, model_cfg ) = parse_task_info(src_name, pure_content=True)
+
+    # --------------------------------------------------------
+    # Update Task Path, Application Path and Model Path
+    # Copy or Move Whole Folder depend on ADD or EDIT
+
+    trg_path = src_path.replace(src_name, task_name, 1)
+    task_cfg_path = src_task_config_path.replace(src_name, task_name, 1)
+    model_cfg_path = src_model_config_path.replace(src_name, task_name, 1)
+    task_cfg["prim"]["model_json"] = task_cfg["prim"]["model_json"].replace(src_name, task_name, 1)
+
+    if need_copy:
+        shutil.copytree(src_path, trg_path)        
+    else:
+        clear_config_buf(src_uuid)
+        shutil.move(src_path, trg_path)
+
+    # --------------------------------------------------------
+    # Update Configuration
+    task_cfg = modify_basic_params(src_data = form, task_config = task_cfg)
+    task_cfg = modify_application_params(form, task_cfg)
+    model_cfg = modify_model_params(src_data = form, model_config = model_cfg)
+
+    # --------------------------------------------------------
+    # Update Configuration File
+    write_json(task_cfg_path, task_cfg)
+    write_json(model_cfg_path, model_cfg)
 
 def print_dict(input:dict):
     for key, val in input.items():
@@ -92,6 +194,13 @@ def str_to_json(val):
     if type(val) == str:
         return json.loads(val)
     return val
+
+def form_to_json(form):
+    """ Convert form data to json """
+    try:
+        return json.loads(form)
+    except Exception:
+        return form
 
 def load_json(path:str) -> dict:
     # --------------------------------------------------------------------
