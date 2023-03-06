@@ -254,10 +254,7 @@ def get_src(task_uuid, reload_src=False):
     src_name = app.config[TASK][task_uuid][SOURCE]
     
     # if source is None or reload_src==True then create a new source
-    try:
-        src_obj = app.config[SRC][src_name][OBJECT]
-    except Exception as e:
-        raise (handle_exception(e))
+    src_obj = app.config[SRC][src_name][OBJECT]
 
     if ( src_obj == None ) or reload_src:
         logging.info('Initialize a new source.')
@@ -272,7 +269,11 @@ def get_src(task_uuid, reload_src=False):
     
     # setup status and error message in source config
     status, err = app.config[SRC][src_name][OBJECT].get_status()
-    app.config[SRC][src_name][STATUS], app.config[SRC][src_name][ERROR] = RUN if status else ERROR, err
+    if not status:
+        raise RuntimeError(f'Init source error !!! ({err})')
+    app.config[SRC][src_name][STATUS] = RUN
+    app.config[SRC][src_name][ERROR] = err
+
     
     # return object
     return app.config[SRC][src_name][OBJECT]
