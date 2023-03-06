@@ -6,9 +6,6 @@ class config(object):
     TASK_CFG_NAME   = "task.json"
     DEBUG           = False
 
-    PLATFORM        = "intel"
-    FRAMEWORK       = "openvino"
-
     TASK            = dict()
     TASK_LIST       = dict()
     APPLICATION     = dict()
