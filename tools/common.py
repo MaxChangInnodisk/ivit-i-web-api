@@ -1,9 +1,50 @@
 import logging, os
-import uuid, sys, traceback
+import uuid, sys, traceback, json
 import subprocess as sp
 import socket
+from flask import jsonify
+from ivit_i.utils.err_handler import handle_exception, simple_exception
 
-from ivit_i.utils.err_handler import handle_exception
+K_MESG  = "message"
+K_CODE  = "status_code"
+K_DATA  = "data"
+K_TYPE  = "type"
+
+def http_msg(content, status_code):
+
+    # Checking Input Type
+    if not isinstance(status_code, int):
+        raise TypeError(f"Status Code should be integer, but got {type(status_code)}")
+
+    # Define Basic Format
+    ret = {
+        K_CODE: status_code,
+        K_DATA: {},
+        K_MESG: "",
+        K_TYPE: ""
+    }
+
+    # If is Exception
+    if isinstance(content, Exception):
+        err_type, err_detail = simple_exception(content)
+        
+        if not err_type in [ "ImageOpenError", "VideoOpenError", "RtspOpenError", "UsbCamOpenError" ]:
+            err_type = "RuntimeError"
+        
+        ret.update({ 
+            K_MESG: json.dumps(err_detail),
+            K_TYPE: err_type 
+        })
+        
+        return jsonify(ret), status_code
+
+    # If not Exception, check input content is String or Object
+    if isinstance(content, str):
+        ret[K_MESG] = content
+    else:
+        ret[K_DATA] = content
+        
+    return jsonify(ret), status_code
 
 def get_devcie_info():
     ret  = {}
