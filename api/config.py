@@ -17,6 +17,8 @@ class config(object):
     SRC             = dict()
     ALLOWED_HOSTS   = ['*']
     SOCK_POOL       = dict()
+    IVIT_WS_POOL    = dict()
+    INFER_WS_POOL   = dict()
 
     MQTT_BROKER_URL = ""
     MQTT_USERNAME   = ""
@@ -26,9 +28,15 @@ class config(object):
     MQTT_REFRESH_TIME   = 1.0
 
     TB_API_REG_DEVICE   = "/api/v1/devices"
-    TB_TOPIC_REC_RPC    = "v1/devices/me/rpc/request/"
-    TB_TOPIC_SND_RPC    = "v1/devices/me/rpc/response/"
-    
+    TB_TOPIC_REC_RPC    = "v1/devices/me/rpc/request/"          # +
+    TB_TOPIC_SND_RPC    = "v1/devices/me/rpc/response/"         # {n}
+
+    TB_TOPIC_REC_ATTR   = "v1/devices/me/attributes"
+    TB_TOPIC_SND_ATTR   = "v1/devices/me/attributes/response/"  # +
+
+    TB_TOPIC_SND_TEL    = "v1/devices/me/telemetry"
+
+
     TB_DEVICE_ID        = ''
     TB_TOKEN            = ''
     TB_CREATE_TIME      = ''
