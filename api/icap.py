@@ -299,16 +299,14 @@ def register_tb_device(tb_url):
 
     return data
 
-def send_basic_attr():
+def send_basic_attr(send_mqtt=True):
     """
     Send basic information ( attribute ) to iCAP (Thingsboard)
     
     IP, PORT, AI Tasks
     """
-    K_IP    = "web_forward_url"
-    TASK_KEY    = "task"
-
-    send_topic  = "v1/devices/me/attributes"
+    K_IP    = "ivitUrl"
+    TASK_KEY    = "ivitTask"
 
     with app.app_context():
         ret_data = get_simple_task()
@@ -317,12 +315,17 @@ def send_basic_attr():
         K_IP: f'{app.config[HOST]}:{app.config["WEB_PORT"]}',
         TASK_KEY: ret_data
     }
+    if send_mqtt:
 
-    mqtt.publish(send_topic, json.dumps(json_data))
+        send_topic  = "v1/devices/me/attributes"
 
-    logging.info('Send Shared Attributes at first time...\n * Topic: {}\n * Content: {}'.format(
-        send_topic, json_data
-    ))
+        mqtt.publish(send_topic, json.dumps(json_data))
+
+        logging.info('Send Shared Attributes at first time...\n * Topic: {}\n * Content: {}'.format(
+            send_topic, json_data
+        ))
+
+    return json_data
 
 def init_for_icap():
     """ Register iCAP
@@ -473,6 +476,11 @@ def get_tb_info():
         KEY_TB_DEVICE_ID: app.config[KEY_TB_DEVICE_ID],
         KEY_TB_TOKEN: app.config[KEY_TB_TOKEN],
     }
+
+@bp_icap.route("/get_basic_attr", methods=[GET])
+def get_basic_attr():
+    return http_msg( send_basic_attr(send_mqtt=False), 200 )
+
 
 @bp_icap.route("/get_my_ip", methods=[GET])
 def get_my_ip():
