@@ -114,4 +114,8 @@ def read_file():
 
 @bp_system.route("/api", methods=["GET"])
 def get_apidocs():
-    return redirect(f'http://127.0.0.1:{current_app.config["PORT"]}/apidocs')
+    ip = current_app.config["HOST"]
+    port = current_app.config["PORT"]
+    target_url = f'http://{ip}:{port}/apidocs'
+    logging.warning(f'Redirect to Flasgger apidocs ... ({target_url})')
+    return redirect(target_url)
