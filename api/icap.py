@@ -64,7 +64,7 @@ class ICAP_DEPLOY:
 
     def __init__(self, data) -> None:
         """ iCAP Deployment Event
-        ---
+        
         * Support format 
 
             {   'sw_title': '892616d0-ada4-11ed-b82d-df49313d086e-fire_detection-intel', 
@@ -248,7 +248,7 @@ class ICAP_DEPLOY:
 
 def register_tb_device(tb_url):
     """ Register Thingsboard Device
-    ---
+    
     - Web API: http://10.204.16.110:3000/api/v1/devices
     - Method: POST
     - Data:
@@ -329,7 +329,7 @@ def send_basic_attr(send_mqtt=True):
 
 def init_for_icap():
     """ Register iCAP
-    ---
+    
     1. Update `MQTT_BROKER_URL` from `ivit-i.json`
     2. Update `KEY_TB_STATS`, `KEY_DEVICE_TYPE`, `KEY_DEVICE_NAME`, `KEY_DEVICE_ALIAS` to 
 
@@ -437,7 +437,7 @@ def register_mqtt_event():
     def handle_mqtt_message(client, userdata, message):
         """
         Handle the MQTT Message
-        ---
+        
         Data Format:
             - type: json
             - params:
@@ -481,28 +481,32 @@ def get_tb_info():
 def get_basic_attr():
     return http_msg( send_basic_attr(send_mqtt=False), 200 )
 
-
 @bp_icap.route("/get_my_ip", methods=[GET])
 def get_my_ip():
     return http_msg( {'ip': request.remote_addr}, 200 )
 
 @bp_icap.route("/icap/info", methods=[GET])
+@swag_from("{}/{}".format(YAML_PATH, "get_icap_info.yml"))
 def icap_info():
     return http_msg( get_tb_info(), 200)
 
 @bp_icap.route("/icap/device/id", methods=[GET])
+@swag_from("{}/{}".format(YAML_PATH, "get_icap_dev_id.yml"))
 def get_device_id():
     return http_msg( { "device_id": app.config.get(KEY_TB_DEVICE_ID) }, 200 )
 
 @bp_icap.route("/icap/device/type", methods=[GET])
+@swag_from("{}/{}".format(YAML_PATH, "get_icap_dev_type.yml"))
 def get_device_type():
     return http_msg( { "device_type": app.config.get(KEY_DEVICE_TYPE) }, 200 )
 
 @bp_icap.route("/icap/addr", methods=[GET])
+@swag_from("{}/{}".format(YAML_PATH, "get_icap_addr.yml"))
 def get_addr():
     return http_msg( { "ip" : str(app.config[TB]), "port": str(app.config[TB_PORT]) }, 200 )
 
 @bp_icap.route("/icap/addr", methods=[POST])
+@swag_from("{}/{}".format(YAML_PATH, "edit_icap_addr.yml"))
 def modify_addr():
 
     K_IP, K_PORT = "ip", "port"

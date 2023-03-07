@@ -123,14 +123,14 @@ def create_app():
     def ivit_mesg(sock):
         """ 
         Define iVIT System Message
-        ---
+        
         'error': {
             'type' : '',
             'status_code': 0,
             'message': 'xxx',
             'uuid': 'xxx',
             'stop_task': True
-        },
+        }
         """
         while(True):
             
