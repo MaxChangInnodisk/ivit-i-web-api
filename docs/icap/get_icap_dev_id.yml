@@ -1,0 +1,19 @@
+Get the information of icap which already setting up in iVIT-I.
+---
+tags:
+  - icap
+responses:
+  200:
+    name: data
+    type: object
+    description: the information of icap
+    schema:
+      example:
+        {
+          "status_code": 200,
+          "data": {
+            "device_id": ""
+          },
+          "message": "",
+          "type": ""
+        }

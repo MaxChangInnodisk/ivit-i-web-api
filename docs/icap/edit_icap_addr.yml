@@ -1,0 +1,51 @@
+Edit the address information of icap which already setup in iVIT-I. 
+---
+tags:
+  - icap
+
+parameters:
+  - in: body
+    name: data
+    schema:
+      type: object
+      properties:
+        "ip":
+          type: string
+          example: "10.204.16.110"
+
+        "port":
+          type: string
+          example: "3000"
+        
+responses:
+  200:
+    name: data
+    type: object
+    description: the device type of icap
+    schema:
+      example:
+        {
+          "status_code": 200,
+          "data": {
+            "TB_STATS": false,
+            "TB_DEV_NAME": "iVIT-I-d8:5e:d3:23:91:bf",
+            "TB_DEV_TYPE": "iVIT-I",
+            "TB_DEV_ALAIS": "iVIT-I-d8:5e:d3:23:91:bf",
+            "TB_CREATE_TIME": "",
+            "TB_DEVICE_ID": "",
+            "TB_TOKEN": ""
+          },
+          "message": "",
+          "type": ""
+        }
+  500:
+    schema:
+      type: object
+      description : error message
+      example:
+        {
+          "status_code": 500,
+          "data": {},
+          "message": "{\"status_code\": 400, \"status\": 400, \"error\": \"[JOI]\\\"productionModel\\\" is not allowed\", \"timestamp\": \"2023-03-07T01:54:50.455Z\"}",
+          "type": "RuntimeError"
+        }

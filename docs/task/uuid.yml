@@ -16,5 +16,5 @@ responses:
           "04b55374": "person_density",
           "48d09e14": "humanpose_sample_ae",
           "c1bfee21": "segmentation_sample",
-          "1b5cac97": "retail_product_detection",
+          "1b5cac97": "retail_product_detection"
         }

@@ -58,5 +58,5 @@ responses:
           "palette": null,
           "cur_frame": 0,
           "fps": "<class 'NoneType'>",
-          "stream": "<class 'NoneType'>",
+          "stream": "<class 'NoneType'>"
         }

@@ -39,5 +39,5 @@ responses:
               "type": "Video",
               "object": "<class 'NoneType'>",
               "detail": "",
-            },
+            }
         }

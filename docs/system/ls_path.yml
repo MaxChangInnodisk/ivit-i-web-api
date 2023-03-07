@@ -21,12 +21,12 @@ responses:
     schema:
       type: list
       example: [ 
-        'parking-lot-detect',
-        'yolov4-tiny-sample',
-        'object-detection-sample',
-        'wrong-side-detect',
-        'classification-sample',
-        'traffic-flow-detect' 
+        "parking-lot-detect",
+        "yolov4-tiny-sample",
+        "object-detection-sample",
+        "wrong-side-detect",
+        "classification-sample",
+        "traffic-flow-detect" 
       ]
   400:
     description: error message

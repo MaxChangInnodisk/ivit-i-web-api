@@ -16,9 +16,9 @@ responses:
                 "app_name": "classification_sample",
                 "uuid": "6b8b7c91",
                 "ready": true,
-                "err": "",
+                "error": "",
                 "status": "stop",
-              },
+              }
             ],
           "failed":
             [
@@ -27,8 +27,8 @@ responses:
                 "app_name": "object_detection_sample",
                 "uuid": "5cea9562",
                 "ready": false,
-                "err": "Couldn't find app config.",
+                "error": "Couldn't find app config.",
                 "status": "error",
-              },
-            ],
+              }
+            ]
         }
