@@ -13,8 +13,8 @@ K_TYPE  = "type"
 def json_exception(content):
     err_type, err_detail = simple_exception(content)
     
-    if not err_type in [ "ImageOpenError", "VideoOpenError", "RtspOpenError", "UsbCamOpenError" ]:
-        err_type = "RuntimeError"
+    # if not err_type in [ "ImageOpenError", "VideoOpenError", "RtspOpenError", "UsbCamOpenError" ]:
+    #     err_type = "RuntimeError"
     
     return { 
         K_MESG: json.dumps(err_detail),
