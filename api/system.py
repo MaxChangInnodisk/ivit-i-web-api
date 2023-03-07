@@ -1,5 +1,5 @@
 import logging, subprocess, json, os
-from flask import Blueprint, abort, jsonify, current_app, request
+from flask import Blueprint, abort, jsonify, current_app, request, url_for, redirect
 from flasgger import swag_from
 
 # Load Module from `web/tools`
@@ -111,3 +111,7 @@ def read_file():
         return http_msg( ret_data, PASS_CODE )
     except Exception as e:
         return http_msg( e, FAIL_CODE )
+
+@bp_system.route("/api", methods=["GET"])
+def get_apidocs():
+    return redirect(f'http://127.0.0.1:{current_app.config["PORT"]}/apidocs')
