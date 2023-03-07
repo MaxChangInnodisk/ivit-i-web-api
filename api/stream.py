@@ -315,8 +315,6 @@ def stream_task(task_uuid, src, namespace):
 # Define Threading Hook
 # def thread_custom_hook(args):
     
-    
-
 
 # -----------------------------------------------
 # Define Sock Event

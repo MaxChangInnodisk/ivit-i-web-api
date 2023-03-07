@@ -10,6 +10,7 @@ BP_NAME     = "model"
 bp_model = Blueprint(BP_NAME, __name__)
 
 @bp_model.route("/model", methods=["GET"])
+@swag_from(f'{YAML_PATH}/{"get_model.yml"}')
 def get_model():
     return http_msg( current_app.config["MODEL"], PASS_CODE )
 
