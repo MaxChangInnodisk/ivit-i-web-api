@@ -164,7 +164,6 @@ def stream_task(task_uuid, src, namespace):
         - src
         - namespace
     '''
-    print('\n\n\n\nsjdiasiodjasoidjaiosdjsaiodjoid\n\n\n')
     # Prepare Parameters
     ret_info, info  = dict(), None
     model_conf      = app.config[TASK][task_uuid][CONFIG]
