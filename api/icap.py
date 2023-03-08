@@ -312,7 +312,7 @@ def send_basic_attr(send_mqtt=True):
         ret_data = get_simple_task()
 
     json_data   = {
-        K_IP: f'{app.config[HOST]}:{app.config["WEB_PORT"]}',
+        K_IP: f'{app.config[HOST]}:{app.config["NGINX_PORT"]}',
         TASK_KEY: ret_data
     }
     if send_mqtt:
