@@ -336,11 +336,7 @@ def ivit_message(sock):
     while(True):
         cur_data = json.dumps(app.config[IVIT_WS_POOL])
         if temp_data != cur_data:
-            try:
-                sock.send( cur_data )
-            except:
-                logging.error('send socket error')
-                
+            sock.send( cur_data )
             temp_data = cur_data
             time.sleep(33e-3)
 
@@ -360,11 +356,8 @@ def message(sock):
     while(True):
         cur_data = json.dumps(app.config[INFER_WS_POOL])
         if temp_data != cur_data:
-            try:
-                sock.send( cur_data )
-            except:
-                logging.error('send socket error')
-                
+            sock.send( cur_data )
+
             temp_data = cur_data
             time.sleep(33e-3)
 
@@ -444,7 +437,7 @@ def get_first_frame(uuid):
 @swag_from("{}/{}".format(YAML_PATH, "stream_start.yml"))
 def start_stream(uuid):      
 
-    title_msg = lambda title: f'{title}, Stream (WebRTC): /task/{uuid}/stream , Log (WebSocket): "/task/results", RTSP: rtsp://{app.config["HOST"]}:8554/{uuid}.'
+    title_msg = lambda title: f'{title}, Stream (WebRTC): {app.config["HOST"]}:{app.config["NGINX_PORT"]}/task/{uuid}/stream , Log (WebSocket): "/task/results", RTSP: rtsp://{app.config["HOST"]}:8554/{uuid}.'
     try:
         app.config[TASK][uuid][STATUS] = RUN
         # ----------------------------------------------------------
