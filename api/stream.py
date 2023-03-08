@@ -6,6 +6,8 @@ from flasgger import swag_from
 # Load Module from `web/api`
 from .common import frame2btye, get_src, stop_src, stop_task_thread, check_uuid_in_config
 from .common import sock, app
+from .icap import KEY_TB_STATS, send_basic_attr
+
 from ..tools.common import handle_exception, simple_exception, http_msg, json_exception
 from ..tools.handler import get_tasks
 from ..tools.parser import get_pure_jsonify
@@ -162,7 +164,7 @@ def stream_task(task_uuid, src, namespace):
         - src
         - namespace
     '''
-    
+    print('\n\n\n\nsjdiasiodjasoidjaiosdjsaiodjoid\n\n\n')
     # Prepare Parameters
     ret_info, info  = dict(), None
     model_conf      = app.config[TASK][task_uuid][CONFIG]
@@ -310,6 +312,10 @@ def stream_task(task_uuid, src, namespace):
     
     finally:
         trg.release()
+        app.config[TASK_LIST]=get_tasks()
+        if app.config[KEY_TB_STATS]:
+            logging.debug("Update basic attribute")
+            send_basic_attr()
 
 # -----------------------------------------------
 # Define Threading Hook
@@ -480,7 +486,7 @@ def start_stream(uuid):
         if app.config[TASK][uuid][STREAM] is not None:  
             if app.config[TASK][uuid][STREAM].is_alive():
                 os.kill(app.config[TASK][uuid][STREAM])
-                
+        
         logging.warning(msg)
         return http_msg(e, FAIL_CODE)
     

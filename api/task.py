@@ -1,7 +1,6 @@
 import logging, copy, time, os
 from flask import Blueprint, jsonify, current_app
 from flasgger import swag_from
-from .stream import FAIL_CODE
 
 # From /ivit_i/web/api
 from .common import get_src, stop_src, check_uuid_in_config
@@ -201,6 +200,7 @@ def run_task(uuid):
     # ------------------------------------
     # Error Task 
     if current_app.config[TASK][uuid][STATUS] == ERROR:
+        current_app.config[TASK][uuid][STATUS] = ERROR
         return http_msg('The task is not ready... {}'.format( 
             str(current_app.config[TASK][uuid][ERROR])), FAIL_CODE)
 
@@ -218,6 +218,7 @@ def run_task(uuid):
             raise RuntimeError( f"Init Source Failed ( {handle_exception(e)} )" )
         
     except Exception as e:
+        current_app.config[TASK][uuid][STATUS] = ERROR
         current_app.config[TASK][uuid][ERROR] = json_exception(e)
         return http_msg(e, FAIL_CODE)
 
@@ -239,6 +240,7 @@ def run_task(uuid):
         current_app.config[TASK][uuid][API] = init_ai_model(temp_config)
     
     except Exception as e:
+        current_app.config[TASK][uuid][STATUS] = ERROR
         current_app.config[TASK][uuid][ERROR] = json_exception(e)
         return http_msg(e, FAIL_CODE)
     

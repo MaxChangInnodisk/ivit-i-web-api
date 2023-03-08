@@ -11,7 +11,7 @@ from .api.task import bp_tasks
 from .api.operator import bp_operators
 from .api.application import bp_application
 from .api.stream import bp_stream
-from .api.icap import bp_icap, init_for_icap, register_mqtt_event
+from .api.icap import bp_icap, init_for_icap, register_mqtt_event, send_basic_attr, KEY_TB_STATS
 from .api.model import bp_model
 
 from .tools.parser import get_pure_jsonify
@@ -66,6 +66,15 @@ def create_app():
         # request.remote_addr, request.method, request.scheme, request.full_path, response.status
         if not (ICO in request.path):
             logging.info("{} {} {} from {}".format(request.method, request.path, request.scheme, request.remote_addr))
+
+    @app.after_request
+    def after_request(response):
+        """ When we finish each operation, we have to update the TASK_LIST to get the newest list. """
+        app.config[TASK_LIST]=get_tasks()
+        if app.config[KEY_TB_STATS]:
+            logging.debug("Update basic attribute")
+            send_basic_attr()
+        return response
 
     @app.route("/", methods=["GET"])
     def index():

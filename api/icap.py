@@ -321,9 +321,9 @@ def send_basic_attr(send_mqtt=True):
 
         mqtt.publish(send_topic, json.dumps(json_data))
 
-        logging.info('Send Shared Attributes at first time...\n * Topic: {}\n * Content: {}'.format(
-            send_topic, json_data
-        ))
+        # logging.info('Send Shared Attributes at first time...\n * Topic: {}\n * Content: {}'.format(
+        #     send_topic, json_data
+        # ))
 
     return json_data
 
@@ -457,7 +457,7 @@ def register_mqtt_event():
         payload = message.payload.decode()
         data = json.loads(payload)
 
-        logging.info("Receive Data from Thingsboard \n  - Topic : {} \n  - Data: {}".format(topic, data))
+        logging.debug("[iCAP] Receive Data from Thingsboard \n  - Topic : {} \n  - Data: {}".format(topic, data))
 
         if app.config[TB_TOPIC_REC_RPC] in topic:
             request_idx = topic.split('/')[-1]

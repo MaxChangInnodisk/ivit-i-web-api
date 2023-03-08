@@ -66,12 +66,6 @@ LABEL_PATH      = "label_path"
 CONFIG_PATH     = "config_path"
 JSON_PATH       = "json_path"
 
-@bp_operators.after_request
-def after_request(response):
-    """ When we finish each operation, we have to update the TASK_LIST to get the newest list. """
-    current_app.config[TASK_LIST]=get_tasks()
-    return response
-
 @bp_operators.route("/edit/<uuid>", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "edit.yml"))
 def edit_event(uuid):
