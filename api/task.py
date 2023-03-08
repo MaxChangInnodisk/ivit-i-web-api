@@ -205,10 +205,7 @@ def run_task(uuid):
             str(current_app.config[TASK][uuid][ERROR])), FAIL_CODE)
 
     # ------------------------------------
-    # Running Task
-    if current_app.config[TASK][uuid][STATUS] == RUN:
-        return http_msg('The task is still running ... ', PASS_CODE)
-    
+
     # ------------------------------------
     # Create Source Thread
     try:
@@ -246,7 +243,7 @@ def run_task(uuid):
     
     # ------------------------------------
     # Update running status and 
-    current_app.config[TASK][uuid][STATUS] = RUN
+    # current_app.config[TASK][uuid][STATUS] = RUN
     
     current_app.config[TASK][uuid][START_TIME]  = time.time()
     current_app.config[TASK][uuid][LIVE_TIME]   = 0

@@ -438,7 +438,9 @@ def start_stream(uuid):
 
     title_msg = lambda title: f'{title}, Stream (WebRTC): /task/{uuid}/stream , Log (WebSocket): "/task/results", RTSP: rtsp://{app.config["HOST"]}:8554/{uuid}.'
     try:
+        app.config[TASK][uuid][STATUS] = RUN
         # ----------------------------------------------------------
+        
         # Checking UUID
         check_uuid_in_config(uuid)
     
@@ -485,6 +487,10 @@ def start_stream(uuid):
         if app.config[TASK][uuid][STREAM] is not None:  
             if app.config[TASK][uuid][STREAM].is_alive():
                 os.kill(app.config[TASK][uuid][STREAM])
+        
+        app.config[TASK][uuid][STATUS] = ERROR
+        app.config[TASK][uuid][ERROR] = json_exception(e)
+        
         
         logging.warning(msg)
         return http_msg(e, FAIL_CODE)
