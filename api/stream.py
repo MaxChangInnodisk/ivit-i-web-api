@@ -336,7 +336,11 @@ def ivit_message(sock):
     while(True):
         cur_data = json.dumps(app.config[IVIT_WS_POOL])
         if temp_data != cur_data:
-            sock.send( cur_data )
+            try:
+                sock.send( cur_data )
+            except:
+                logging.error('send socket error')
+                
             temp_data = cur_data
             time.sleep(33e-3)
 
@@ -356,7 +360,11 @@ def message(sock):
     while(True):
         cur_data = json.dumps(app.config[INFER_WS_POOL])
         if temp_data != cur_data:
-            sock.send( cur_data )
+            try:
+                sock.send( cur_data )
+            except:
+                logging.error('send socket error')
+                
             temp_data = cur_data
             time.sleep(33e-3)
 
