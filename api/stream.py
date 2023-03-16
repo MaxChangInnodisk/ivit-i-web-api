@@ -249,7 +249,8 @@ def stream_task(task_uuid, src, namespace):
                     continue    
                                 
             # If got frame then add the frame index
-            app.config[TASK][task_uuid][FRAME_IDX] += 1
+            with app.app_context():
+                app.config[TASK][task_uuid][FRAME_IDX] += 1
             
             t2 = time.time()
 
@@ -286,8 +287,9 @@ def stream_task(task_uuid, src, namespace):
                 LIVE_TIME   : round((time.time() - app.config[TASK][task_uuid][START_TIME]), 5),
             }
             # Send Information
-            if(time.time() - temp_socket_time >= 1):                
-                app.config[INFER_WS_POOL].update({ task_uuid: json.dumps(get_pure_jsonify(ret_info)) })
+            if(time.time() - temp_socket_time >= 1):
+                with app.app_context():            
+                    app.config[INFER_WS_POOL].update({ task_uuid: json.dumps(get_pure_jsonify(ret_info)) })
                 temp_socket_time = time.time()
 
             # Delay to fix in 30 fps
@@ -295,13 +297,14 @@ def stream_task(task_uuid, src, namespace):
             time.sleep(t_expect-t_cost if(t_cost<t_expect) else 1e-5)
             
             # Update Live Time and FPS
-            app.config[TASK][task_uuid][LIVE_TIME] = int((time.time() - app.config[TASK][task_uuid][START_TIME]))
+            with app.app_context():
+                app.config[TASK][task_uuid][LIVE_TIME] = int((time.time() - app.config[TASK][task_uuid][START_TIME]))
             
             # Average FPS
             if(cur_info):
                 fps_pool.append(int(1/(time.time()-t1)))
                 cur_fps = sum(fps_pool)//len(fps_pool) if len(fps_pool)>10 else cur_fps
-                 
+
         logging.info('Stop streaming')
 
     except Exception as e:
@@ -311,10 +314,11 @@ def stream_task(task_uuid, src, namespace):
     
     finally:
         trg.release()
-        app.config[TASK_LIST]=get_tasks()
-        if app.config[KEY_TB_STATS]:
-            logging.debug("Update basic attribute")
-            send_basic_attr()
+        with app.app_context():
+            app.config[TASK_LIST]=get_tasks()
+            if app.config[KEY_TB_STATS]:
+                logging.debug("Update basic attribute")
+                send_basic_attr()
 
 # -----------------------------------------------
 # Define Threading Hook
@@ -512,11 +516,13 @@ def stop_stream(uuid):
         
     if app.config[TASK][uuid][STREAM]!=None:
         try:
-            src_name = app.config[TASK][uuid][SOURCE]
-            app.config[SRC][src_name][STATUS] = STOP
-            
-            app.config[TASK][uuid][STREAM].join()
-            logging.warning('Stopped stream !')
+            with app.app_context():
+                
+                src_name = app.config[TASK][uuid][SOURCE]
+                app.config[SRC][src_name][STATUS] = STOP
+                
+                app.config[TASK][uuid][STREAM].join()
+                logging.warning('Stopped stream !')
         except Exception as e:
             logging.warning(e)
 
