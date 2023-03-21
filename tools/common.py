@@ -37,6 +37,7 @@ def http_msg(content, status_code):
 
     # If is Exception
     if isinstance(content, Exception):
+        logging.exception(content)
         ret.update(json_exception(content=content))
         
     # If not Exception, check input content is String or Object
