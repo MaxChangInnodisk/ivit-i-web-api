@@ -68,18 +68,23 @@ def modify_basic_params(src_data, task_config):
     for key in ['name', 'source', 'source_type']:
         task_config[key] = src_data[ key ]
         logging.debug(f' - update ({key}): {task_config[key]} -> {src_data[key]}')
+    return task_config
 
 def modify_application_params(src_data, task_config):
     """ Update Application Parameters in Task Configuration """
 
     app_key  = "application"
+
+    if not (app_key in task_config):
+        task_config.update( {app_key: {}} )
+
     app_form = str_to_json(src_data[app_key])
 
     # Update Each Key and Value
     trg_key = "name"
     if trg_key in app_form:    
         app_name = app_form[trg_key]
-        task_config[app_key] = { trg_key: app_name }
+        task_config[app_key].update({ trg_key: app_name })
 
     trg_key = "depend_on"
     if trg_key in app_form:
@@ -135,6 +140,8 @@ def modify_model_params(src_data, model_config):
             model_config[af][key] = src_data[key]  
         logging.debug(f' - update ({key}): {val} -> { model_config[af][key] if key in model_config[af] else val}')
 
+    return model_config
+
 def modify_task_json(src_uuid:str, task_name:str, form:dict, need_copy:bool=False):
     """ Modify AI Task Configuration, could be using on Add AI Task and Edit AI Task
     
@@ -149,7 +156,6 @@ def modify_task_json(src_uuid:str, task_name:str, form:dict, need_copy:bool=Fals
         2. Copy or Move to target path by task_name
         3. Update new configuration via `form`
     """
-    
     mode = "ADD" if need_copy else "EDIT"
     logging.info('Modify Task Configuration in [{}] mode'.format(mode))
 
@@ -177,6 +183,7 @@ def modify_task_json(src_uuid:str, task_name:str, form:dict, need_copy:bool=Fals
 
     # --------------------------------------------------------
     # Update Configuration
+    logging.info(form)
     task_cfg = modify_basic_params(src_data = form, task_config = task_cfg)
     task_cfg = modify_application_params(form, task_cfg)
     model_cfg = modify_model_params(src_data = form, model_config = model_cfg)
