@@ -142,7 +142,7 @@ def task_simple_info(uuid):
         SOURCE_TYPE : current_app.config[TASK][uuid].get(SOURCE_TYPE),
         DEVICE      : current_app.config[TASK][uuid].get(DEVICE),
         STATUS      : current_app.config[TASK][uuid].get(STATUS),
-        THRES       : current_app.config[TASK][uuid].get(THRES)
+        THRES       : current_app.config[TASK][uuid]["config"][af].get(THRES)
     }
     return http_msg(simple_config, PASS_CODE)
     
