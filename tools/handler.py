@@ -299,6 +299,7 @@ def add_task(form):
     if os.path.exists(task_path):
         raise FileExistsError("Can't create new AI Task ({}), path already exist !!!".format(task_path))
     
+    # Get the fist task using the same model
     same_model_uuids = current_app.config['MODEL'].get(task_model)
     if not same_model_uuids:
         raise KeyError("Unexcepted model name: {}.".format( task_model ))
