@@ -4,6 +4,8 @@ from flask import Blueprint, abort, request
 from flasgger import swag_from
 from ivit_i.utils.err_handler import handle_exception
 from ..tools.thingsboard import send_get_api, send_post_api
+from ..tools.handler import get_tag_app_list
+
 from .common import sock, app, mqtt
 from ..tools.common import get_address, get_mac_address, http_msg, simple_exception
 from .task import get_simple_task
@@ -26,6 +28,16 @@ TASK        = "TASK"
 TASK_LIST   = "TASK_LIST"
 HOST        = "HOST"
 PORT        = "PORT"
+PLATFORM    = "PLATFORM"
+
+INTEL = "intel"
+NVIDIA = "nvidia"
+JETSON = "jetson"
+XILINX = "xilinx"
+
+MODEL_KEY       = 'MODEL'
+MODEL_APP_KEY   = 'MODEL_APP'
+TAG_APP         = 'TAG_APP'
 
 # Define App Config Key
 TB                  = "TB"
@@ -60,6 +72,20 @@ TB_KEY_TOKEN_TYPE   = "credentialsType"
 TB_KEY_ID           = "id"
 TB_KEY_TOKEN        = "accessToken"
 
+# Define TELEMETRY STATE
+S_ERRO = "ERROR"
+S_FAIL = "FAILED"
+S_PASS = "PASS"
+S_INIT = "INITIALIZED"
+S_DOWN = "DOWNLOADING"
+S_DOWN_END = "DOWNLOADED"
+S_PARS = "PARSED"
+S_CONV = "CONVERTED"
+S_FINISH = "FINISHED"
+
+
+
+
 class ICAP_DEPLOY:
 
     def __init__(self, data) -> None:
@@ -87,6 +113,12 @@ class ICAP_DEPLOY:
                 }'
             }
         """
+
+        # Need Convert List
+        self.convert_platform = [ NVIDIA, JETSON ]
+        self.parsed_info = None
+        self.converted_info = None
+        
         self.temp_root = app.config["TEMP_PATH"]
         self.model_root = app.config["MODEL_DIR"]
 
@@ -101,9 +133,10 @@ class ICAP_DEPLOY:
         
         # Check platform
         self.platform = self.descr.get("applyProductionModel")
-        if self.platform:
-            if self.platform.lower() != app.config["PLATFORM"].lower():
-                raise TypeError('Unexepted Platform: {}'.format(self.platform))
+        if self.platform and ( self.platform.lower() != app.config["PLATFORM"].lower() ):
+            mesg = 'Unexepted Platform: {}'.format(self.platform)
+            self.push_to_icap(state=S_ERRO, error=mesg)
+            raise TypeError(mesg)
 
         # Get Description Data
         self.project_name   = self.descr["project_name"]
@@ -146,7 +179,7 @@ class ICAP_DEPLOY:
     def bar_progress(self, current, total, width=80):
         """ Custom progress bar for iCAP deployment, which will push the progress to icap """
         proc_rate = int(current / total * 100)
-        proc_mesg = f"DOWNLOADING ( {proc_rate}% )"
+        proc_mesg = f"{S_DOWN} ( {proc_rate}% )"
 
         if ((proc_rate%self.push_rate)==0 and proc_rate!=self.tmp_proc_rate) :
             self.tmp_proc_rate = proc_rate
@@ -180,16 +213,18 @@ class ICAP_DEPLOY:
             self.parse_event()
             self.convert_event()
             self.finished_event()
+
         except Exception as e:
             handle_exception(e)
-            self.push_to_icap(state="ERROR")
+            self.clear_exist_data()
+            self.push_to_icap(state=S_ERRO)
 
 
     def download_event(self):
         """ Download Event in python thread """
         logging.info('Start to download file ....')
         self.print_info()
-        self.push_to_icap(state="INITIALIZED")
+        self.push_to_icap(state=S_INIT)
 
         t_start = time.time()
         wget.download( 
@@ -201,40 +236,89 @@ class ICAP_DEPLOY:
         self.check_md5()
 
         logging.info('Download Finished  ... {}s'.format(int(time.time()-t_start)) )
-        self.push_to_icap(state="DOWNLOADED")
+        self.push_to_icap(state=S_DOWN_END)
 
     def parse_event(self):
-        # time.sleep(3)
+        """ Parsing data from ZIP File update self.parsed_info """
         
         # Parse information
-        try:
-            with app.app_context():
-                info = parse_info_from_zip( zip_path = self.save_path )
-        except Exception as e:
-            handle_exception(e)
-            self.clear_exist_data()
+        with app.app_context():
+            
+            self.parsed_info = parse_info_from_zip( zip_path = self.save_path )
+            if self.parsed_info is None:
+                raise RuntimeError("Parsed data is empty")
 
-        # NOTE: The new workflow for iCAP
-        # Copy to model path and update to app.config
-        sb.run(f"mv -f {self.save_path.replace('.zip', '')} {self.target_path}", shell=True)
-        logging.info('Moved Folder from {} to {}'.format(
-            self.save_path, self.target_path
-        ))
+            [ print(key, val) for key, val in self.parsed_info.items() ]
+            
+            # NOTE: The new workflow for iCAP
+            # Copy to model path and update to app.config
+            sb.run(f"mv -f {self.save_path.replace('.zip', '')} {self.target_path}", shell=True)
+            
+            logging.info('Moved Folder from {} to {}'.format(
+                self.save_path, self.target_path ))
 
-        self.push_to_icap(state="PARSED")
-
+            self.push_to_icap(state=S_PARS)
+        
     def convert_event(self):
-        time.sleep(3)
-        self.push_to_icap(state="CONVERTED")
+        """  Convert file base on self.parsed_info """
 
+        if ( self.platform in self.convert_platform ):
+            logging.warning('Start Convertion ...')
+            # update self.converted_info
+
+            if ( self.converted_info is None ):
+                raise RuntimeError('Convert data is empty') 
+            
+        else:
+            logging.warning(f'No need convertion, only {self.convert_platform} have to convert but current is {self.platform}')            
+                
+        self.push_to_icap(state=S_CONV)
+
+    # Temp
+    # def init_model(self):
+    #     """
+    #     Initial model , model_app in configuration
+    #         - model: relationship between the model and the task ( uuid ) 
+    #         - model_app: relationship between the model and the application
+    #     """
+        
+    #     model_name = self.parsed_info['name']
+    #     model_tag = self.parsed_info['tag']
+        
+    #     self.parsed_info['path']
+    #     self.parsed_info['model_path']
+    #     self.parsed_info['label_path']
+    #     self.parsed_info['config_path']
+    #     self.parsed_info['json_path']
+        
+    #     # update the key in config
+    #     for KEY in [MODEL_KEY, MODEL_APP_KEY]:
+    #         if not ( KEY in app.config.keys()):
+    #             app.config.update( {KEY:dict()} )
+    #         if not (model_name in app.config[KEY].keys()):
+    #             app.config[KEY].update( {model_name:list()} )
+        
+    #     # update application in model_app
+    #     tag_app_list = app.config[TAG_APP] if ( TAG_APP in app.config ) else get_tag_app_list()
+
+    #     for app in tag_app_list[model_tag]:
+    #         if (app in app.config[MODEL_APP_KEY][model_name]): continue    
+    #         app.config[MODEL_APP_KEY][model_name].append( app )
+                
     def finished_event(self):
-        time.sleep(3)
-        self.push_to_icap(state="FINISHED")
+        """  Update app.config """
+
+        time.sleep(1)
+        self.push_to_icap(state=S_FINISH)
 
     def start(self):
         self.t.start()
 
-    def push_to_icap(self, state="INITIALIZED", error=""):
+    def push_to_icap(self, state=S_INIT, error=""):
+        if not ( self.title and self.ver ):
+            logging.error('Empty title and version ...')
+            return None
+
         mqtt.publish(app.config[TB_TOPIC_SND_TEL], json.dumps({
             "current_sw_title": self.title,
             "current_sw_version": self.ver,
@@ -244,7 +328,8 @@ class ICAP_DEPLOY:
 
     def error(self, content="Unknown Error ..."):
         print("\nError: ", content)
-        self.push_to_icap(state="FAILED", error=content)
+        self.push_to_icap(state=S_ERRO, error=content)
+            
 
 def register_tb_device(tb_url):
     """ Register Thingsboard Device
