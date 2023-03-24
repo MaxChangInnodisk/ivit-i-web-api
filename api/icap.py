@@ -36,6 +36,7 @@ JETSON = "jetson"
 XILINX = "xilinx"
 
 MODEL_KEY       = 'MODEL'
+MODEL_TASK_KEY  = "MODEL_TASK"
 MODEL_APP_KEY   = 'MODEL_APP'
 TAG_APP         = 'TAG_APP'
 

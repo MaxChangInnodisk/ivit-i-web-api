@@ -9,6 +9,7 @@ from ivit_i.app.handler import get_tag_app_list, get_app_list
 DIV             = '-'*30
 APP_KEY         = 'APPLICATION'
 MODEL_KEY       = 'MODEL'
+MODEL_TASK_KEY  = "MODEL_TASK"
 MODEL_APP_KEY   = 'MODEL_APP'
 APP_MODEL_KEY   = 'APP_MODEL'
 TAG_APP         = 'TAG_APP'
@@ -16,7 +17,6 @@ SRC_KEY         = "SRC"
 UUID            = "UUID"
 TASK            = "TASK"
 APPLICATION     = "APPLICATION"
-MODEL           = "MODEL"
 SRC             = "SRC"
 
 SRC_PROC        = "proc"
@@ -300,7 +300,7 @@ def add_task(form):
         raise FileExistsError("Can't create new AI Task ({}), path already exist !!!".format(task_path))
     
     # Get the fist task using the same model
-    same_model_uuids = current_app.config['MODEL'].get(task_model)
+    same_model_uuids = current_app.config[MODEL_TASK_KEY].get(task_model)
     if not same_model_uuids:
         raise KeyError("Unexcepted model name: {}.".format( task_model ))
     
@@ -331,12 +331,12 @@ def remove_task(task_uuid):
         task_model  = current_app.config[TASK][task_uuid]["model_path"].split('/')[-1]
 
     # Remove model-task relation
-    if task_model in current_app.config[MODEL]:
-        current_app.config[MODEL][task_model].remove(task_uuid)
-        logging.warning(' - Remove {} in app.config[{}][{}]'.format(task_uuid, MODEL, task_model))
+    if task_model in current_app.config[MODEL_TASK_KEY]:
+        current_app.config[MODEL_TASK_KEY][task_model].remove(task_uuid)
+        logging.warning(' - Remove {} in app.config[{}][{}]'.format(task_uuid, MODEL_TASK_KEY, task_model))
 
         # Check the current model is not using
-        if current_app.config[MODEL][task_model] == []:
+        if current_app.config[MODEL_TASK_KEY][task_model] == []:
             current_app.config[MODEL_APP_KEY].pop(task_model, None)
 
             logging.warning(' - Remove {} from app.config[{}], please check /model_app'.format(
