@@ -74,10 +74,6 @@ def entrance():
 def get_uuid():
     return http_msg( current_app.config[UUID], PASS_CODE )
 
-# @bp_tasks.route("/model", methods=["GET"])
-# def get_model():
-#     return http_msg( current_app.config["MODEL"], PASS_CODE )
-
 @bp_tasks.route("/task/<uuid>", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "task_info.yml"))
 def task_info(uuid):
