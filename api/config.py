@@ -14,6 +14,10 @@ class config(object):
     APPLICATION     = dict()
     UUID            = dict()
     
+    MODEL           = dict()
+    MODEL_TASK      = dict()
+    MODEL_APP       = dict()
+
     SRC             = dict()
     ALLOWED_HOSTS   = ['*']
     SOCK_POOL       = dict()
