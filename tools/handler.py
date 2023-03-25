@@ -12,6 +12,7 @@ MODEL_KEY       = 'MODEL'
 MODEL_TASK_KEY  = "MODEL_TASK"
 MODEL_APP_KEY   = 'MODEL_APP'
 APP_MODEL_KEY   = 'APP_MODEL'
+MODEL_DIR       = "MODEL_DIR"
 TAG_APP         = 'TAG_APP'
 SRC_KEY         = "SRC"
 UUID            = "UUID"
@@ -22,6 +23,22 @@ SRC             = "SRC"
 SRC_PROC        = "proc"
 
 MODEL_EXT       = [ '.trt', '.engine', '.xml', '.xmodel' ] 
+# Define extension for ZIP file form iVIT-T
+DARK_LABEL_EXT  = CLS_LABEL_EXT = ".txt"        # txt is the category list
+DARK_JSON_EXT   = CLS_JSON_EXT  = ".json"       # json is for basic information like input_shape, preprocess
+DARK_MODEL_EXT  = ".weights"    
+DARK_CFG_EXT    = ".cfg"
+CLS_MODEL_EXT   = ".onnx"
+XLNX_MODEL_EXT  = ".xmodel"
+IR_MODEL_EXT    = ".xml"
+IR_MODEL_EXTS   = [ ".bin", ".mapping", ".xml" ]
+# Define key for ZIP file from iVIT-T
+LABEL_NAME          = "classes"
+CLS                 = "cls"
+OBJ                 = "obj"
+DARKNET             = "darknet"
+CLASSIFICATION_KEY  = "classification"
+YOLO_KEY            = "yolo"
 
 def get_task_uuid(task_name, fix_uuid=None):
     """ Return Task UUID """
@@ -92,15 +109,15 @@ def init_task_model(task_uuid):
     task_model = current_app.config['TASK'][task_uuid]['model']
     task_apps = current_app.config['TASK'][task_uuid]['application']['name']
     # update the key in config
-    for KEY in [MODEL_KEY, MODEL_APP_KEY]:
+    for KEY in [MODEL_TASK_KEY, MODEL_APP_KEY]:
         if not ( KEY in current_app.config.keys()):
             current_app.config.update( {KEY:dict()} )
         if not (task_model in current_app.config[KEY].keys()):
             current_app.config[KEY].update( {task_model:list()} )
     # update task uuid in model
     
-    if not (task_uuid in current_app.config[MODEL_KEY][task_model]):
-        current_app.config[MODEL_KEY][task_model].append(task_uuid)
+    if not (task_uuid in current_app.config[MODEL_TASK_KEY][task_model]):
+        current_app.config[MODEL_TASK_KEY][task_model].append(task_uuid)
 
     # update application in model_app
     tag_app_list = current_app.config[TAG_APP] if ( TAG_APP in current_app.config ) else get_tag_app_list()
@@ -218,8 +235,104 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
 
     logging.info('Initialize AI Task ({}:{}) ... Success'.format(name, task_uuid))
     
+    # Update Model
+    init_model()
+
     return (task_status, task_uuid, current_app.config['TASK'][task_uuid])
- 
+
+def get_conversion_table():
+    key_cvt_table = {
+        CLASSIFICATION_KEY  : CLS,
+        YOLO_KEY            : DARKNET \
+            if current_app.config['AF'] == 'tensorrt' else OBJ
+    }
+    return key_cvt_table
+
+def get_model_tag(tag:str):
+    return get_conversion_table()[tag]
+
+def parse_model_folder(model_dir:str) -> dict:
+    """ Parsing information from model folder, return 
+    """
+    
+    ret = {
+        "tag": "",
+        "model_dir": "",
+        "model_path": "",
+        "label_path": "",
+        "json_path": "",
+        "config_path": "",
+        "meta_data": []
+    }
+
+    model_dir = os.path.realpath(model_dir)
+
+    for fname in os.listdir(model_dir):
+                    
+        fpath = os.path.join(model_dir, fname)
+        name, ext = os.path.splitext(fpath)
+        # logging.debug('Current File: {}'.format(fpath))
+
+        if ext in [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXT, XLNX_MODEL_EXT ]:
+            logging.info("Detected {}: {}".format("Model", fpath))
+            ret.update({ 'model_path': fpath })
+
+        elif ext in [ DARK_LABEL_EXT, CLS_LABEL_EXT, ".names" ]:
+            logging.info("Detected {}: {}".format("Label", fpath))
+            ret.update({ 'label_path': fpath })
+
+        elif ext in [ DARK_JSON_EXT, CLS_JSON_EXT ]:
+            logging.info("Detected {}: {}".format("JSON", fpath))
+            ret.update({ 'json_path': fpath })
+            
+            # get tag
+            with open(fpath, newline='') as jsonfile:
+                data = json.load(jsonfile)
+                ret.update({ 'tag': data['tag'] })
+                
+        elif ext in [ DARK_CFG_EXT ]:
+            logging.info("Detected {}: {}".format("Config", fpath))
+            ret.update({ 'config_path': fpath })
+
+        else:
+            logging.info("Detected {}: {}".format("Meta Data", fpath))
+            ret['meta_data'].append(fpath)
+
+    return ret
+
+
+def init_model():
+    """ Initialize Model Information
+
+    1. Model UUID
+    2. Model Folder Path
+    3. Model Path
+    4. Label Path
+    5. Config Path
+    
+    """
+    
+    # Get Model Folder and All Model
+    model_root = os.path.realpath( current_app.config[MODEL_DIR] )
+    model_dirs = [ os.path.join(model_root, model) for model in os.listdir( model_root ) ]
+    
+    logging.info(f'Get All Models: {", ".join(model_dirs) }')
+
+    # Update key in app.config
+    with current_app.app_context():
+
+        # Clear and add MODEL key in config
+        current_app.config.update({ MODEL_KEY: {} })        
+
+        # Parse all file 
+        for model_dir in model_dirs:
+            # Get pure name and update
+            model_name = os.path.basename(model_dir)
+
+            current_app.config[MODEL_KEY].update( { 
+                model_name: parse_model_folder(model_dir) 
+            } )
+        
 def get_tasks(need_reset=False) -> list:
     """ Return Dictionary with `ready` and `failed` Task
     - args
@@ -491,7 +604,6 @@ def import_task(form):
     dst_model_dir   = os.path.join( model_dir, src_model_pure_name )
     task_path       = os.path.join( task_dir , task_name )
     
-    # ------------------------------------------------------------------
     # Checking
     if src_model_path=="":
         raise Exception('Import Error: no model path in form data and could not find model in temporary folder ({}) ... '.format(src_path))
@@ -504,7 +616,6 @@ def import_task(form):
     if not os.path.exists(task_path):
         os.makedirs(task_path)
         logging.info('  - Create a folder for new AI task ({})'.format(task_path))
-
 
     # define configuration path
     model_config_path = os.path.join( task_path, "{}.json".format( src_model_pure_name ))

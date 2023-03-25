@@ -10,8 +10,14 @@ BP_NAME     = "model"
 bp_model = Blueprint(BP_NAME, __name__)
 
 MODEL_TASK_KEY = "MODEL_TASK"
+MODEL_KEY = "MODEL"
 
 @bp_model.route("/model_task", methods=["GET"])
 @swag_from(f'{YAML_PATH}/{"get_model.yml"}')
-def get_model():
+def get_model_task():
     return http_msg( current_app.config[MODEL_TASK_KEY], PASS_CODE )
+
+@bp_model.route("/model", methods=["GET"])
+@swag_from(f'{YAML_PATH}/{"get_model.yml"}')
+def get_model():
+    return http_msg( current_app.config[MODEL_KEY], PASS_CODE )
