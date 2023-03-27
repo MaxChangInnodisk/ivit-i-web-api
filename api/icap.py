@@ -10,6 +10,7 @@ from .common import sock, app, mqtt
 from ..tools.common import get_address, get_mac_address, http_msg, simple_exception
 from .task import get_simple_task
 from .operator import parse_info_from_zip
+from ..tools.handler import init_model
 
 YAML_PATH   = "../docs/icap"
 BP_NAME     = "icap"
@@ -66,7 +67,7 @@ TB_TOPIC_SND_TEL    = "TB_TOPIC_SND_TEL"
 TB_KEY_NAME     = "name" 
 TB_KEY_TYPE     = "type" 
 TB_KEY_ALIAS    = "alias"
-TB_KEY_MODEL    = "productionModel"
+TB_KEY_MODEL    = "production_model"
 
 TB_KEY_TIME         = "createdTime"
 TB_KEY_TOKEN_TYPE   = "credentialsType"
@@ -83,9 +84,6 @@ S_DOWN_END = "DOWNLOADED"
 S_PARS = "PARSED"
 S_CONV = "CONVERTED"
 S_FINISH = "FINISHED"
-
-
-
 
 class ICAP_DEPLOY:
 
@@ -136,7 +134,7 @@ class ICAP_DEPLOY:
         self.platform = self.descr.get("applyProductionModel")
         if self.platform and ( self.platform.lower() != app.config["PLATFORM"].lower() ):
             mesg = 'Unexepted Platform: {}'.format(self.platform)
-            self.push_to_icap(state=S_ERRO, error=mesg)
+            self.error(mesg)
             raise TypeError(mesg)
 
         # Get Description Data
@@ -232,7 +230,8 @@ class ICAP_DEPLOY:
             self.url, 
             self.save_path, 
             bar=self.bar_progress )
-        
+        logging.info("Downloaded File from iCAP")
+
         # Checksum
         self.check_md5()
 
@@ -258,6 +257,8 @@ class ICAP_DEPLOY:
             logging.info('Moved Folder from {} to {}'.format(
                 self.save_path, self.target_path ))
 
+            init_model()
+
             self.push_to_icap(state=S_PARS)
         
     def convert_event(self):
@@ -275,37 +276,6 @@ class ICAP_DEPLOY:
                 
         self.push_to_icap(state=S_CONV)
 
-    # Temp
-    # def init_model(self):
-    #     """
-    #     Initial model , model_app in configuration
-    #         - model: relationship between the model and the task ( uuid ) 
-    #         - model_app: relationship between the model and the application
-    #     """
-        
-    #     model_name = self.parsed_info['name']
-    #     model_tag = self.parsed_info['tag']
-        
-    #     self.parsed_info['path']
-    #     self.parsed_info['model_path']
-    #     self.parsed_info['label_path']
-    #     self.parsed_info['config_path']
-    #     self.parsed_info['json_path']
-        
-    #     # update the key in config
-    #     for KEY in [MODEL_KEY, MODEL_APP_KEY]:
-    #         if not ( KEY in app.config.keys()):
-    #             app.config.update( {KEY:dict()} )
-    #         if not (model_name in app.config[KEY].keys()):
-    #             app.config[KEY].update( {model_name:list()} )
-        
-    #     # update application in model_app
-    #     tag_app_list = app.config[TAG_APP] if ( TAG_APP in app.config ) else get_tag_app_list()
-
-    #     for app in tag_app_list[model_tag]:
-    #         if (app in app.config[MODEL_APP_KEY][model_name]): continue    
-    #         app.config[MODEL_APP_KEY][model_name].append( app )
-                
     def finished_event(self):
         """  Update app.config """
 
@@ -319,7 +289,7 @@ class ICAP_DEPLOY:
         if not ( self.title and self.ver ):
             logging.error('Empty title and version ...')
             return None
-
+        
         mqtt.publish(app.config[TB_TOPIC_SND_TEL], json.dumps({
             "current_sw_title": self.title,
             "current_sw_version": self.ver,
@@ -375,6 +345,7 @@ def register_tb_device(tb_url):
     if not ret:
         logging.warning("[ iCAP ] Register Thingsboard Device ... Failed !")
         logging.warning("Send Request: {}".format(send_data))    
+        logging.warning("   - URL: {}".format(tb_url))
         logging.warning("   - TOKEN: {}".format( TB_KEY_TOKEN ))
         logging.warning("   - Response: {}".format(data))
         raise ConnectionError(data)
@@ -384,6 +355,7 @@ def register_tb_device(tb_url):
     logging.info("Get Response: {}".format(data))
 
     return data
+
 
 def send_basic_attr(send_mqtt=True):
     """
@@ -407,11 +379,8 @@ def send_basic_attr(send_mqtt=True):
 
         mqtt.publish(send_topic, json.dumps(json_data))
 
-        # logging.info('Send Shared Attributes at first time...\n * Topic: {}\n * Content: {}'.format(
-        #     send_topic, json_data
-        # ))
-
     return json_data
+
 
 def init_for_icap():
     """ Register iCAP
@@ -461,6 +430,7 @@ def init_for_icap():
     mqtt.init_app(app)
     logging.info('Initialized MQTT for iVIT-I !')
 
+
 def rpc_event(request_idx, data):
 
 
@@ -473,20 +443,21 @@ def rpc_event(request_idx, data):
     trg_url = "http://{}:{}{}{}".format(
         "127.0.0.1", app.config['NGINX_PORT'], '/ivit', web_api)
 
-    # send_data = json.dumps({ "data": "test" })
-    ret, resp = send_get_api(trg_url) if method.upper() == "GET" else send_post_api(trg_url, send_data)
-    send_data = json.dumps(resp)
+    ret, resp = send_get_api(trg_url) if method.upper() == "GET" else send_post_api(trg_url, data)
+
     send_topic  = app.config['TB_TOPIC_SND_RPC']+f"{request_idx}"
+    mqtt.publish(send_topic, json.dumps(resp))
 
-    logging.info("Send Data from iVIT-I \n  - Topic : {} \n  - Data: {}".format(
-        send_topic, send_data ))
-
-    mqtt.publish(send_topic, send_data)
+    log_data, dat_limit = str(resp), 100
+    log_data = log_data if len(log_data)<dat_limit else log_data[:dat_limit] + ' ...... '
+    print("[iCAP] Topic: {}, Data: {}".format(send_topic, log_data))
+    
 
 def attr_event(data):
-    
+
     if 'sw_description' in data.keys():
-        print('Detected url, start to deploy')
+        logging.warning('Detected url, start to deploy')
+
         deploy_event = ICAP_DEPLOY( data = data)
         deploy_event.start()
 
@@ -518,7 +489,6 @@ def register_mqtt_event():
         # Send Shared Attribute to iCAP
         send_basic_attr()
 
-        
     @mqtt.on_message()
     def handle_mqtt_message(client, userdata, message):
         """
@@ -544,13 +514,17 @@ def register_mqtt_event():
         data = json.loads(payload)
 
         logging.debug("[iCAP] Receive Data from Thingsboard \n  - Topic : {} \n  - Data: {}".format(topic, data))
+        try:
+            if app.config[TB_TOPIC_REC_RPC] in topic:
+                request_idx = topic.split('/')[-1]
+                rpc_event(request_idx, data)
 
-        if app.config[TB_TOPIC_REC_RPC] in topic:
-            request_idx = topic.split('/')[-1]
-            rpc_event(request_idx, data)
+            elif app.config[TB_TOPIC_REC_ATTR] in topic:
+                attr_event(data)
 
-        elif app.config[TB_TOPIC_REC_ATTR] in topic:
-            attr_event(data)
+        except Exception as e:
+            logging.exception(e)
+
 
 def get_tb_info():
     return {
@@ -563,33 +537,40 @@ def get_tb_info():
         KEY_TB_TOKEN: app.config[KEY_TB_TOKEN],
     }
 
+
 @bp_icap.route("/get_basic_attr", methods=[GET])
 def get_basic_attr():
     return http_msg( send_basic_attr(send_mqtt=False), 200 )
 
+
 @bp_icap.route("/get_my_ip", methods=[GET])
 def get_my_ip():
     return http_msg( {'ip': request.remote_addr}, 200 )
+
 
 @bp_icap.route("/icap/info", methods=[GET])
 @swag_from("{}/{}".format(YAML_PATH, "get_icap_info.yml"))
 def icap_info():
     return http_msg( get_tb_info(), 200)
 
+
 @bp_icap.route("/icap/device/id", methods=[GET])
 @swag_from("{}/{}".format(YAML_PATH, "get_icap_dev_id.yml"))
 def get_device_id():
     return http_msg( { "device_id": app.config.get(KEY_TB_DEVICE_ID) }, 200 )
+
 
 @bp_icap.route("/icap/device/type", methods=[GET])
 @swag_from("{}/{}".format(YAML_PATH, "get_icap_dev_type.yml"))
 def get_device_type():
     return http_msg( { "device_type": app.config.get(KEY_DEVICE_TYPE) }, 200 )
 
+
 @bp_icap.route("/icap/addr", methods=[GET])
 @swag_from("{}/{}".format(YAML_PATH, "get_icap_addr.yml"))
 def get_addr():
     return http_msg( { "ip" : str(app.config[TB]), "port": str(app.config[TB_PORT]) }, 200 )
+
 
 @bp_icap.route("/icap/addr", methods=[POST])
 @swag_from("{}/{}".format(YAML_PATH, "edit_icap_addr.yml"))
