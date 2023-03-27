@@ -1,19 +1,22 @@
-import shutil
+import logging, shutil, os, requests
 import subprocess as sb
-import logging, copy, sys, os
-from flask import Blueprint, abort, jsonify, current_app, request
-import requests
 
-from .common import get_request_data, print_title
-
-from ..tools.handler import edit_task, add_task, get_tasks, remove_task, import_task
-from ..tools.parser import get_pure_jsonify
-from ivit_i.utils.err_handler import handle_exception, simple_exception
-
-from ..tools.common import http_msg
-
+# Flask
+from flask import Blueprint, current_app, request
 from werkzeug.utils import secure_filename
 from flasgger import swag_from
+
+# Common Module
+from .common import get_request_data, PASS_CODE, FAIL_CODE
+
+# Handler handle each task and model behaviour
+from ..tools.handler import (
+    get_tasks, remove_task, add_task, edit_task, 
+    init_model, get_model_tag
+)
+
+from ..tools.parser import get_pure_jsonify
+from ..tools.common import http_msg
 
 # Define API Docs path and Blue Print
 YAML_PATH       = "../docs/operator"
@@ -66,42 +69,6 @@ LABEL_PATH      = "label_path"
 CONFIG_PATH     = "config_path"
 JSON_PATH       = "json_path"
 
-@bp_operators.route("/edit/<uuid>", methods=["POST"])
-@swag_from("{}/{}".format(YAML_PATH, "edit.yml"))
-def edit_event(uuid):
-
-    message, status = "", 200 
-
-    print_title(f"Edit AI Task: {uuid}")
-    
-    # Get Data and Check
-    data = get_request_data()
-    
-    # Edit Event
-    try:
-        edit_task(data, uuid)
-        return http_msg( f"Edit success !!!( {uuid}:{current_app.config['UUID'][uuid]} )", 200)
-
-    except Exception as e:
-        return http_msg(e, 500)
-
-@bp_operators.route("/add", methods=["POST"])
-@swag_from("{}/{}".format(YAML_PATH, "add.yml"))
-def add_event():
-
-    print_title("Add Event")
-    
-    # Get Data and Check
-    data = get_request_data()
-
-    # Add event
-    try:
-        task_status, task_uuid, task_info = add_task(data)
-        return http_msg( f"Add successed !!!( {data['name']}:{task_uuid} )", 200 )
-    
-    except Exception as e:
-        return http_msg(e, 500)
-
 def check_url(url):
     """ Return an available url ( with http ) """
     http_head = "http://"
@@ -109,10 +76,12 @@ def check_url(url):
         url = http_head + url
     return url
 
+
 def clean_temp_folder():
     if os.path.exists( current_app.config[TEMP_PATH] ):
         shutil.rmtree( current_app.config[TEMP_PATH] )
     os.mkdir( current_app.config[TEMP_PATH] )
+
 
 def check_import_file_exist(zip_path):
     """ Remove the old file and direction in target path"""
@@ -127,13 +96,7 @@ def check_import_file_exist(zip_path):
     if os.path.exists(task_path):
         shutil.rmtree(task_path)
         logging.warning('Detected exist AI Task, auto remove it.')
-    
-def get_conversion_table():
-    key_cvt_table = {
-        CLASSIFICATION_KEY  : CLS,
-        YOLO_KEY            : DARKNET if current_app.config[AF] == TRT else OBJ
-    }
-    return key_cvt_table
+
 
 def check_ir_models(path):
 
@@ -155,6 +118,7 @@ def check_ir_models(path):
     
     return True
 
+
 def parse_info_from_zip( zip_path ):
 
     # ---------------------------------------------------------
@@ -165,10 +129,6 @@ def parse_info_from_zip( zip_path ):
     trg_label_path  = ""
     trg_cfg_path    = ""
     trg_json_path   = ""
-    
-    # ---------------------------------------------------------
-    # Define mapping table
-    mapping_table   = get_conversion_table()
 
     # ---------------------------------------------------------
     # Extract zip file
@@ -200,7 +160,7 @@ def parse_info_from_zip( zip_path ):
             trg_json_path = fpath
             
             # update tag name via json file name 
-            trg_tag = mapping_table[name.split('/')[-1]]
+            trg_tag = get_model_tag(name.split('/')[-1])
             
         elif ext in [ DARK_CFG_EXT ]:
             logging.info("Detected {}: {}".format("Config", fpath))
@@ -272,6 +232,58 @@ def parse_info_from_zip( zip_path ):
 
     return ret
 
+
+def extract_zip( zip_path ):
+    # Get target task name and path ( in model folder )
+    model_name = os.path.splitext(os.path.basename(zip_path))[0]
+    model_path = os.path.join( current_app.config["MODEL_DIR"], model_name )
+
+    # Create
+    if not os.path.exists(model_path):
+        os.makedirs(model_path)
+
+    # Start to extract
+    logging.info("Start to extract file: {}".format( zip_path ) )
+    sb.run(f"unzip {zip_path} -d {model_path} && rm -rf {zip_path}", shell=True)
+    logging.info("Extract to {} and remove {}, found {} files.".format( model_path, zip_path, len(os.listdir(model_path)) ))
+
+
+@bp_operators.route("/add", methods=["POST"])
+@swag_from("{}/{}".format(YAML_PATH, "add.yml"))
+def add_event():
+
+    logging.info("Add Event")
+    
+    # Get Data and Check
+    data = get_request_data()
+
+    # Add event
+    try:
+        task_status, task_uuid, task_info = add_task(data)
+        return http_msg( f"Add successed !!!( {data['name']}:{task_uuid} )", PASS_CODE )
+    
+    except Exception as e:
+        return http_msg(e, FAIL_CODE)
+
+
+@bp_operators.route("/edit/<uuid>", methods=["POST"])
+@swag_from("{}/{}".format(YAML_PATH, "edit.yml"))
+def edit_event(uuid):
+
+    logging.info(f"Edit AI Task: {uuid}")
+    
+    # Get Data and Check
+    data = get_request_data()
+    
+    # Edit Event
+    try:
+        edit_task(data, uuid)
+        return http_msg( f"Edit success !!!( {uuid}:{current_app.config['UUID'][uuid]} )", PASS_CODE)
+
+    except Exception as e:
+        return http_msg(e, FAIL_CODE)
+
+
 @bp_operators.route("/import_zip", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "extract_zip.yml"))
 def import_zip_event():
@@ -284,7 +296,7 @@ def import_zip_event():
     Provide web api to check file is convert
     """
     try:
-        print_title("Import Event (1) - Extract ZIP from Trainning Tool")
+        logging.info("Import Event (1) - Extract ZIP from Trainning Tool")
         
         # get file
         file = request.files[SOURCE_KEY]
@@ -293,7 +305,7 @@ def import_zip_event():
         logging.info("Capture file ({})".format(file_name))
 
         # combine path
-        zip_path = os.path.join(current_app.config[TEMP_PATH], file_name)   # temp/aaa.zip
+        zip_path = os.path.join(current_app.config["MODEL_DIR"], file_name)   # temp/aaa.zip
         
         # remove the old file and direction in target path
         check_import_file_exist( zip_path = zip_path )
@@ -304,16 +316,21 @@ def import_zip_event():
         # parse information from ZIP file
         info = parse_info_from_zip( zip_path = zip_path )
 
-        return http_msg( info, 200 )
+        logging.info(info)
+
+        init_model()
+
+        return http_msg( info, PASS_CODE )
 
     except Exception as e:
-        return http_msg(e, 500)
+        return http_msg(e, FAIL_CODE)
+
 
 @bp_operators.route("/import_url", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "extract_url.yml"))
 def import_url_event():
 
-    message, status = "", 200
+    message, status = "", PASS_CODE
 
     try:
         # get data from web api
@@ -324,7 +341,7 @@ def import_url_event():
 
         # define temporary zip name
         file_name = "temp.zip"
-        zip_path = os.path.join(current_app.config[TEMP_PATH], file_name)
+        zip_path = os.path.join(current_app.config["MODEL_DIR"], file_name)
     
         # remove the old file and direction in target path
         check_import_file_exist( zip_path = zip_path )
@@ -342,20 +359,23 @@ def import_url_event():
         # parse information from ZIP file
         message = parse_info_from_zip( zip_path = zip_path )
 
+        init_model()
+
     except Exception as e:
-        message, status = e, 500
+        message, status = e, FAIL_CODE
 
     finally:
         return http_msg(message, status)
+
 
 @bp_operators.route("/import_proc", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "import_proc.yml"))
 def import_process_default_event():
     
-    status, message  = 200, ""
+    status, message  = PASS_CODE, ""
     
     if current_app.config.get(IMPORT_PROC)==None:
-        return http_msg( 'Import process is not created yet', 200 )
+        return http_msg( 'Import process is not created yet', PASS_CODE )
 
     try:        
         ret = {}
@@ -372,9 +392,10 @@ def import_process_default_event():
         message = get_pure_jsonify( ret )
 
     except Exception as e:
-        status, message  = 500, e
+        status, message  = FAIL_CODE, e
 
     return http_msg(message, status)
+
 
 @bp_operators.route("/import_proc/<task_name>", methods=["GET"])
 @bp_operators.route("/import_proc/<task_name>/status", methods=["GET"])
@@ -385,46 +406,51 @@ def import_process_event(task_name):
         proc = current_app.config[IMPORT_PROC][task_name][PROC]
     
     except Exception as e:
-        return http_msg(e, 500)
+        return http_msg(e, FAIL_CODE)
 
     if proc == None:
-        return http_msg(PROC_DONE, 200)
+        return http_msg(PROC_DONE, PASS_CODE)
 
     if proc.poll() != None:
-        return http_msg(PROC_DONE, 200)
+        return http_msg(PROC_DONE, PASS_CODE)
 
-    return http_msg(PROC_RUN, 200)
+    return http_msg(PROC_RUN, PASS_CODE)
+
 
 @bp_operators.route("/import", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "import.yml"))
 def import_event():
-
-    print_title("Import a Task")
-    status, message = 200, ""
+    """ 匯入任務
+    由於 import_zip 跟 import_url 已經把 zip 解壓縮並存放了
+    所以這邊就像是 加入任務 一樣
+    """
+    logging.info("Import a Task")
+    status, message = PASS_CODE, ""
     
     # Import event
     try:
         # Convert data to json format
         data = get_request_data()
-
+    
         # Import Task Event
-        task_status, task_uuid, task_info = import_task(data)
+        task_status, task_uuid, task_info = add_task(data)
         
         message = "Import successed ( {}:{} )".format( data["name"], task_uuid )
         
     except Exception as e:
-        status, message = 500, e
-    
+        status, message = FAIL_CODE, e
+        logging.exception(e)
+        
     finally:
-
         current_app.config[TASK_LIST]=get_tasks()
         return http_msg(message, status)
+
 
 @bp_operators.route("/remove", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "remove.yml"))
 def remove_application():
     
-    status, message = 200, ""
+    status, message = PASS_CODE, ""
     
     try:
         # Convert data to json format
@@ -437,7 +463,7 @@ def remove_application():
         message = "Remove Task ({}) Successed!".format(data['uuid'])
     
     except Exception as e:
-        message, status = e, 500
+        message, status = e, FAIL_CODE
 
     finally:
 
