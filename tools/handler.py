@@ -2,9 +2,14 @@ import sys, os, shutil, time, logging, copy, json
 from typing import Tuple
 from flask import current_app
 
-from .parser import modify_task_json, modify_application_params, parse_task_info, write_json, check_src_type, str_to_json
+from .parser import (
+    modify_task_json, 
+    parse_task_info, check_src_type, 
+    gen_task_model_config, get_support_model_name,
+    get_model_tag_from_arch
+)
 from .common import gen_uuid, handle_exception, simple_exception, json_exception
-from ivit_i.app.handler import get_tag_app_list, get_app_list
+from ivit_i.app.handler import get_tag_app_list
 
 DIV             = '-'*30
 APP_KEY         = 'APPLICATION'
@@ -19,10 +24,14 @@ UUID            = "UUID"
 TASK            = "TASK"
 APPLICATION     = "APPLICATION"
 SRC             = "SRC"
-
 SRC_PROC        = "proc"
 
-MODEL_EXT       = [ '.trt', '.engine', '.xml', '.xmodel' ] 
+# Platform
+NV = 'nvidia'
+JETSON = 'jetson'
+INTEL = 'intel'
+XLNX = 'xilinx'
+
 # Define extension for ZIP file form iVIT-T
 DARK_LABEL_EXT  = CLS_LABEL_EXT = ".txt"        # txt is the category list
 DARK_JSON_EXT   = CLS_JSON_EXT  = ".json"       # json is for basic information like input_shape, preprocess
@@ -32,6 +41,9 @@ CLS_MODEL_EXT   = ".onnx"
 XLNX_MODEL_EXT  = ".xmodel"
 IR_MODEL_EXT    = ".xml"
 IR_MODEL_EXTS   = [ ".bin", ".mapping", ".xml" ]
+
+MODEL_EXTS = [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXT, XLNX_MODEL_EXT ]
+
 # Define key for ZIP file from iVIT-T
 LABEL_NAME          = "classes"
 CLS                 = "cls"
@@ -62,70 +74,7 @@ def get_task_uuid(task_name, fix_uuid=None):
 
     return task_uuid 
 
-def init_task_app(task_uuid):
-    """ Initial application , app_model in configuration
-    * args
-        - application: relationship between the application and the task ( uuid ) 
-        - app_model: relationship between the application and the model 
-    """
 
-    # initialize 
-    task_apps = current_app.config['TASK'][task_uuid]['application']['name']
-    info_table = {
-        APP_KEY: task_uuid,
-        APP_MODEL_KEY: current_app.config['TASK'][task_uuid]['model']
-    } 
-    
-    # create key in config if needed
-    for KEY in [APP_KEY, APP_MODEL_KEY, TAG_APP]:
-        if not ( KEY in current_app.config ):
-            current_app.config.update({ KEY: dict() })    
-
-    # update information in app.config[...]
-    if (task_apps != []) or (task_apps != None) or (task_apps != ""):
-        # capture the application information and make sure list and string both are work like a charm
-        apps = [task_apps] if type(task_apps)==str else task_apps
-        for app in apps:
-            # update each KEY about application
-            for KEY in [APP_KEY, APP_MODEL_KEY]:
-                if not (app in current_app.config[KEY]): 
-                    current_app.config[KEY].update( { app : list() } )    
-                # update infomration
-                info = info_table[KEY]
-                if not (info in current_app.config[ KEY ][app]): 
-                    current_app.config[ KEY ][app].append(info)
-    
-    if not bool(current_app.config[TAG_APP]):
-        current_app.config[TAG_APP] = get_tag_app_list()
-
-def init_task_model(task_uuid):
-    """
-    Initial model , model_app in configuration
-        - model: relationship between the model and the task ( uuid ) 
-        - model_app: relationship between the model and the application
-    """
-    task_framework = current_app.config['AF']
-    task_tag = current_app.config['TASK'][task_uuid]['tag']
-    task_model = current_app.config['TASK'][task_uuid]['model']
-    task_apps = current_app.config['TASK'][task_uuid]['application']['name']
-    # update the key in config
-    for KEY in [MODEL_TASK_KEY, MODEL_APP_KEY]:
-        if not ( KEY in current_app.config.keys()):
-            current_app.config.update( {KEY:dict()} )
-        if not (task_model in current_app.config[KEY].keys()):
-            current_app.config[KEY].update( {task_model:list()} )
-    # update task uuid in model
-    
-    if not (task_uuid in current_app.config[MODEL_TASK_KEY][task_model]):
-        current_app.config[MODEL_TASK_KEY][task_model].append(task_uuid)
-
-    # update application in model_app
-    tag_app_list = current_app.config[TAG_APP] if ( TAG_APP in current_app.config ) else get_tag_app_list()
-
-    for app in tag_app_list[task_tag]:
-        if not (app in current_app.config[MODEL_APP_KEY][task_model]):
-            current_app.config[MODEL_APP_KEY][task_model].append( app )
-    
 def init_task_src(task_uuid):
     """ 
     Initialize Source
@@ -154,7 +103,8 @@ def init_task_src(task_uuid):
     for uuid in current_app.config[SRC_KEY][ source ]['proc']:
         if not (uuid in current_app.config['UUID']):
             current_app.config[SRC_KEY][ source ]['proc'].remove(uuid)
-    
+
+
 def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
     """  Initialize each AI Task.
     * args
@@ -201,10 +151,14 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
     # Double check application
     application_pattern = { "name": model_config["application"] } if type(model_config["application"])==str else model_config["application"]
 
+    # NOTE: new version ( r1031 )
+    model_name = get_support_model_name(
+        model_config[task_framework]['model_path'].split('/')[-1] )
+
     current_app.config["TASK"][task_uuid].update({    
         "tag": model_config["tag"],
         "application": application_pattern,
-        "model": f"{model_config[task_framework]['model_path'].split('/')[-1]}",     # path to model
+        "model": model_name,     # path to model
         "model_path": f"{model_config[task_framework]['model_path']}",     # path to model
         "label_path": f"{model_config[task_framework]['label_path']}",     # path to label 
         "config_path": f"{model_config_path}",             # path to model config
@@ -227,95 +181,127 @@ def init_tasks(name:str, fix_uuid:str=None, index=0) -> Tuple[bool, str]:
     # Create new source if source is not in global variable
     init_task_src(   task_uuid )
 
-    # Update the model list which could compare to the uuid who using this model
-    init_task_model( task_uuid )   
-
-    # Update the application mapping table: find which UUID is using the application
-    init_task_app( task_uuid ) 
-
     logging.info('Initialize AI Task ({}:{}) ... Success'.format(name, task_uuid))
     
-    # Update Model
-    init_model()
-
     return (task_status, task_uuid, current_app.config['TASK'][task_uuid])
 
-def get_conversion_table():
-    key_cvt_table = {
-        CLASSIFICATION_KEY  : CLS,
-        YOLO_KEY            : DARKNET \
-            if current_app.config['AF'] == 'tensorrt' else OBJ
-    }
-    return key_cvt_table
 
 def get_model_tag(tag:str):
-    return get_conversion_table()[tag]
+    """ Get the tag of the model, the available value is [ cls, obj ]"""
+    tags = {
+        CLASSIFICATION_KEY  : CLS,
+        YOLO_KEY            : DARKNET \
+            if current_app.config['AF'] == 'tensorrt' else OBJ }
+    return tags[tag]
 
-def parse_model_folder(model_dir:str) -> dict:
-    """ Parsing information from model folder, return 
-    """
-    
+
+def parse_model_folder(model_dir):
+    """ Parsing ZIP folder which extracted from ZIP File """
     ret = {
         "tag": "",
-        "model_dir": "",
+        "arch": "",
+        "framework": "",
+        "model_dir": model_dir,
         "model_path": "",
         "label_path": "",
         "json_path": "",
         "config_path": "",
-        "meta_data": []
+        "meta_data": [],
+        "anchors": []
     }
+    model_exts = [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXT, XLNX_MODEL_EXT ]
+    framework = [ NV, NV, INTEL, XLNX  ]
+    assert len(framework)==len(model_exts), "Code Error, Make sure the length of model_exts and framework is the same "
 
     model_dir = os.path.realpath(model_dir)
+    ret['model_dir'] = model_dir
 
     for fname in os.listdir(model_dir):
                     
         fpath = os.path.join(model_dir, fname)
         name, ext = os.path.splitext(fpath)
-        # logging.debug('Current File: {}'.format(fpath))
-
-        if ext in [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXT, XLNX_MODEL_EXT ]:
-            logging.info("Detected {}: {}".format("Model", fpath))
-            ret.update({ 'model_path': fpath })
+        
+        if ext in model_exts:
+            # print("\t- Detected {}: {}".format("Model", fpath))
+            ret['model_path']= fpath
+            
+            ret['framework'] = framework[ model_exts.index(ext) ]
 
         elif ext in [ DARK_LABEL_EXT, CLS_LABEL_EXT, ".names" ]:
-            logging.info("Detected {}: {}".format("Label", fpath))
-            ret.update({ 'label_path': fpath })
+            # print("\t- Detected {}: {}".format("Label", fpath))
+            ret['label_path']= fpath
 
         elif ext in [ DARK_JSON_EXT, CLS_JSON_EXT ]:
-            logging.info("Detected {}: {}".format("JSON", fpath))
-            ret.update({ 'json_path': fpath })
+            # print("\t- Detected {}: {}".format("JSON", fpath))
+            ret['json_path']= fpath
             
             # get tag
             with open(fpath, newline='') as jsonfile:
-                data = json.load(jsonfile)
-                ret.update({ 'tag': data['tag'] })
-                
+                train_config = json.load(jsonfile)
+                ret['arch'] = train_config['model_config']['arch']                
+                ret['tag'] = get_model_tag_from_arch( ret['arch'] )  
+
+                if 'anchors' in train_config:
+                    ret['anchors'] = [ int(val.strip()) \
+                        for val in train_config['anchors'].strip().split(',')
+                    ]
+
         elif ext in [ DARK_CFG_EXT ]:
-            logging.info("Detected {}: {}".format("Config", fpath))
-            ret.update({ 'config_path': fpath })
+            # print("\t- Detected {}: {}".format("Config", fpath))
+            ret['config_path']= fpath
 
         else:
-            logging.info("Detected {}: {}".format("Meta Data", fpath))
+            # print("\t- Detected {}: {}".format("Meta Data", fpath))
             ret['meta_data'].append(fpath)
 
     return ret
 
 
-def init_model():
-    """ Initialize Model Information
+def update_model_app():
+    """ Reset MODEL_APP relationship in app.config """
 
-    1. Model UUID
-    2. Model Folder Path
-    3. Model Path
-    4. Label Path
-    5. Config Path
-    
+    tag_app_list = current_app.config[TAG_APP] if ( TAG_APP in current_app.config ) else get_tag_app_list()
+
+    for model_name, model_data in current_app.config[MODEL_KEY].items():
+        
+        current_app.config[MODEL_APP_KEY].update( { 
+            model_name: tag_app_list[ model_data['tag'] ] })
+        
+    logging.info('Updated MODEL_APP list !')
+
+
+def update_model_task():
+    """ Reset MODEL_TASK relationship in app.config """
+
+    # Update MODEL_TASK        
+    for task_uuid, task_data in current_app.config['TASK'].items():
+
+        model_name = get_support_model_name(task_data['model'])
+
+        if not ( model_name in current_app.config[MODEL_TASK_KEY] ):
+            current_app.config[MODEL_TASK_KEY].update({
+                model_name: []
+            })
+        
+        current_app.config[MODEL_TASK_KEY][model_name].append(task_uuid)
+
+
+def update_model_relation():
+    """ Update MODEL_<RELATION> Parameters
+    1. MODEL_APP: The relationship between MODEL and APP
+    2. MODEL_TASK: The relationship between MODEL and TASK
     """
+    update_model_app()
+    update_model_task()
+
+
+def init_model():
+    """ Initialize Model Information """
     
     # Get Model Folder and All Model
     model_root = os.path.realpath( current_app.config[MODEL_DIR] )
     model_dirs = [ os.path.join(model_root, model) for model in os.listdir( model_root ) ]
-    
+
     logging.info(f'Get All Models: {", ".join(model_dirs) }')
 
     # Update key in app.config
@@ -326,22 +312,37 @@ def init_model():
 
         # Parse all file 
         for model_dir in model_dirs:
-            # Get pure name and update
-            model_name = os.path.basename(model_dir)
 
-            current_app.config[MODEL_KEY].update( { 
-                model_name: parse_model_folder(model_dir) 
-            } )
-        
+            try:
+                current_app.config[MODEL_KEY].update({  
+                    os.path.basename(model_dir): parse_model_folder(model_dir) })
+                
+            except Exception as e:
+                logging.exception(e)
+
+        update_model_relation()
+
+
 def get_tasks(need_reset=False) -> list:
     """ Return Dictionary with `ready` and `failed` Task
-    - args
+    
+    Args
         - need_reset: initialize each Task if need_reset=True 
+    
+    Workflow
+        1. If need rest
+            a. Initailize all Models
+            b. Initsilzie each AI Task
+        2. Update each AI task to TASK_LIST ( Simplier data )
     """
 
     ret = { "ready": [], "failed": [] }
     
     if need_reset:
+        
+        # Update Model information
+        init_model()
+        
         for idx, task in enumerate(os.listdir(current_app.config['TASK_ROOT'])):
             task_status, task_uuid, task_config = init_tasks(task, index=idx)
 
@@ -360,10 +361,24 @@ def get_tasks(need_reset=False) -> list:
             "status": task_status, 
             "error": task_config['error'], 
             "model": task_config.get('model'),
+            "model_path": task_config.get('model_path'),
             "application": task_config.get('application')
         })
 
     return ret
+
+
+def check_exist_task(task_name):
+    """ Check the task is exist or not """
+
+    task_path   = os.path.join( current_app.config['TASK_ROOT'] , task_name )
+
+    if current_app.config['TASK'].__contains__(task_name):
+        raise KeyError('AI Task ({}) already exist !!!'.format(task_name))
+    
+    if os.path.exists(task_path):
+        raise FileExistsError("Can't create new AI Task ({}), path already exist !!!".format(task_path))
+
 
 def edit_task(form, src_uuid):
     """ Edit AI Task: Modify configuration and initalize again.
@@ -385,56 +400,26 @@ def edit_task(form, src_uuid):
     # Update UUID and TASK
     return init_tasks(form['name'], src_uuid)
 
-def check_exist_task(task_path, need_create=False):
-    """
-    Double check task path and create it if need.
-    """
-    if os.path.exists(task_path):
-        msg="Task is already exist !!! ({})".format(task_path)
-        raise Exception(msg)
-    else:
-        if need_create: os.makedirs(task_path)
-        logging.info('The new task path: {}'.format(task_path))
 
 def add_task(form):
-    """ Add a new AI task
+    """ New Add Task Event which will generate Task and Model Config
+    1. Checking the task name is exists or not.
+    2. Generate Task and Model Configuration.
+    3. Initialize Task.
     """
-    
-    # Get Basic Information
-    task_name   = form['name']
-    task_model  = form['model']
-    task_path   = os.path.join( current_app.config['TASK_ROOT'] , task_name )
-    
-    # Check Name and Path
-    if current_app.config['TASK'].__contains__(task_name):
-        raise KeyError('AI Task ({}) already exist !!!'.format(task_name))
-    
-    if os.path.exists(task_path):
-        raise FileExistsError("Can't create new AI Task ({}), path already exist !!!".format(task_path))
-    
-    # Get the fist task using the same model
-    same_model_uuids = current_app.config[MODEL_TASK_KEY].get(task_model)
-    if not same_model_uuids:
-        raise KeyError("Unexcepted model name: {}.".format( task_model ))
-    
-    src_uuid = same_model_uuids[0] 
 
-    # Modify task config
-    modify_task_json(   src_uuid    = src_uuid,
-                        task_name   = task_name,
-                        form        = form,
-                        need_copy   = True   )
+    check_exist_task(task_name=form['name'])
 
-    # Update UUID and TASK
-    return init_tasks(task_name)
+    gen_task_model_config(form)
+
+    return init_tasks(form['name'])
+
 
 def remove_task(task_uuid):
     """ Remove AI Task with UUID """
-    logging.info("Deleting AI Task ... ")
 
     # Get target task's basic information
     task_path   = current_app.config[TASK][task_uuid]['path']
-    task_name   = current_app.config[UUID][task_uuid]
 
     # ---------------------------------------------------------------------
     # Remove Model Information
@@ -499,200 +484,3 @@ def remove_task(task_uuid):
     
     logging.info("Deleted AI Task: {}".format(task_uuid))
 
-
-def get_model_config_template(task_tag):
-    model_config = None
-    logging.warning("Detect TAG: {}".format(task_tag))
-    try:
-        if task_tag == "cls":
-            from ivit_i.cls.config_template import TEMPLATE as model_config
-        elif task_tag == "darknet":
-            from ivit_i.darknet.config_template import TEMPLATE as model_config
-        elif task_tag == "obj":
-            from ivit_i.obj.config_template import TEMPLATE as model_config
-    except Exception as e:
-        msg = handle_exception(e, "Could not get model configuration templates")
-        logging.error(msg); raise ImportError(msg)
-
-    return model_config
-
-def copy_model_event(src_model_path, task_model_path):
-    
-    logging.info('Copy Model Event: From {} to {}'.format(src_model_path, task_model_path))
-
-    os.rename( src_model_path, task_model_path )
-    
-    # if is openvino model, we have to copy the .bin and .mapping file
-    if current_app.config["AF"] == "openvino":
-        org_path = os.path.splitext(src_model_path)[0]
-        trg_path = os.path.splitext(task_model_path)[0]
-
-        ext_list = [ ".bin", ".mapping"]
-        for ext in ext_list:
-            org_file_path = "{}{}".format(org_path, ext)
-            trg_file_path = "{}{}".format(trg_path, ext)
-            
-            if not os.path.exists(org_file_path):
-                logging.error("Could not find {}, make sure the ZIP file is for Intel".format(org_file_path))
-                return False
-
-            os.rename( org_file_path, trg_file_path )
-            logging.info("\t- Rename: {} -> {}".format(org_file_path, trg_file_path))
-
-    return True
-
-def copy_label_event(src, trg):
-    
-    logging.info('Copy Label Event')
-
-    ret = True
-    os.rename( src, trg )
-    logging.info('\t- Rename: {} -> {}'.format(src, trg))
-    return ret
-
-def parse_train_config(train_config):
-    """
-    Parsing Train Configuration From iVIT-T ( input_size, preprocess, anchors, architecture_type).
-    """
-
-    # Init
-    ret_dict = {}
-    
-    # Update Input Size
-    h, w, c = train_config["model_config"]["input_shape"][:]
-    ret_dict["input_size"] = "{},{},{}".format( c, h, w )
-
-    # Set default pre-process
-    ret_dict["preprocess"] = "caffe"
-    
-    # Update preprocess
-    if "preprocess_mode" in train_config["train_config"]["datagenerator"] and train_config["platform"] != "openvino":
-        ret_dict["preprocess"] = train_config["train_config"]["datagenerator"]["preprocess_mode"]
-        logging.warning('Detect pre-process mode, set to: {}'.format(ret_dict["preprocess"]))
-        
-    # Update anchor
-    if "anchors" in train_config:
-        anchors = [ float(anchor.strip(" "))  for anchor in train_config["anchors"].split(",") ]
-        ret_dict["anchors"] = anchors        
-        ret_dict["architecture_type"] = "yolov4"
-
-        logging.debug("Update anchor: {}".format(anchors))
-        logging.debug("Update architecture: {}".format(ret_dict["architecture_type"]))
-
-    return ret_dict
-
-def import_task(form):
-    """ Import new task according to the dictionaray data
-    """
-    logging.info('# Import a new AI Task')
-
-    # get task_name and task_path
-    task_name       = form['name'].strip()
-    src_path        = form["path"]
-    src_json_path   = form["json_path"]
-    src_model_path  = form["model_path"]
-    src_label_path  = form["label_path"]
-    
-    framework       = current_app.config['AF']
-    task_dir        = current_app.config['TASK_ROOT']
-    model_dir       = current_app.config['MODEL_DIR']
-    
-    src_model_name  = src_model_path.strip().split('/')[-1]
-    src_label_name  = src_label_path.strip().split('/')[-1]
-    src_model_pure_name   = os.path.splitext(src_model_name)[0]
-
-    dst_model_dir   = os.path.join( model_dir, src_model_pure_name )
-    task_path       = os.path.join( task_dir , task_name )
-    
-    # Checking
-    if src_model_path=="":
-        raise Exception('Import Error: no model path in form data and could not find model in temporary folder ({}) ... '.format(src_path))
-
-    # Create a new model folder
-    if not os.path.exists(dst_model_dir): 
-        os.makedirs( dst_model_dir )
-        logging.info('  - Create a folder for new AI model ({})'.format(task_path))
-
-    if not os.path.exists(task_path):
-        os.makedirs(task_path)
-        logging.info('  - Create a folder for new AI task ({})'.format(task_path))
-
-    # define configuration path
-    model_config_path = os.path.join( task_path, "{}.json".format( src_model_pure_name ))
-    task_config_path = os.path.join( task_path, "task.json")
-
-    # define task config parameters
-    task_tag            = form["tag"]
-    task_device         = form["device"]
-    task_source         = form["source"]
-    task_source_type    = form["source_type"]
-    task_thres          = float(form["thres"])
-
-    # concate target path
-    dst_model_path = os.path.join( dst_model_dir, src_model_name )
-    dst_label_path = os.path.join( dst_model_dir, src_label_name )
-    
-    # move the file and rename
-    copy_model_flag = copy_model_event( src_model_path, dst_model_path )
-    copy_label_flag = copy_label_event( src_label_path, dst_label_path )
-
-    if( not ( copy_label_flag or copy_model_flag ) ):
-        msg = "Something went wrong when copy file, please check log file. auto remove {}".format(task_path)
-        shutil.rmtree( task_path ); raise Exception(msg)
-    
-    # generate model config json
-
-    # if you have different key in configuration, you have to add 
-    logging.info("Start to Generate Model Config ... ")
-    
-    # Get configuration template
-    model_config = get_model_config_template(task_tag)    
-    
-    # modify the content
-    model_config["tag"] = task_tag
-    model_config[framework]["model_path"]   = dst_model_path
-    model_config[framework]["label_path"]   = dst_label_path
-    model_config[framework]["device"]       = task_device
-    model_config[framework]["thres"]        = task_thres
-    
-    try:
-        # update input_size, preprocess, anchors
-        with open( src_json_path, "r" ) as f:
-            train_config = json.load(f)
-        model_config[framework].update( parse_train_config(train_config) )
-
-        # write information into model config file
-        with open( model_config_path, "w" ) as out_file:
-            json.dump( model_config, out_file )
-        logging.info("Generated Model Config \n{}".format(model_config))
-    except Exception as e:
-        raise Exception(handle_exception(e, 'Generated Modal Config Error'))
-
-    # generate task config json
-
-    logging.info("Start to Generate Task Config ... ")
-
-    task_config = {}
-    task_config["framework"]    = framework
-    task_config["name"]         = task_name
-    task_config["source"]       = task_source
-    task_config["source_type"]  = task_source_type
-    task_config["prim"] = { "model_json": model_config_path }
-
-    # Update Application
-    task_config.update( modify_application_params(form, {} ) )
-    try:
-        # write task config
-        with open( task_config_path, "w") as out_file:
-            json.dump( task_config, out_file)
-        logging.info("Generated Task Config \n{}".format(task_config))
-    except Exception as e:
-        raise Exception(handle_exception(e, 'Generated Task Config Error'))
-
-    # remove temperate file
-    shutil.rmtree( src_path )
-    logging.warning(f'Clear temperate task folder ({src_path})')
-    
-    logging.info("Finished Import Task !!!")
-    return init_tasks( task_name )
-    
