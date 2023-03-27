@@ -36,14 +36,13 @@ XLNX = 'xilinx'
 # Define extension for ZIP file form iVIT-T
 DARK_LABEL_EXT  = CLS_LABEL_EXT = ".txt"        # txt is the category list
 DARK_JSON_EXT   = CLS_JSON_EXT  = ".json"       # json is for basic information like input_shape, preprocess
-DARK_MODEL_EXT  = ".weights"    
+DARK_MODEL_EXT  = ".trt"    
 DARK_CFG_EXT    = ".cfg"
-CLS_MODEL_EXT   = ".onnx"
 XLNX_MODEL_EXT  = ".xmodel"
 IR_MODEL_EXT    = ".xml"
 IR_MODEL_EXTS   = [ ".bin", ".mapping", ".xml" ]
 
-MODEL_EXTS = [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXT, XLNX_MODEL_EXT ]
+MODEL_EXTS = [ DARK_MODEL_EXT, IR_MODEL_EXT, XLNX_MODEL_EXT ]
 
 # Define key for ZIP file from iVIT-T
 LABEL_NAME          = "classes"
@@ -198,6 +197,7 @@ def get_model_tag(tag:str):
 
 def parse_model_folder(model_dir):
     """ Parsing ZIP folder which extracted from ZIP File """
+
     ret = {
         "tag": "",
         "arch": "",
@@ -208,15 +208,17 @@ def parse_model_folder(model_dir):
         "json_path": "",
         "config_path": "",
         "meta_data": [],
-        "anchors": []
+        "anchors": [],
+        "input_size": "",
+        "preprocess": ""
     }
-    model_exts = [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXT, XLNX_MODEL_EXT ]
-    framework = [ NV, NV, INTEL, XLNX  ]
+    model_exts = [ DARK_MODEL_EXT, IR_MODEL_EXT, XLNX_MODEL_EXT ]
+    framework = [ NV, INTEL, XLNX  ]
     assert len(framework)==len(model_exts), "Code Error, Make sure the length of model_exts and framework is the same "
 
     model_dir = os.path.realpath(model_dir)
     ret['model_dir'] = model_dir
-
+    # print('\n\nModel Folder: {}'.format(model_dir))
     for fname in os.listdir(model_dir):
                     
         fpath = os.path.join(model_dir, fname)
@@ -228,7 +230,7 @@ def parse_model_folder(model_dir):
             
             ret['framework'] = framework[ model_exts.index(ext) ]
 
-        elif ext in [ DARK_LABEL_EXT, CLS_LABEL_EXT, ".names" ]:
+        elif ext in [ DARK_LABEL_EXT, CLS_LABEL_EXT, ".names", ".txt" ]:
             # print("\t- Detected {}: {}".format("Label", fpath))
             ret['label_path']= fpath
 
@@ -239,9 +241,14 @@ def parse_model_folder(model_dir):
             # get tag
             with open(fpath, newline='') as jsonfile:
                 train_config = json.load(jsonfile)
-                ret['arch'] = train_config['model_config']['arch']                
+                ret['arch'] = train_config['model_config']['arch']  
                 ret['tag'] = get_model_tag_from_arch( ret['arch'] )  
-
+                
+                # Basic Parameters
+                ret['input_size'] = train_config['model_config']["input_shape"]
+                ret['preprocess'] = train_config['model_config'].get("input_shape", "caffe")
+                
+                # INTEL 
                 if 'anchors' in train_config:
                     ret['anchors'] = [ int(val.strip()) \
                         for val in train_config['anchors'].strip().split(',')
@@ -251,10 +258,22 @@ def parse_model_folder(model_dir):
             # print("\t- Detected {}: {}".format("Config", fpath))
             ret['config_path']= fpath
 
+            # NVIDIA
+            with open(fpath, newline='') as txtfile:
+                for line in txtfile.readlines()[::-1]:
+                    if not 'anchors' in line:
+                        continue
+
+                    str_anchors = line.split('=')[1].strip()
+                    ret['anchors'] = \
+                    [ int(a.strip()) for a in str_anchors.split(',') ]
+    
         else:
             # print("\t- Detected {}: {}".format("Meta Data", fpath))
             ret['meta_data'].append(fpath)
 
+    if ret['json_path'] == "":
+        logging.error("Can't find JSON Configuration")
     return ret
 
 
@@ -267,9 +286,8 @@ def update_model_app():
     tag_app_list = current_app.config["TAG_APP"]
 
     for model_name, model_data in current_app.config[MODEL_KEY].items():
-        
         current_app.config[MODEL_APP_KEY].update( { 
-            model_name: tag_app_list[ model_data['tag'] ] })
+            model_name: tag_app_list.get(model_data['tag']) })
         
     logging.info('Updated MODEL_APP list !')
 
@@ -279,6 +297,9 @@ def update_model_task():
 
     # Update MODEL_TASK        
     for task_uuid, task_data in current_app.config['TASK'].items():
+        
+        # There is no model key when Model failed
+        if not ('model' in task_data): continue
 
         model_name = get_support_model_name(task_data['model'])
 
