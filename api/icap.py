@@ -2,9 +2,10 @@ import logging, subprocess, json, os, threading, wget, time, shutil, hashlib
 import subprocess as sb
 from flask import Blueprint, abort, request
 from flasgger import swag_from
+
 from ivit_i.utils.err_handler import handle_exception
+
 from ..tools.thingsboard import send_get_api, send_post_api
-from ..tools.handler import get_tag_app_list
 
 from .common import sock, app, mqtt
 from ..tools.common import get_address, get_mac_address, http_msg, simple_exception
