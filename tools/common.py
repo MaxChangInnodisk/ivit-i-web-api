@@ -11,6 +11,8 @@ K_DATA  = "data"
 K_TYPE  = "type"
 
 def json_exception(content):
+    """ Return a iVIT Exception with JSON format """
+    
     err_type, err_detail = simple_exception(content)
     
     # if not err_type in [ "ImageOpenError", "VideoOpenError", "RtspOpenError", "UsbCamOpenError" ]:
@@ -22,6 +24,7 @@ def json_exception(content):
     }
 
 def http_msg(content, status_code):
+    """ HTTP response handler """
 
     # Checking Input Type
     if not isinstance(status_code, int):
