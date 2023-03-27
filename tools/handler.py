@@ -2,6 +2,8 @@ import sys, os, shutil, time, logging, copy, json
 from typing import Tuple
 from flask import current_app
 
+from ivit_i.app.handler import get_tag_app_list
+
 from .parser import (
     modify_task_json, 
     parse_task_info, check_src_type, 
@@ -9,7 +11,6 @@ from .parser import (
     get_model_tag_from_arch
 )
 from .common import gen_uuid, handle_exception, simple_exception, json_exception
-from ivit_i.app.handler import get_tag_app_list
 
 DIV             = '-'*30
 APP_KEY         = 'APPLICATION'
@@ -260,7 +261,10 @@ def parse_model_folder(model_dir):
 def update_model_app():
     """ Reset MODEL_APP relationship in app.config """
 
-    tag_app_list = current_app.config[TAG_APP] if ( TAG_APP in current_app.config ) else get_tag_app_list()
+    if not ( TAG_APP in current_app.config ): 
+        current_app.config.update( {  TAG_APP: get_tag_app_list() } )
+
+    tag_app_list = current_app.config["TAG_APP"]
 
     for model_name, model_data in current_app.config[MODEL_KEY].items():
         
