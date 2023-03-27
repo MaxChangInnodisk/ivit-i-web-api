@@ -18,16 +18,6 @@ APP_DIR     = "APP_DIR"
 def tag_app():
     return http_msg( current_app.config[TAG_APP], 200 )
 
-@bp_application.route("/model_app", methods=["GET"] )
-@swag_from("{}/{}".format(YAML_PATH, "model_app.yml"))
-def model_app():
-    return http_msg( current_app.config[MODEL_APP], 200 )
-
-@bp_application.route("/app_model", methods=["GET"] )
-@swag_from("{}/{}".format(YAML_PATH, "app_model.yml"))
-def app_model():
-    return http_msg( current_app.config[APP_MODEL], 200 )
-
 @bp_application.route("/get_all_app", methods=["GET"] )
 def get_all_app():
     return http_msg( list(current_app.config[APP_CTRL].get_all_apps().keys()), 200 )
