@@ -5,9 +5,11 @@
 
 cls_pattern = {
     "tag": "cls",
-    "openvino": {
+    "framework": {
         "model_path": "path/to/model",
         "label_path": "path/to/label",
+        "input_size": "3,224,224",
+        "preprocess": "torch",
         "device": "CPU",
         "thres": 0.7
     }

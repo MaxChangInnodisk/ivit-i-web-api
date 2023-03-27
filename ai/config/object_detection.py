@@ -6,7 +6,7 @@
 
 obj_yolo_pattern = {
     "tag": "obj",
-    "openvino": {
+    "framework": {
         "model_path": "./path/to/yolov3-model",
         "label_path": "./path/to/yolov3-label",
         "anchors": [        # 18
@@ -31,13 +31,15 @@ obj_yolo_pattern = {
         ],
         "architecture_type": "yolo",
         "device": "CPU",
-        "thres": 0.6
+        "thres": 0.6,
+        "input_size": "3,416,416",
+        "preprocess": "caffe"
     }
 }
 
 obj_yolov4_pattern = {
     "tag": "obj",
-    "openvino": {
+    "framework": {
         "model_path": "./path/to/yolov4-model",
         "label_path": "./path/to/yolov4-label",
         "anchors": [        # tiny is 12 , yolov4 is 18
@@ -56,6 +58,8 @@ obj_yolov4_pattern = {
         ],
         "architecture_type": "yolov4",
         "device": "CPU",
-        "thres": 0.6
+        "thres": 0.6,
+        "input_size": "3,416,416",
+        "preprocess": "caffe"
     }
 }

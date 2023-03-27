@@ -238,19 +238,30 @@ def get_support_model_name(base_name):
 def get_model_config(tag, arch=None):
     """ Get the basic configuration from web.ai.config """
     tag = tag.lower()
+    ret_config = None
     if tag == 'cls':
-        return cls_pattern
+        ret_config = cls_pattern
+    
     elif tag == 'obj':
         
         assert arch, "Get Model Conifg Error, if you want to get obj config you have to provide arch ( [ yolo, yolov4 ] )"
 
         if 'yolov4' in arch:
-            return obj_yolov4_pattern
+            ret_config = obj_yolov4_pattern
         else:
-            return obj_yolo_pattern
+            ret_config = obj_yolo_pattern
         
     else:
         raise KeyError('Get unkown tag: {}, support tag is [ cls, obj ]')
+
+    # Change Framework
+    framework = current_app.config.get('AF')
+    
+    temp = ret_config["framework"]
+    ret_config.pop("framework", None)
+    ret_config.update({framework: temp})
+    
+    return ret_config
 
 def get_model_tag_from_arch(arch):
     """ Get tag ( [ resnet, yolo ] ) from training configuration """
@@ -311,9 +322,7 @@ def gen_task_model_config(form:dict):
     write_json(model_conf_path, model_conf)
 
     logging.info(f" - Generate new AI Task configuration: {task_conf_path}")
-    logging.warning(task_conf)
     logging.info(f" - Generate new AI Model configuration: {model_conf_path}")
-    logging.warning(model_conf)
 
 def print_dict(input:dict):
     for key, val in input.items():
