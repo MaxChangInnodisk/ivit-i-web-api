@@ -2,6 +2,9 @@ import os, shutil, logging, copy, json
 from typing import Tuple
 from flask import current_app
 import numpy as np
+from ..ai.config import (
+    cls_pattern, obj_yolo_pattern, obj_yolov4_pattern
+)
 
 def clear_config_buf(uuid):
     # Clear the UUID and TASK information
@@ -30,7 +33,7 @@ def parse_task_info(path:str, pure_content:bool=False) -> Tuple[bool, tuple, str
     
     # Load AI Task Config
     task_cfg = load_json(task_cfg_path)
-    framework = task_cfg["framework"]
+    framework = task_cfg["framework"] 
 
     # Check AI Task Config Content
     if task_cfg=="" or task_cfg is None:
@@ -62,7 +65,7 @@ def parse_task_info(path:str, pure_content:bool=False) -> Tuple[bool, tuple, str
 
     return (task_cfg_path, model_cfg_path, task_cfg, model_cfg)
 
-def modify_basic_params(src_data, task_config):
+def modify_basic_params(src_data:dict, task_config:dict) -> dict:
     """ Update Basic Parameters in Task Configuration """
     logging.debug('Update Basic Parameters in Task Configuration')
     for key in ['name', 'source', 'source_type']:
@@ -70,7 +73,7 @@ def modify_basic_params(src_data, task_config):
         logging.debug(f' - update ({key}): {task_config[key]} -> {src_data[key]}')
     return task_config
 
-def modify_application_params(src_data, task_config):
+def modify_application_params(src_data:dict, task_config:dict) -> dict:
     """ Update Application Parameters in Task Configuration """
 
     app_key  = "application"
@@ -164,7 +167,8 @@ def modify_task_json(src_uuid:str, task_name:str, form:dict, need_copy:bool=Fals
     src_name = current_app.config['TASK'][src_uuid]['name']
     src_path = current_app.config['TASK'][src_uuid]['path']
 
-    ( src_task_config_path, src_model_config_path, task_cfg, model_cfg ) = parse_task_info(src_name, pure_content=True)
+    ( src_task_config_path, src_model_config_path, task_cfg, model_cfg ) = \
+        parse_task_info(src_name, pure_content=True)
 
     # --------------------------------------------------------
     # Update Task Path, Application Path and Model Path
@@ -192,6 +196,124 @@ def modify_task_json(src_uuid:str, task_name:str, form:dict, need_copy:bool=Fals
     # Update Configuration File
     write_json(task_cfg_path, task_cfg)
     write_json(model_cfg_path, model_cfg)
+
+def get_task_json_pattern() -> dict:
+    """ Define the Task Configuration Pattern """
+    return {
+        "application": {
+            "name": "",
+            "depend_on": []
+        },
+        "framework": current_app.config["AF"],
+        "name": "",
+        "source": "",
+        "source_type": "",
+        "prim": {
+            "model_json": ""
+        }
+    }
+
+def get_support_model_name(base_name):
+    """ In order to fit legacy version, 
+    the model content of the form data is the base name of the model file.
+    for example: /workspace/model/yolov4.xml, the content in form is /yolov4.xml
+    It's not compare with MODEL information in app.config, so we have to parse by ourself. """
+
+    base_name = base_name.strip()
+
+    if os.path.splitext(base_name)[1] == '':
+        return base_name
+    
+    trg_model_name = None
+    for model_name, model_data in current_app.config["MODEL"].items():
+        if os.path.basename(model_data["model_path"]) == base_name:
+            trg_model_name = model_name
+
+    if not trg_model_name:
+        raise KeyError("Can't find the target model ({}), support is [{}]".format(
+            base_name, ', '.join(current_app.config["MODEL"].keys())
+        ))
+    return trg_model_name
+
+def get_model_config(tag, arch=None):
+    """ Get the basic configuration from web.ai.config """
+    tag = tag.lower()
+    if tag == 'cls':
+        return cls_pattern
+    elif tag == 'obj':
+        
+        assert arch, "Get Model Conifg Error, if you want to get obj config you have to provide arch ( [ yolo, yolov4 ] )"
+
+        if 'yolov4' in arch:
+            return obj_yolov4_pattern
+        else:
+            return obj_yolo_pattern
+        
+    else:
+        raise KeyError('Get unkown tag: {}, support tag is [ cls, obj ]')
+
+def get_model_tag_from_arch(arch):
+    """ Get tag ( [ resnet, yolo ] ) from training configuration """
+    if "resnet" in arch:
+        return 'cls'
+    elif "yolo" in arch:
+        return 'obj'
+
+def gen_task_model_config(form:dict):
+    """ Generate a AI Task and AI Model Configuration 
+    1. Combine the correct path
+    2. Create a new AI Task Folder
+    3. Generate Model Config which pattern is from ivit.web.ai.config
+    4. Generate Task Config
+    """
+
+    # Define Basic Parameters
+    framework = current_app.config.get('AF')
+    task_conf_name = 'task.json'
+    model_conf_name = "model.json"
+    
+    # Get Basic Parameters from input
+    task_name   = form['name']
+    task_model  = form['model']
+    
+    # Get the target path of Task and Model Configuration
+    task_path   = os.path.join( current_app.config['TASK_ROOT'] , task_name )
+    task_conf_path = os.path.join(task_path, task_conf_name)
+    model_conf_path = os.path.join(task_path, model_conf_name)
+    
+    # -------------------------------------------------------------------------------------
+    # Create a new model folder
+    if not os.path.exists(task_path): 
+        os.makedirs( task_path )
+        logging.info('  - Create a folder for new AI Task ({})'.format(task_path))
+
+    # -------------------------------------------------------------------------------------
+    # Generate a Model Configuration
+    model_data = current_app.config["MODEL"][task_model]
+    model_conf = get_model_config( tag = model_data['tag'], arch = model_data['arch']  )
+
+    model_conf["tag"] = model_data['tag']
+    model_conf[framework]["model_path"]   = model_data['model_path']
+    model_conf[framework]["label_path"]   = model_data['label_path']
+    model_conf[framework]["anchors"]   = model_data['anchors']
+
+    # -------------------------------------------------------------------------------------
+    # Generate & Modify Task Configuration
+    task_conf = get_task_json_pattern()
+    task_conf["prim"]["model_json"] = model_conf_path
+    task_conf = modify_basic_params(src_data = form, task_config = task_conf)
+    task_conf = modify_application_params(form, task_conf)
+    model_conf = modify_model_params(src_data = form, model_config = model_conf)
+
+    # -------------------------------------------------------------------------------------
+    # Update Configuration File
+    write_json(task_conf_path, task_conf)
+    write_json(model_conf_path, model_conf)
+
+    logging.info(f" - Generate new AI Task configuration: {task_conf_path}")
+    logging.warning(task_conf)
+    logging.info(f" - Generate new AI Model configuration: {model_conf_path}")
+    logging.warning(model_conf)
 
 def print_dict(input:dict):
     for key, val in input.items():
