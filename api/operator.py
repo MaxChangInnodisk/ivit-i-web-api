@@ -12,10 +12,12 @@ from .common import get_request_data, PASS_CODE, FAIL_CODE
 # Handler handle each task and model behaviour
 from ..tools.handler import (
     get_tasks, remove_task, add_task, edit_task, 
-    init_model, get_model_tag
+    init_model, get_model_tag, parse_model_folder
 )
 
-from ..tools.parser import get_pure_jsonify
+from ..tools.parser import (
+    get_pure_jsonify
+)
 from ..tools.common import http_msg
 
 # Define API Docs path and Blue Print
@@ -119,7 +121,47 @@ def check_ir_models(path):
     return True
 
 
-def parse_info_from_zip( zip_path ):
+def convert_model(model_tag, model_name, model_path):
+
+    # It have to convert model if the framework is tensorrt
+    convert_proc = None
+    if current_app.config[AF]==TRT:
+        
+        # capture model name with path which without the extension
+        pure_model_name = os.path.splitext(model_path)[0]
+        trg_model_path = "{}.trt".format( model_name )
+
+        # define command line for convert
+        if model_tag == CLS:
+            pla = current_app.config.get('PLATFORM')    
+            cmd = [ 
+                "trtexec" if pla =='nvidia' else '/usr/src/tensorrt/bin/trtexec', 
+                "--onnx={}".format(os.path.realpath(model_path)), 
+                "--saveEngine={}".format(os.path.realpath(trg_model_path))
+            ]
+        else:         
+            cmd = [ "./converter/yolo-converter.sh",
+                    pure_model_name ]
+        
+        convert_proc = sb.Popen(cmd, stdout=sb.PIPE)
+        logging.warning("Start to convert tensorrt engine ... {}".format(cmd))
+    
+    else:
+        trg_model_path = model_path
+
+    # update IMPORT_PROC in web api
+    key = IMPORT_PROC
+    if not ( key in current_app.config ):
+        current_app.config.update( { key:dict() } )
+    if not ( model_name in current_app.config[key] ):
+        current_app.config[key].update( { model_name:dict() })
+
+    current_app.config[key][model_name][PROC]=convert_proc
+    logging.warning('Updated Convert Process into app.config!!!')
+    return trg_model_path
+
+
+def parse_info_from_zip( zip_path, auto_convert = True ):
 
     # ---------------------------------------------------------
     # Initialize parameters
@@ -132,48 +174,62 @@ def parse_info_from_zip( zip_path ):
 
     # ---------------------------------------------------------
     # Extract zip file
-    task_path = os.path.splitext(zip_path)[0]
-    task_name = task_path.split('/')[-1]
+    model_name = os.path.splitext(zip_path)[0].split('/')[-1]
+    
+    model_path = os.path.join(
+        current_app.config['MODEL_DIR'], model_name
+    )
     
     logging.info("Start to extract file: {}".format( zip_path ) )
-    sb.run(f"unzip {zip_path} -d {task_path} && rm -rf {zip_path}", shell=True)
-    logging.info("Extract to {} and remove {}, found {} files.".format( task_path, zip_path, len(os.listdir(task_path)) ))
+    sb.run(f"unzip {zip_path} -d {model_path} && rm -rf {zip_path}", shell=True)
+    logging.info("Extract to {} and remove {}, found {} files.".format( model_path, zip_path, len(os.listdir(model_path)) ))
 
+    ret = parse_model_folder(model_path)
+
+    if auto_convert:
+        new_model_path = convert_model(
+            model_tag = ret['tag'],
+            model_path = model_path,
+            model_name = model_name 
+        )
+        ret['model_path'] = new_model_path
+    
+    return ret
     # ---------------------------------------------------------
     # Parse all file 
-    for fname in os.listdir(task_path):
+    # for fname in os.listdir(task_path):
         
-        fpath = os.path.join(task_path, fname)
-        name, ext = os.path.splitext(fpath)
-        # logging.debug('Current File: {}'.format(fpath))
+    #     fpath = os.path.join(task_path, fname)
+    #     name, ext = os.path.splitext(fpath)
+    #     # logging.debug('Current File: {}'.format(fpath))
 
-        if ext in [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXT, XLNX_MODEL_EXT ]:
-            logging.info("Detected {}: {}".format("Model", fpath))
-            org_model_path = fpath
+    #     if ext in [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXT, XLNX_MODEL_EXT ]:
+    #         logging.info("Detected {}: {}".format("Model", fpath))
+    #         org_model_path = fpath
 
-        elif ext in [ DARK_LABEL_EXT, CLS_LABEL_EXT ]:
-            logging.info("Detected {}: {}".format("Label", fpath))
-            trg_label_path = fpath
+    #     elif ext in [ DARK_LABEL_EXT, CLS_LABEL_EXT ]:
+    #         logging.info("Detected {}: {}".format("Label", fpath))
+    #         trg_label_path = fpath
         
-        elif ext in [ DARK_JSON_EXT, CLS_JSON_EXT ]:
-            logging.info("Detected {}: {}".format("JSON", fpath))
-            trg_json_path = fpath
+    #     elif ext in [ DARK_JSON_EXT, CLS_JSON_EXT ]:
+    #         logging.info("Detected {}: {}".format("JSON", fpath))
+    #         trg_json_path = fpath
             
-            # update tag name via json file name 
-            trg_tag = get_model_tag(name.split('/')[-1])
+    #         # update tag name via json file name 
+    #         trg_tag = get_model_tag(name.split('/')[-1])
             
-        elif ext in [ DARK_CFG_EXT ]:
-            logging.info("Detected {}: {}".format("Config", fpath))
-            trg_cfg_path = fpath
+    #     elif ext in [ DARK_CFG_EXT ]:
+    #         logging.info("Detected {}: {}".format("Config", fpath))
+    #         trg_cfg_path = fpath
 
-        else:
-            logging.info("Detected {}: {}".format("Meta Data", fpath))
+    #     else:
+    #         logging.info("Detected {}: {}".format("Meta Data", fpath))
 
     # ---------------------------------------------------------
     # Double check model file
-    if not check_ir_models(org_model_path):
-        shutil.rmtree(task_path)
-        raise TypeError("Checking IR Model Failed, make sure ZIP or URL is for INTEL")
+    # if not check_ir_models(org_model_path):
+    #     shutil.rmtree(task_path)
+    #     raise TypeError("Checking IR Model Failed, make sure ZIP or URL is for INTEL")
     
     # ---------------------------------------------------------
     # It have to convert model if the framework is tensorrt
