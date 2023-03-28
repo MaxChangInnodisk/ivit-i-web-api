@@ -1,5 +1,6 @@
 import logging, subprocess, json, os, threading, wget, time, shutil, hashlib
 import subprocess as sb
+import numpy as np
 from flask import Blueprint, abort, request
 from flasgger import swag_from
 
@@ -169,8 +170,11 @@ class ICAP_DEPLOY:
             pla_error = True
 
         # NVIDIA and Jetson Platform is shared
-        if ( ivit_pla in [ NVIDIA, JETSON ] and (model_pla in [ NVIDIA, JETSON ] ) )
-            pla_error = False
+        if ivit_pla in [ JETSON, NVIDIA ]:
+            pla_matrix = np.array([ ivit_pla, model_pla ] ).reshape(1, -1)
+            pla_matrix_rev = np.array( [ NVIDIA, JETSON ] ).reshape(-1, 1)
+            if ( True in (pla_matrix == pla_matrix_rev) ):
+                pla_error = False
 
         # Platform Error        
         if pla_error:
@@ -288,8 +292,8 @@ class ICAP_DEPLOY:
             logging.warning('Start Convertion ...')
             # update self.converted_info
 
-            if ( self.converted_info is None ):
-                raise RuntimeError('Convert data is empty') 
+            # if ( self.converted_info is None ):
+            #     raise RuntimeError('Convert data is empty') 
             
         else:
             logging.warning(f'No need convertion, only {self.convert_platform} have to convert but current is {self.platform}')            
