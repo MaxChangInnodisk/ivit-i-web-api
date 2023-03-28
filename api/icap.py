@@ -129,21 +129,18 @@ class ICAP_DEPLOY:
         self.url            = data["sw_url"]
         self.checksum       = data["sw_checksum"]
         self.checksum_type  = data["sw_checksum_algorithm"]
-        self.descr          = data["sw_description"]
+        self.descr          = data["sw_description"]        
         
-        # Check platform
-        self.platform = self.descr.get("applyProductionModel")
-        if self.platform and ( self.platform.lower() != app.config["PLATFORM"].lower() ):
-            mesg = 'Unexepted Platform: {}'.format(self.platform)
-            self.error(mesg)
-            raise TypeError(mesg)
-
         # Get Description Data
+        self.platform = self.descr.get("applyProductionModel")
         self.project_name   = self.descr["project_name"]
         self.file_name      = self.descr["file_id"]
         self.file_size      = self.descr["file_size"]
         self.model_type     = self.descr["model_type"]
         self.model_classes  = self.descr["model_classes"]
+
+        # Check platform
+        self.check_platform()
 
         # Combine Save and Target Path
         self.save_path = os.path.join(self.temp_root, self.file_name )
@@ -158,6 +155,28 @@ class ICAP_DEPLOY:
 
         # Create Thread
         self.t = threading.Thread(target=self.deploy_event, daemon=True)
+
+    def check_platform(self):
+        if not self.platform:
+            return
+
+        pla_error = False
+        ivit_pla = app.config["PLATFORM"].lower()
+        model_pla = self.platform.lower()
+        
+        # Check Platform Value is Correct
+        if ( ivit_pla != model_pla ):
+            pla_error = True
+
+        # NVIDIA and Jetson Platform is shared
+        if ( ivit_pla in [ NVIDIA, JETSON ] and (model_pla in [ NVIDIA, JETSON ] ) )
+            pla_error = False
+
+        # Platform Error        
+        if pla_error:
+            mesg = 'Unexepted Platform: {}'.format(self.platform)
+            self.error(mesg)
+            raise TypeError(mesg)
 
     def check_md5(self):
         """ Checking checksum by MD5 """
