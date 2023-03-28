@@ -196,10 +196,11 @@ def get_model_tag(tag:str):
 
 
 def parse_model_folder(model_dir):
-    """ Parsing ZIP folder which extracted from ZIP File """
+    """ Parsing Model folder which extracted from ZIP File """
 
     ret = {
         "tag": "",
+        "name": "",
         "arch": "",
         "framework": "",
         "model_dir": model_dir,
@@ -216,8 +217,11 @@ def parse_model_folder(model_dir):
     framework = [ NV, INTEL, XLNX  ]
     assert len(framework)==len(model_exts), "Code Error, Make sure the length of model_exts and framework is the same "
 
+    ret['name'] = os.path.basename(model_dir)
+    
     model_dir = os.path.realpath(model_dir)
     ret['model_dir'] = model_dir
+    
     # print('\n\nModel Folder: {}'.format(model_dir))
     for fname in os.listdir(model_dir):
                     
@@ -246,7 +250,7 @@ def parse_model_folder(model_dir):
                 
                 # Basic Parameters
                 ret['input_size'] = train_config['model_config']["input_shape"]
-                ret['preprocess'] = train_config['model_config'].get("input_shape", "caffe")
+                ret['preprocess'] = train_config['model_config'].get("preprocess", "caffe")
                 
                 # INTEL 
                 if 'anchors' in train_config:
