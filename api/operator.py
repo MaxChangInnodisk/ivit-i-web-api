@@ -1,6 +1,6 @@
-import logging, shutil, os, requests
+import logging, shutil, os, requests, sys, random
 import subprocess as sb
-
+import threading
 # Flask
 from flask import Blueprint, current_app, request
 from werkzeug.utils import secure_filename
@@ -12,7 +12,7 @@ from .common import get_request_data, PASS_CODE, FAIL_CODE
 # Handler handle each task and model behaviour
 from ..tools.handler import (
     get_tasks, remove_task, add_task, edit_task, 
-    init_model, get_model_tag, parse_model_folder
+    init_model, get_model_tag, parse_model_folder, parse_zip_folder
 )
 
 from ..tools.parser import (
@@ -121,33 +121,105 @@ def check_ir_models(path):
     return True
 
 
+def convert_thread(platform, model_tag, model_path, trg_model_path, cur_app):
+    
+    # capture model name with path which without the extension
+    pure_model_name = os.path.splitext(trg_model_path)[0]
+
+    # define command line for convert
+    if model_tag == CLS:
+         
+        cmd = [ 
+            "trtexec" if platform =='nvidia' else '/usr/src/tensorrt/bin/trtexec', 
+            "--onnx={}".format(os.path.realpath(model_path)), 
+            "--saveEngine={}".format(os.path.realpath(trg_model_path))
+        ]
+    else:         
+        cmd = [ "./converter/yolo-converter.sh",
+                pure_model_name ]
+    
+    logging.warning("Start to convert tensorrt engine ... {}".format(cmd))
+    sb.run(cmd, stdout=sb.PIPE)
+    logging.warning("Convert Finished !!!")
+    
+    with cur_app.app_context():
+        init_model()
+
+def capture_convert_proc(proc_name, process, cur_app):
+
+    logging.warning('Trying to capture convert process')
+
+    cls_keywords = {
+        "&&&& RUNNING": 0.1,
+        "Finish parsing network model": 0.2,
+        "[MemUsageChange]": 0.3,
+        "Total Activation Memory": 0.7,
+        "Starting inference": 0.9,
+        "PASSED": 1.0
+    }
+
+    obj_keywords = {
+        "Darknet plugins are ready": 0.1,
+        "YOLO 2 ONNX": 0.2,
+        "Building ONNX graph...": 0.3,
+        "Saving ONNX file": 0.4,
+        "ONNX 2 TensorRT": 0.5,
+        "Building the TensorRT engine": 0.8,
+        "ONNX 2 TensorRT ... Done": 1.0,
+    }
+
+    keywords = { **cls_keywords, **obj_keywords }
+
+    proc_bar = 0
+    bar_bias = 0.0001
+    
+    for line in iter(process.stdout.readline,b''): 
+
+        if process.poll() != None:
+            logging.warning('Process Finished !')
+            break
+
+        line = line.rstrip().decode() 
+        if line.isspace(): 
+            proc_bar += bar_bias * 0.1 * random.randint(1, 10)
+            continue 
+
+        # Add Process Bar Value
+        proc_bar += bar_bias * random.randint(1, 10)
+
+        # Check Process Stage
+        for keyword in keywords:
+            if keyword in line:
+                proc_bar = keywords[keyword]
+                break
+        
+        # Update Status
+        status = f"converting ({round(proc_bar*100, 4)}%)"
+
+        print(f"{status}\n{line}")
+        
+        # Update Status
+        with cur_app.app_context():
+
+            # Web Socket
+            # current_app.config["IVIT_WS_POOL"].update({ 
+            #     "convertion": line  })
+            
+            # Convertion Status
+            current_app.config[IMPORT_PROC][proc_name].update({
+                "status": status,
+                "detail": line
+            })
+            
+    
+    with cur_app.app_context():
+        init_model()
+
 def convert_model(model_tag, model_name, model_path):
 
     # It have to convert model if the framework is tensorrt
     convert_proc = None
-    if current_app.config[AF]==TRT:
-        
-        # capture model name with path which without the extension
-        pure_model_name = os.path.splitext(model_path)[0]
-        trg_model_path = "{}.trt".format( model_name )
-
-        # define command line for convert
-        if model_tag == CLS:
-            pla = current_app.config.get('PLATFORM')    
-            cmd = [ 
-                "trtexec" if pla =='nvidia' else '/usr/src/tensorrt/bin/trtexec', 
-                "--onnx={}".format(os.path.realpath(model_path)), 
-                "--saveEngine={}".format(os.path.realpath(trg_model_path))
-            ]
-        else:         
-            cmd = [ "./converter/yolo-converter.sh",
-                    pure_model_name ]
-        
-        convert_proc = sb.Popen(cmd, stdout=sb.PIPE)
-        logging.warning("Start to convert tensorrt engine ... {}".format(cmd))
-    
-    else:
-        trg_model_path = model_path
+    trg_model_path = model_path
 
     # update IMPORT_PROC in web api
     key = IMPORT_PROC
@@ -156,6 +228,45 @@ def convert_model(model_tag, model_name, model_path):
     if not ( model_name in current_app.config[key] ):
         current_app.config[key].update( { model_name:dict() })
 
+    # If need convert
+    if current_app.config[AF]==TRT:
+        """
+        1. Update trg_model_path
+        2. Launch convert command via Popen and store a object call `proc`
+        3. Launch thread to capture `proc` and update status to web via websocket
+        """
+        pure_model_name = os.path.splitext(model_path)[0]
+        trg_model_path = "{}.trt".format( pure_model_name )
+
+        # define command line for convert
+        if model_tag == CLS:
+            logging.warning('Detect Classification Model')
+            pla = current_app.config.get('PLATFORM')    
+            cmd = [ 
+                "trtexec" if pla =='nvidia' else '/usr/src/tensorrt/bin/trtexec', 
+                "--onnx={}".format(os.path.realpath(model_path)), 
+                "--saveEngine={}".format(os.path.realpath(trg_model_path))
+            ]
+        else:         
+            logging.warning('Detect Object Detection Model')
+            cmd = [ "./converter/yolo-converter.sh", pure_model_name ]
+
+        logging.warning("Start to convert tensorrt engine ... {}".format(cmd))        
+        
+        # Start to Convert
+        convert_proc = sb.Popen(cmd, stdout=sb.PIPE, stderr=sb.STDOUT)
+
+        # Start capture
+        t = threading.Thread(
+            target = capture_convert_proc, 
+            args = ( 
+                model_name, 
+                convert_proc, 
+                current_app._get_current_object() ),
+            daemon = True
+        ).start()
+    
+    # Update infor
     current_app.config[key][model_name][PROC]=convert_proc
     logging.warning('Updated Convert Process into app.config!!!')
     return trg_model_path
@@ -184,110 +295,23 @@ def parse_info_from_zip( zip_path, auto_convert = True ):
     sb.run(f"unzip {zip_path} -d {model_path} && rm -rf {zip_path}", shell=True)
     logging.info("Extract to {} and remove {}, found {} files.".format( model_path, zip_path, len(os.listdir(model_path)) ))
 
-    ret = parse_model_folder(model_path)
-
+    # ---------------------------------------------------------
+    # Parsing zip folder
+    ret = parse_zip_folder(model_path)
+    print(ret)
+    
+    # ---------------------------------------------------------
+    # Convert
     if auto_convert:
         new_model_path = convert_model(
             model_tag = ret['tag'],
-            model_path = model_path,
-            model_name = model_name 
+            model_path = ret['model_path'],
+            model_name = ret['name'] 
         )
         ret['model_path'] = new_model_path
+        print('\n\n', ret)
     
     return ret
-    # ---------------------------------------------------------
-    # Parse all file 
-    # for fname in os.listdir(task_path):
-        
-    #     fpath = os.path.join(task_path, fname)
-    #     name, ext = os.path.splitext(fpath)
-    #     # logging.debug('Current File: {}'.format(fpath))
-
-    #     if ext in [ DARK_MODEL_EXT, CLS_MODEL_EXT, IR_MODEL_EXT, XLNX_MODEL_EXT ]:
-    #         logging.info("Detected {}: {}".format("Model", fpath))
-    #         org_model_path = fpath
-
-    #     elif ext in [ DARK_LABEL_EXT, CLS_LABEL_EXT ]:
-    #         logging.info("Detected {}: {}".format("Label", fpath))
-    #         trg_label_path = fpath
-        
-    #     elif ext in [ DARK_JSON_EXT, CLS_JSON_EXT ]:
-    #         logging.info("Detected {}: {}".format("JSON", fpath))
-    #         trg_json_path = fpath
-            
-    #         # update tag name via json file name 
-    #         trg_tag = get_model_tag(name.split('/')[-1])
-            
-    #     elif ext in [ DARK_CFG_EXT ]:
-    #         logging.info("Detected {}: {}".format("Config", fpath))
-    #         trg_cfg_path = fpath
-
-    #     else:
-    #         logging.info("Detected {}: {}".format("Meta Data", fpath))
-
-    # ---------------------------------------------------------
-    # Double check model file
-    # if not check_ir_models(org_model_path):
-    #     shutil.rmtree(task_path)
-    #     raise TypeError("Checking IR Model Failed, make sure ZIP or URL is for INTEL")
-    
-    # ---------------------------------------------------------
-    # It have to convert model if the framework is tensorrt
-    convert_proc = None
-    if current_app.config[AF]==TRT:
-        logging.warning("Converting to TensorRT Engine ...")
-        
-        # capture model name with path which without the extension
-        pure_model_name = os.path.splitext(org_model_path)[0]
-        trg_model_path = "{}.trt".format( pure_model_name )
-
-        # define command line for convert
-        if trg_tag == CLS:
-            pla = current_app.config.get('PLATFORM')    
-            cmd = [ 
-                "trtexec" if pla =='nvidia' else '/usr/src/tensorrt/bin/trtexec', 
-                "--onnx={}".format(os.path.realpath(org_model_path)), 
-                "--saveEngine={}".format(os.path.realpath(trg_model_path))
-            ]
-        else:         
-            cmd = [ "./converter/yolo-converter.sh",
-                    pure_model_name ]
-        
-        logging.warning("Start to convert tensorrt engine ... {}".format(cmd))
-        convert_proc = sb.Popen(cmd, stdout=sb.PIPE)
-    
-    else:
-        trg_model_path = org_model_path
-
-    # update IMPORT_PROC in web api
-    key = IMPORT_PROC
-    if not ( key in current_app.config ):
-        current_app.config.update( { key:dict() } )
-    if not ( task_name in current_app.config[key] ):
-        current_app.config[key].update( { task_name:dict() })
-
-    current_app.config[key][task_name][PROC]=convert_proc
-    logging.warning('Updated Convert Process into app.config!!!')
-
-    # return information
-    ret = {
-        NAME        : task_name,
-        PATH        : task_path,
-        TAG         : trg_tag,
-        MODEL_PATH  : trg_model_path,
-        LABEL_PATH  : trg_label_path,
-        CONFIG_PATH : trg_cfg_path,
-        JSON_PATH   : trg_json_path
-    }
-
-    current_app.config[key][task_name][INFO] = ret
-
-    # log
-    logging.info("Finish Parsing ZIP File ... ")
-    [ logging.info("    - {}: {}".format(key, val)) for key, val in ret.items() ]
-
-    return ret
-
 
 def extract_zip( zip_path ):
     # Get target task name and path ( in model folder )
@@ -457,9 +481,13 @@ def import_process_default_event():
 @bp_operators.route("/import_proc/<task_name>/status", methods=["GET"])
 @swag_from("{}/{}".format(YAML_PATH, "import_proc_status.yml"))
 def import_process_event(task_name):
-    
+
+    if current_app.config.get(IMPORT_PROC)==None:
+        return http_msg( 'Import process is not created yet', PASS_CODE )
+
     try:
         proc = current_app.config[IMPORT_PROC][task_name][PROC]
+        status = current_app.config[IMPORT_PROC][task_name].get('status', PROC_RUN)
     
     except Exception as e:
         return http_msg(e, FAIL_CODE)
@@ -470,8 +498,26 @@ def import_process_event(task_name):
     if proc.poll() != None:
         return http_msg(PROC_DONE, PASS_CODE)
 
-    return http_msg(PROC_RUN, PASS_CODE)
+    return http_msg(status, PASS_CODE)
 
+# @bp_operators.route("/import_proc/<task_name>", methods=["GET"])
+# @bp_operators.route("/import_proc/<task_name>/status", methods=["GET"])
+# @swag_from("{}/{}".format(YAML_PATH, "import_proc_status.yml"))
+# def import_process_event(task_name):
+    
+#     try:
+#         proc = current_app.config[IMPORT_PROC][task_name][PROC]
+
+#     except Exception as e:
+#         return http_msg(e, FAIL_CODE)
+
+#     if proc == None:
+#         return http_msg(PROC_DONE, PASS_CODE)
+
+#     if not proc.is_alive():
+#         return http_msg(PROC_DONE, PASS_CODE)
+
+#     return http_msg(PROC_RUN, PASS_CODE)
 
 @bp_operators.route("/import", methods=["POST"])
 @swag_from("{}/{}".format(YAML_PATH, "import.yml"))
