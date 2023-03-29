@@ -36,8 +36,12 @@ XLNX = 'xilinx'
 # Define extension for ZIP file form iVIT-T
 DARK_LABEL_EXT  = CLS_LABEL_EXT = ".txt"        # txt is the category list
 DARK_JSON_EXT   = CLS_JSON_EXT  = ".json"       # json is for basic information like input_shape, preprocess
-DARK_MODEL_EXT  = ".trt"    
+DARK_MODEL_EXT  = ".weights"    
+ONNX_MODEL_EXT  = ".onnx"
+
 DARK_CFG_EXT    = ".cfg"
+
+TRT_MODEL_EXT   = ".trt"
 XLNX_MODEL_EXT  = ".xmodel"
 IR_MODEL_EXT    = ".xml"
 IR_MODEL_EXTS   = [ ".bin", ".mapping", ".xml" ]
@@ -195,6 +199,69 @@ def get_model_tag(tag:str):
     return tags[tag]
 
 
+def parse_zip_folder(model_dir):
+    """ Parsing zip folder, only, we will detect .onnx and .weights instead of .trt, .xml, .xmodel """
+    ret = {
+        "tag": "",
+        "name": "",
+        "arch": "",
+        "framework": "",
+        "model_dir": model_dir,
+        "model_path": "",
+        "label_path": "",
+        "json_path": "",
+        "config_path": "",
+        "meta_data": []
+    }
+
+    model_exts = [ DARK_MODEL_EXT, ONNX_MODEL_EXT, IR_MODEL_EXT, XLNX_MODEL_EXT ]
+    framework = [ NV, NV, INTEL, XLNX  ]
+    assert len(framework)==len(model_exts), "Code Error, Make sure the length of model_exts and framework is the same "
+
+    ret['name'] = os.path.basename(model_dir)
+    
+    model_dir = os.path.realpath(model_dir)
+    ret['model_dir'] = model_dir
+
+    for fname in os.listdir(model_dir):
+        
+        fpath = os.path.join(model_dir, fname)
+        name, ext = os.path.splitext(fpath)
+        # logging.debug('Current File: {}'.format(fpath))
+        if ext in model_exts:
+            # print("\t- Detected {}: {}".format("Model", fpath))
+            ret['model_path']= fpath
+            
+            ret['framework'] = framework[ model_exts.index(ext) ]
+
+        elif ext in [ DARK_LABEL_EXT, CLS_LABEL_EXT ]:
+            # print("Detected {}: {}".format("Label", fpath))
+            ret['label_path'] = fpath
+        
+        elif ext in [ DARK_JSON_EXT, CLS_JSON_EXT ]:
+            # print("Detected {}: {}".format("JSON", fpath))
+            ret['json_path'] = fpath
+            
+            # get tag
+            with open(fpath, newline='') as jsonfile:
+                train_config = json.load(jsonfile)
+                ret['arch'] = train_config['model_config']['arch']  
+                ret['tag'] = get_model_tag_from_arch( ret['arch'] )  
+            
+        elif ext in [ DARK_CFG_EXT ]:
+            # print("Detected {}: {}".format("Config", fpath))
+            ret['config_path'] = fpath
+
+        else:
+            ret['meta_data'].append(fpath)
+            # print("Detected {}: {}".format("Meta Data", fpath))
+    
+    for key in ['model_path', 'json_path']:
+        assert ret[key] != '', f'{key} is null'
+
+    return ret
+
+
 def parse_model_folder(model_dir):
     """ Parsing Model folder which extracted from ZIP File """
 
@@ -213,7 +280,7 @@ def parse_model_folder(model_dir):
         "input_size": "",
         "preprocess": ""
     }
-    model_exts = [ DARK_MODEL_EXT, IR_MODEL_EXT, XLNX_MODEL_EXT ]
+    model_exts = [ TRT_MODEL_EXT, IR_MODEL_EXT, XLNX_MODEL_EXT ]
     framework = [ NV, INTEL, XLNX  ]
     assert len(framework)==len(model_exts), "Code Error, Make sure the length of model_exts and framework is the same "
 
@@ -276,7 +343,7 @@ def parse_model_folder(model_dir):
             # print("\t- Detected {}: {}".format("Meta Data", fpath))
             ret['meta_data'].append(fpath)
 
-    if ret['json_path'] == "":
+    if "" in [ ret['json_path'] or ret['model_path'] ]:
         logging.error("Can't find JSON Configuration")
     return ret
 
