@@ -307,7 +307,9 @@ def gen_task_model_config(form:dict):
     model_conf[framework]["model_path"]   = model_data['model_path']
     model_conf[framework]["label_path"]   = model_data['label_path']
     model_conf[framework]["anchors"]   = model_data['anchors']
-
+    model_conf[framework]["input_size"]   = model_data['input_size']
+    model_conf[framework]["preprocess"]   = model_data['preprocess']
+    
     # -------------------------------------------------------------------------------------
     # Generate & Modify Task Configuration
     task_conf = get_task_json_pattern()
