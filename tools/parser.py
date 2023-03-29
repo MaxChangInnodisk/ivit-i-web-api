@@ -301,13 +301,17 @@ def gen_task_model_config(form:dict):
     # -------------------------------------------------------------------------------------
     # Generate a Model Configuration
     model_data = current_app.config["MODEL"][task_model]
-    model_conf = get_model_config( tag = model_data['tag'], arch = model_data['arch']  )
 
+    #  HWC -> [320,448,3] -> "3,320,448" CHW
+    input_shape = [ model_data['input_size'][2], model_data['input_size'][0], model_data['input_size'][1] ]
+    model_input_size = ','.join([ str(i) for i in input_shape ])  
+
+    model_conf = get_model_config( tag = model_data['tag'], arch = model_data['arch']  )
     model_conf["tag"] = model_data['tag']
     model_conf[framework]["model_path"]   = model_data['model_path']
     model_conf[framework]["label_path"]   = model_data['label_path']
     model_conf[framework]["anchors"]   = model_data['anchors']
-    model_conf[framework]["input_size"]   = model_data['input_size']
+    model_conf[framework]["input_size"]   = model_input_size
     model_conf[framework]["preprocess"]   = model_data['preprocess']
     
     # -------------------------------------------------------------------------------------
