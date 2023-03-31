@@ -105,7 +105,7 @@ def capture_process_info(model_tag, proc_name, process, cur_app):
         "[MemUsageChange] Init cuBLAS/cuBLASLt": 0.3,
         "Total Activation Memory": 0.7,
         "Engine built in": 0.9,
-        "PASSED": 1.0
+        "PASSED TensorRT.trtexec": 1.0
     }
 
     # yolov4 160, yolov4-tiny 36
@@ -122,60 +122,64 @@ def capture_process_info(model_tag, proc_name, process, cur_app):
 
     send_val, proc_val = 0, 0
     bar_bias = 0.00001
-    send_buf = None
-    try:
+    send_buf, err_list, err_stop_flag = None, [], 'Engine set up failed'
 
-        for line in iter(process.stdout.readline,b''): 
+    for line in iter(process.stdout.readline,b''): 
+                        
+        if process.poll() != None:
+            break
 
-            if process.poll() != None:
+        line = line.rstrip().decode() 
+        if line.isspace(): 
+            proc_val += bar_bias * 0.1 * random.randint(1, 10)
+            continue 
+
+        # Check Error
+        if '[E]' in line:
+            err_list.append(line)
+            if err_stop_flag in line:
+                with cur_app.app_context():
+                    current_app.config[IMPORT_PROC][proc_name].update({
+                        "status": 'error',
+                        "detail": 'TensorRT Convert Failed !!!'
+                    })
+                raise RuntimeError('TensorRT Convert Failed ...')
+
+        # Add Process Bar Value
+        proc_val += bar_bias * random.randint(1, 10)
+
+        # Check Process Stage
+        for keyword in keywords:
+            if keyword in line:
+                proc_val = keywords[keyword]
                 break
+        
+        # Update Status
+        send_val = int(proc_val*100)
+        status = f"Converting ({send_val}%)"
 
-            line = line.rstrip().decode() 
-            if line.isspace(): 
-                proc_val += bar_bias * 0.1 * random.randint(1, 10)
-                continue 
-
-            # Add Process Bar Value
-            proc_val += bar_bias * random.randint(1, 10)
-
-            # Check Process Stage
-            for keyword in keywords:
-                if keyword in line:
-                    proc_val = keywords[keyword]
-                    break
-            
-            # Update Status
-            send_val = int(proc_val*100)
-            status = f"Converting ({send_val}%)"
-
-            print(f"{status}\n{line}")
-            
-            # Update Status
-            with cur_app.app_context():
-
-                # Web Socket
-                # current_app.config["IVIT_WS_POOL"].update({ 
-                #     "convertion": line  })
-                
-                # Convertion Status
-                current_app.config[IMPORT_PROC][proc_name].update({
-                    "status": status,
-                    "detail": line
-                })
-
+        print(f"{status}\n{line}")
+        
+        # Update Status
         with cur_app.app_context():
-            init_model()
+
+            # Web Socket
+            # current_app.config["IVIT_WS_POOL"].update({ 
+            #     "convertion": line  })
+            
+            # Convertion Status
             current_app.config[IMPORT_PROC][proc_name].update({
-                "status": "Done",
+                "status": status,
                 "detail": line
             })
 
-    except Exception as e:
-        with cur_app.app_context():
-            current_app.config[IMPORT_PROC][proc_name].update({
-                "status": "ERROR",
-                "detail": handle_exception(e)
-            })
+    with cur_app.app_context():
+        init_model()
+        current_app.config[IMPORT_PROC][proc_name].update({
+            "status": "Done",
+            "detail": line
+        })
+
 
 def update_import_process(model_name:str):
     """ update IMPORT_PROC in config """
@@ -263,7 +267,7 @@ def parse_info_from_zip( zip_path ):
         current_app.config['MODEL_DIR'], model_name )
 
     # Extract zip file
-    sb.run(f"unzip -o {zip_path} -d {model_path} && rm -rf {zip_path}", shell=True)
+    sb.run(f"unzip -o {zip_path} -d {model_path} && rm -rf {zip_path} && chown 1000:1000 -R .", shell=True)
     logging.info("Extract to {} and remove {}, found {} files.".format( model_path, zip_path, len(os.listdir(model_path)) ))
 
     # Parsing zip folder
