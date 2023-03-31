@@ -11,7 +11,7 @@ from ..tools.thingsboard import send_get_api, send_post_api
 from .common import sock, app, mqtt
 from ..tools.common import get_address, get_mac_address, http_msg, simple_exception
 from .task import get_simple_task
-from .operator import parse_info_from_zip
+from .operator import parse_info_from_zip, convert_model
 from ..tools.handler import init_model
 
 YAML_PATH   = "../docs/icap"
@@ -144,7 +144,7 @@ class ICAP_DEPLOY:
         self.check_platform()
 
         # Combine Save and Target Path
-        self.save_path = os.path.join(self.temp_root, self.file_name )
+        self.save_path = os.path.join(self.temp_root, f'{self.project_name}.zip' )
         self.target_path = os.path.join(self.model_root, self.project_name )
         
         # Removing Exist Path
@@ -153,6 +153,7 @@ class ICAP_DEPLOY:
         # Update Download Parameters
         self.tmp_proc_rate = 0  # avoid keeping send the same proc_rate
         self.push_rate = 10
+        self.push_buf = None
 
         # Create Thread
         self.t = threading.Thread(target=self.deploy_event, daemon=True)
@@ -186,7 +187,9 @@ class ICAP_DEPLOY:
         """ Checking checksum by MD5 """
         checksum = hashlib.md5(open(self.save_path,'rb').read()).hexdigest()
         if checksum != self.checksum:
-            raise TypeError("Checksum Error !!!!")
+            raise TypeError("Checksum Error !!!! SRC: {}, ICAP: {}".format(
+                checksum, self.checksum
+            ))
         logging.warning("Checked By Checksum ( MD5 )")
         
     def clear_exist_data(self):
@@ -238,10 +241,8 @@ class ICAP_DEPLOY:
             self.finished_event()
 
         except Exception as e:
-            handle_exception(e)
             self.clear_exist_data()
-            self.push_to_icap(state=S_ERRO)
-
+            self.push_to_icap(state=S_ERRO, error=handle_exception(e))
 
     def download_event(self):
         """ Download Event in python thread """
@@ -254,7 +255,7 @@ class ICAP_DEPLOY:
             self.url, 
             self.save_path, 
             bar=self.bar_progress )
-        logging.info("Downloaded File from iCAP")
+        logging.info("Downloaded File from iCAP ({})".format(self.save_path))
 
         # Checksum
         self.check_md5()
@@ -267,37 +268,50 @@ class ICAP_DEPLOY:
         
         # Parse information
         with app.app_context():
-            
+
             self.parsed_info = parse_info_from_zip( zip_path = self.save_path )
-            if self.parsed_info is None:
-                raise RuntimeError("Parsed data is empty")
+        
+        if self.parsed_info is None:
+            raise RuntimeError("Parsed data is empty")
 
-            [ print(key, val) for key, val in self.parsed_info.items() ]
-            
-            # NOTE: The new workflow for iCAP
-            # Copy to model path and update to app.config
-            sb.run(f"mv -f {self.save_path.replace('.zip', '')} {self.target_path}", shell=True)
-            
-            logging.info('Moved Folder from {} to {}'.format(
-                self.save_path, self.target_path ))
+        [ print(f'\t- {key}: {val}') for key, val in self.parsed_info.items() ]
+        
+        assert os.path.exists(self.target_path), "Move folder failed!"
 
-            init_model()
 
-            self.push_to_icap(state=S_PARS)
+        self.push_to_icap(state=S_PARS)
         
     def convert_event(self):
         """  Convert file base on self.parsed_info """
 
-        if ( self.platform in self.convert_platform ):
-            logging.warning('Start Convertion ...')
-            # update self.converted_info
+        # Check the paltform
+        if not ( self.platform in self.convert_platform ):
+            self.push_to_icap(state=S_CONV)
+            return
 
-            # if ( self.converted_info is None ):
-            #     raise RuntimeError('Convert data is empty') 
-            
-        else:
-            logging.warning(f'No need convertion, only {self.convert_platform} have to convert but current is {self.platform}')            
-                
+        # Start convert            
+        with app.app_context():
+            new_model_path, proc_name = convert_model(
+                model_tag = self.parsed_info['tag'],
+                model_path = self.parsed_info['model_path'],
+                model_name = self.parsed_info['name'],
+            )
+            self.parsed_info['model_path'] = new_model_path
+
+        # Capture Convert Message
+        send_cnt, send_buf = None, None
+        model_name = self.parsed_info['name']
+        while(True):
+            if app.config["IMPORT_PROC"][model_name]["proc"].poll() != None:
+                break
+
+            send_cnt = app.config["IMPORT_PROC"][model_name].get('status')
+
+            if send_cnt and (send_buf != send_cnt):
+                self.push_to_icap(state=send_cnt)
+                send_buf = send_cnt
+
+        # Finished
         self.push_to_icap(state=S_CONV)
 
     def finished_event(self):
