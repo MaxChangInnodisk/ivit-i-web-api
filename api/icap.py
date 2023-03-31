@@ -4,12 +4,10 @@ import numpy as np
 from flask import Blueprint, abort, request
 from flasgger import swag_from
 
-from ivit_i.utils.err_handler import handle_exception
-
 from ..tools.thingsboard import send_get_api, send_post_api
 
 from .common import sock, app, mqtt
-from ..tools.common import get_address, get_mac_address, http_msg, simple_exception
+from ..tools.common import get_address, get_mac_address, http_msg, simple_exception, handle_exception
 from .task import get_simple_task
 from .operator import parse_info_from_zip, convert_model
 from ..tools.handler import init_model
@@ -77,15 +75,12 @@ TB_KEY_ID           = "id"
 TB_KEY_TOKEN        = "accessToken"
 
 # Define TELEMETRY STATE
-S_ERRO = "ERROR"
-S_FAIL = "FAILED"
-S_PASS = "PASS"
-S_INIT = "INITIALIZED"
-S_DOWN = "DOWNLOADING"
-S_DOWN_END = "DOWNLOADED"
-S_PARS = "PARSED"
-S_CONV = "CONVERTED"
-S_FINISH = "FINISHED"
+S_FAIL = "Failure"
+S_INIT = "Waiting"
+S_DOWN = "Downloading"      # Downloading ({N}%)
+S_PARS = "Verifying"
+S_CONV = "Converting"       # Converting ({N}%)
+S_FINISH = "Success"
 
 class ICAP_DEPLOY:
 
@@ -158,24 +153,28 @@ class ICAP_DEPLOY:
         # Create Thread
         self.t = threading.Thread(target=self.deploy_event, daemon=True)
 
+        self.push_to_icap(state=S_INIT)
+
     def check_platform(self):
-        if not self.platform:
-            return
+        """ Checking Platform is correct or not,
+        The Jetson and Nvidia model is compatible
+        """ 
+
+        if not self.platform: return
 
         pla_error = False
         ivit_pla = app.config["PLATFORM"].lower()
         model_pla = self.platform.lower()
+        logging.info('Checking platform ... IVIT:{}, MODEL: {}'.format(ivit_pla, model_pla))
         
         # Check Platform Value is Correct
         if ( ivit_pla != model_pla ):
             pla_error = True
 
         # NVIDIA and Jetson Platform is shared
-        if ivit_pla in [ JETSON, NVIDIA ]:
-            pla_matrix = np.array([ ivit_pla, model_pla ] ).reshape(1, -1)
-            pla_matrix_rev = np.array( [ NVIDIA, JETSON ] ).reshape(-1, 1)
-            if ( True in (pla_matrix == pla_matrix_rev) ):
-                pla_error = False
+        nv_plat = [ JETSON, NVIDIA ]
+        if ivit_pla in nv_plat and model_pla in nv_plat:
+            pla_error = False
 
         # Platform Error        
         if pla_error:
@@ -202,7 +201,7 @@ class ICAP_DEPLOY:
                     os.remove(path)
             logging.warning('Clear exist path: {}'.format(path))
 
-    def bar_progress(self, current, total, width=80):
+    def download_progress_event(self, current, total, width=80):
         """ Custom progress bar for iCAP deployment, which will push the progress to icap """
         proc_rate = int(current / total * 100)
         proc_mesg = f"{S_DOWN} ( {proc_rate}% )"
@@ -242,33 +241,31 @@ class ICAP_DEPLOY:
 
         except Exception as e:
             self.clear_exist_data()
-            self.push_to_icap(state=S_ERRO, error=handle_exception(e))
+            logging.error(simple_exception(e))
+            self.push_to_icap(state=S_FAIL, error=simple_exception(e)[1])
 
     def download_event(self):
         """ Download Event in python thread """
         logging.info('Start to download file ....')
         self.print_info()
-        self.push_to_icap(state=S_INIT)
 
         t_start = time.time()
         wget.download( 
             self.url, 
             self.save_path, 
-            bar=self.bar_progress )
+            bar=self.download_progress_event )
         logging.info("Downloaded File from iCAP ({})".format(self.save_path))
-
+        
         # Checksum
         self.check_md5()
 
         logging.info('Download Finished  ... {}s'.format(int(time.time()-t_start)) )
-        self.push_to_icap(state=S_DOWN_END)
 
     def parse_event(self):
         """ Parsing data from ZIP File update self.parsed_info """
         
         # Parse information
         with app.app_context():
-
             self.parsed_info = parse_info_from_zip( zip_path = self.save_path )
         
         if self.parsed_info is None:
@@ -277,7 +274,6 @@ class ICAP_DEPLOY:
         [ print(f'\t- {key}: {val}') for key, val in self.parsed_info.items() ]
         
         assert os.path.exists(self.target_path), "Move folder failed!"
-
 
         self.push_to_icap(state=S_PARS)
         
@@ -289,7 +285,7 @@ class ICAP_DEPLOY:
             self.push_to_icap(state=S_CONV)
             return
 
-        # Start convert            
+        # Start convert in background       
         with app.app_context():
             new_model_path, proc_name = convert_model(
                 model_tag = self.parsed_info['tag'],
@@ -301,6 +297,7 @@ class ICAP_DEPLOY:
         # Capture Convert Message
         send_cnt, send_buf = None, None
         model_name = self.parsed_info['name']
+
         while(True):
             if app.config["IMPORT_PROC"][model_name]["proc"].poll() != None:
                 break
@@ -308,6 +305,8 @@ class ICAP_DEPLOY:
             send_cnt = app.config["IMPORT_PROC"][model_name].get('status')
 
             if send_cnt and (send_buf != send_cnt):
+                if send_cnt.lower() == "error":
+                    raise RuntimeError(app.config["IMPORT_PROC"][model_name].get('detail'))
                 self.push_to_icap(state=send_cnt)
                 send_buf = send_cnt
 
@@ -336,8 +335,8 @@ class ICAP_DEPLOY:
         }) )
 
     def error(self, content="Unknown Error ..."):
-        print("\nError: ", content)
-        self.push_to_icap(state=S_ERRO, error=content)
+        logging.error("\nError: ", content)
+        self.push_to_icap(state=S_FAIL, error=content)
             
 
 def register_tb_device(tb_url):
