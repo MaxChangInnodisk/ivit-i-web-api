@@ -35,6 +35,13 @@ def get_all_addr():
     logging.info('Detected available IP Address: {}'.format(ips))
     return ips 
 
+def get_all_addr_by_socket():
+    import socket   
+    hostname=socket.gethostname()   
+    addr=socket.gethostbyname(hostname) 
+    logging.info('Using Socket to check the avaiable ip address: {}'.format(addr))
+    return addr
+
 # Basic Function
 def init_flask():
     """
@@ -68,17 +75,21 @@ def init_flask():
 
     # update ip address
     if app.config.get(HOST) in [ None, "" ]:
-        ips = get_all_addr()
-        host_ip = ips[0]
-        if not (app.config.get(TB) in [ None, "" ]):
-            # if setup icap then compare the first domain is the same
-            for ip in ips:
-                if ip.split('.')[0] == app.config.get(TB).split('.')[0]:
-                    host_ip = ip
+        try:
+            ips = get_all_addr()
+            host_ip = ips[0]
+            if not (app.config.get(TB) in [ None, "" ]):
+                # if setup icap then compare the first domain is the same
+                for ip in ips:
+                    if ip.split('.')[0] == app.config.get(TB).split('.')[0]:
+                        host_ip = ip
 
-        app.config[HOST] = host_ip
+            app.config[HOST] = host_ip
+            
+        except Exception as e:
+            host_ip = get_all_addr_by_socket()
+            app.config[HOST] = host_ip
         logging.info('Update HOST to {}'.format(host_ip))
-
     return app
 
 # Initialize Flask App 
