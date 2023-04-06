@@ -109,7 +109,9 @@ class ICAP_DEPLOY:
                 }'
             }
         """
-
+        for k, d in data.items():
+            print("{}: {}".format(k, d))
+        
         # Need Convert List
         self.convert_platform = [ NVIDIA, JETSON ]
         self.parsed_info = None
@@ -125,7 +127,8 @@ class ICAP_DEPLOY:
         self.url            = data["sw_url"]
         self.checksum       = data["sw_checksum"]
         self.checksum_type  = data["sw_checksum_algorithm"]
-        self.descr          = data["sw_description"]        
+        self.descr          = data["sw_description"]    
+        self.package_id     = data.get("sw_package_id", "None")    
         
         # Get Description Data
         self.platform = self.descr.get("applyProductionModel")
@@ -134,6 +137,10 @@ class ICAP_DEPLOY:
         self.file_size      = self.descr["file_size"]
         self.model_type     = self.descr["model_type"]
         self.model_classes  = self.descr["model_classes"]
+        
+        # Status
+        self.is_finish = False
+        self.deploy_status = None
 
         # Check platform
         self.check_platform()
@@ -263,7 +270,7 @@ class ICAP_DEPLOY:
 
     def parse_event(self):
         """ Parsing data from ZIP File update self.parsed_info """
-        
+        logging.info('Start Parsing File ...')
         # Parse information
         with app.app_context():
             self.parsed_info = parse_info_from_zip( zip_path = self.save_path )
@@ -276,14 +283,19 @@ class ICAP_DEPLOY:
         assert os.path.exists(self.target_path), "Move folder failed!"
 
         self.push_to_icap(state=S_PARS)
+
+        logging.info('Parsed File ...')
         
     def convert_event(self):
         """  Convert file base on self.parsed_info """
+
 
         # Check the paltform
         if not ( self.platform in self.convert_platform ):
             self.push_to_icap(state=S_CONV)
             return
+
+        logging.info('Converting File ...')
 
         # Start convert in background       
         with app.app_context():
@@ -313,31 +325,39 @@ class ICAP_DEPLOY:
         # Finished
         self.push_to_icap(state=S_CONV)
 
-    def finished_event(self):
-        """  Update app.config """
+        logging.info('Convert File Finished !')
 
-        time.sleep(1)
+    def finished_event(self):
+        """  Update app.config and initialize model """
+        
+        with app.app_context():
+            init_model()
+            
         self.push_to_icap(state=S_FINISH)
 
     def start(self):
         self.t.start()
 
     def push_to_icap(self, state=S_INIT, error=""):
+
         if not ( self.title and self.ver ):
             logging.error('Empty title and version ...')
             return None
+
+        self.is_finish = True if state == S_FINISH else False
+        self.deploy_status = state
         
         mqtt.publish(app.config[TB_TOPIC_SND_TEL], json.dumps({
             "current_sw_title": self.title,
             "current_sw_version": self.ver,
             "sw_state": state,
-            "sw_error": error
+            "sw_error": error,
+            "sw_package_id": self.package_id
         }) )
 
     def error(self, content="Unknown Error ..."):
         logging.error("\nError: ", content)
-        self.push_to_icap(state=S_FAIL, error=content)
-            
+        self.push_to_icap(state=S_FAIL, error=content)            
 
 def register_tb_device(tb_url):
     """ Register Thingsboard Device
@@ -493,10 +513,21 @@ def rpc_event(request_idx, data):
 def attr_event(data):
 
     if 'sw_description' in data.keys():
-        logging.warning('Detected url, start to deploy')
+
+        logging.warning('Detected url from iCAP, start to deploy ...')
 
         deploy_event = ICAP_DEPLOY( data = data)
         deploy_event.start()
+
+        # Append to app.config
+        if not ("deploy" in app.config):
+            app.config.update({ "deploy": [] })
+
+        app.config['deploy'].append(deploy_event)
+
+        logging.warning('Current Deploying Event: ')
+        for event in app.config['deploy']:
+            logging.warning('{}: {}: {}'.format(event, event.is_finish, event.deploy_status))
 
 def register_mqtt_event():
 
