@@ -278,7 +278,7 @@ def parse_model_folder(model_dir):
         "meta_data": [],
         "anchors": [],
         "input_size": "",
-        "preprocess": ""
+        "preprocess": None
     }
     model_exts = [ TRT_MODEL_EXT, IR_MODEL_EXT, XLNX_MODEL_EXT ]
     framework = [ NV, INTEL, XLNX  ]
@@ -317,7 +317,7 @@ def parse_model_folder(model_dir):
                 
                 # Basic Parameters
                 ret['input_size'] = train_config['model_config']["input_shape"]
-                ret['preprocess'] = train_config['model_config'].get("preprocess", "caffe")
+                ret['preprocess'] = train_config['model_config']["preprocess"]
                 
                 # INTEL 
                 if 'anchors' in train_config:
