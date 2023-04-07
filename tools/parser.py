@@ -265,6 +265,8 @@ def get_model_tag_from_arch(arch):
     """ Get tag ( [ resnet, yolo ] ) from training configuration """
     if "resnet" in arch:
         return 'cls'
+    if "vgg" in arch:
+        return 'cls'
     elif "yolo" in arch:
         return 'obj'
 
