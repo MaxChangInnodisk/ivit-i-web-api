@@ -317,7 +317,7 @@ def parse_model_folder(model_dir):
                 
                 # Basic Parameters
                 ret['input_size'] = train_config['model_config']["input_shape"]
-                ret['preprocess'] = train_config['model_config']["preprocess"]
+                ret['preprocess'] = train_config['model_config'].get("preprocess")
                 
                 # INTEL 
                 if 'anchors' in train_config:
