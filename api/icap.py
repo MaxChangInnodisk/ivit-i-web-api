@@ -333,12 +333,12 @@ class ICAP_DEPLOY:
         with app.app_context():
             init_model()
             
-        self.push_to_icap(state=S_FINISH)
+        self.push_to_icap(state=S_FINISH, finish=True)
 
     def start(self):
         self.t.start()
 
-    def push_to_icap(self, state=S_INIT, error=""):
+    def push_to_icap(self, state=S_INIT, error="", finish=False):
 
         if not ( self.title and self.ver ):
             logging.error('Empty title and version ...')
@@ -346,14 +346,20 @@ class ICAP_DEPLOY:
 
         self.is_finish = True if state == S_FINISH else False
         self.deploy_status = state
-        
-        mqtt.publish(app.config[TB_TOPIC_SND_TEL], json.dumps({
-            "current_sw_title": self.title,
-            "current_sw_version": self.ver,
+
+        ret = {
             "sw_state": state,
             "sw_error": error,
             "sw_package_id": self.package_id
-        }) )
+        }
+
+        if finish:
+            ret.update({
+                "current_sw_title": self.title,
+                "current_sw_version": self.ver,
+            })
+        
+        mqtt.publish(app.config[TB_TOPIC_SND_TEL], json.dumps(ret) )
 
     def error(self, content="Unknown Error ..."):
         logging.error("\nError: ", content)
