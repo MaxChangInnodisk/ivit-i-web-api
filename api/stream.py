@@ -193,8 +193,8 @@ def stream_task(task_uuid, src, namespace):
     # If setup application failed
     except Exception as e: 
         
-        err_mesg = handle_exception(e)
-        stop_task_thread(task_uuid, json_exception(e))
+        err_mesg = json_exception(e)
+        stop_task_thread(task_uuid, err_mesg)
         
         # Runtime Error Message
         err_mesg.update({
@@ -269,6 +269,7 @@ def stream_task(task_uuid, src, namespace):
 
             # Draw something
             if (temp_info is not None):
+                
                 draw, app_info = application(draw, temp_info)
 
             # Send RTSP
