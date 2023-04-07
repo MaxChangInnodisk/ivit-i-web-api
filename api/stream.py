@@ -135,7 +135,7 @@ def define_gst_pipeline(src_wid, src_hei, src_fps, rtsp_url, platform='intel'):
             f' ! rtspclientsink location={rtsp_url}'
 
     xlnx =  'videomixer name=mix sink_0::xpos=0 sink_0::ypos=0 ! omxh264enc prefetch-buffer=true ' + \
-            'control-rate=2 target-bitrate=3000 filler-data=false constrained-intra-prediction=true ' + \
+            'control-rate=2 target-bitrate=4096 filler-data=false constrained-intra-prediction=true ' + \
             'periodicity-idr=120 gop-mode=low-delay-p aspect-ratio=3 low-bandwidth=true default-roi-quality=4 ' + \
             '! video/x-h264,alignment=au ' + \
             f'! rtspclientsink location={rtsp_url} ' + \
@@ -151,6 +151,72 @@ def define_gst_pipeline(src_wid, src_hei, src_fps, rtsp_url, platform='intel'):
     }
     logging.info(f'Parse {platform} Gstreamer Pipeline ')
     return maps.get(platform)
+
+# RTSP Output
+# -----------------------------------------------
+class RtspWritter():
+
+    def __init__(self, task_uuid, platform, src_wid, src_hei, src_fps = 30) -> None:
+
+        # Params
+        self.src_wid = src_wid
+        self.src_hei = src_hei
+        self.src_fps = src_fps
+        self.rtsp_url = f"rtsp://localhost:8554/{task_uuid}"
+        self.platform = platform
+        
+        self.send_frame = None
+        self.is_stop = False
+
+        # Define RTSP
+        self.gst_pipeline = define_gst_pipeline(
+            src_wid, src_hei, src_fps, self.rtsp_url, self.platform
+        )
+        
+        # Define Writter
+        self.out = cv2.VideoWriter(  self.gst_pipeline, 
+                                cv2.CAP_GSTREAMER, 0, 
+                                src_fps, (src_wid, src_hei), True )
+
+        if not self.out.isOpened():
+            raise Exception("can't open video writer")
+
+        # Define the threading
+        self.worker = threading.Thread( target=self.write_thread, daemon=True)
+        
+    def write_thread(self):
+        """ Write frame into gstreamer """
+        logging.warning('Start the RTSP writter')
+            
+        try:    
+            while(not self.is_stop):
+                if self.send_frame is None:
+                    time.sleep(33e-3); continue
+
+                t_write = time.time()
+                self.out.write(self.send_frame)
+                print('Write FPS: {:05}'.format(int(1/(time.time()-t_write))), end='\r')
+
+        except Exception as e:
+            self.is_stop = True
+            logging.error('Got error in RTSP Writter')
+
+        logging.info("Stop RTSP Writter")
+
+    def submit(self, frame):
+        """ Update frame """
+        self.send_frame = frame
+
+        if not self.worker.is_alive():
+            self.worker.start()
+
+    def is_running(self) -> bool:
+        return (not self.is_stop)
+
+    def release(self):
+        self.is_stop = True
+        self.worker.join()
+        logging.warning('Clear RTSP Writter')
 
 # AI Inference Thread
 # -----------------------------------------------
@@ -193,8 +259,8 @@ def stream_task(task_uuid, src, namespace):
     # If setup application failed
     except Exception as e: 
         
-        err_mesg = handle_exception(e)
-        stop_task_thread(task_uuid, json_exception(e))
+        err_mesg = json_exception(e)
+        stop_task_thread(task_uuid, err_mesg)
         
         # Runtime Error Message
         err_mesg.update({
@@ -214,17 +280,20 @@ def stream_task(task_uuid, src, namespace):
     (src_hei, src_wid), src_fps = src.get_shape(), src.get_fps()
 
     # Define RTSP
-    rtsp_url = f"rtsp://localhost:8554/{task_uuid}"
-    gst_pipeline = define_gst_pipeline(
-        src_wid, src_hei, src_fps, rtsp_url, platform
-    )
-    out = cv2.VideoWriter(  gst_pipeline, cv2.CAP_GSTREAMER, 0, 
-                            src_fps, (src_wid, src_hei), True )
-
-    logging.info('Gstreamer Pipeline: {}\n\n{}'.format(gst_pipeline, rtsp_url))
-
+    # rtsp_url = f"rtsp://localhost:8554/{task_uuid}"
+    # gst_pipeline = define_gst_pipeline(
+    #     src_wid, src_hei, src_fps, rtsp_url, platform
+    # )
+    # out = cv2.VideoWriter(  gst_pipeline, cv2.CAP_GSTREAMER, 0, 
+    #                         src_fps, (src_wid, src_hei), True )
+    # logging.info('Gstreamer Pipeline: {}\n\n{}'.format(gst_pipeline, rtsp_url))
     # if not out.isOpened():
     #     raise Exception("can't open video writer")
+
+    rtsp_writter = RtspWritter(    task_uuid = task_uuid,
+        platform = platform,
+        src_hei = src_hei,
+        src_wid = src_wid   )
 
     # start looping
     cur_info, temp_info, app_info = None, None, None
@@ -269,14 +338,15 @@ def stream_task(task_uuid, src, namespace):
 
             # Draw something
             if (temp_info is not None):
+                
                 draw, app_info = application(draw, temp_info)
 
             # Send RTSP
-            out.write(draw)
+            # out.write(draw)
+            rtsp_writter.submit(draw)
 
             # Select Information to send
             info = temp_info.get(DETS) if (temp_info is not None) else ''
-
 
             # Combine the return information
             ret_info = {
@@ -286,6 +356,7 @@ def stream_task(task_uuid, src, namespace):
                 FPS         : cur_fps,
                 LIVE_TIME   : round((time.time() - app.config[TASK][task_uuid][START_TIME]), 5),
             }
+
             # Send Information
             if(time.time() - temp_socket_time >= 1):
                 with app.app_context():            
@@ -294,8 +365,8 @@ def stream_task(task_uuid, src, namespace):
 
             # Delay to fix in 30 fps
             t_cost, t_expect = (time.time()-t1), (1/src_fps)
-            time.sleep(t_expect-t_cost if(t_cost<t_expect) else 1e-5)
-            
+            time.sleep(t_expect-t_cost if(t_cost<t_expect) else 1e-6)
+
             # Update Live Time and FPS
             with app.app_context():
                 app.config[TASK][task_uuid][LIVE_TIME] = int((time.time() - app.config[TASK][task_uuid][START_TIME]))
@@ -314,6 +385,7 @@ def stream_task(task_uuid, src, namespace):
     
     finally:
         trg.release()
+        rtsp_writter.release()
         with app.app_context():
             app.config[TASK_LIST]=get_tasks()
             if app.config[KEY_TB_STATS]:
