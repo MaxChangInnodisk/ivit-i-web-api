@@ -363,11 +363,16 @@ def register_tb_device(tb_url):
             }
     """
 
+    platform = app.config.get("PLATFORM")
+    if platform == JETSON:
+        # Jetson device have to mapping to nvidia
+        platform = NVIDIA
+        
     send_data = { 
         TB_KEY_NAME  : DEVICE_NAME,
         TB_KEY_TYPE  : DEVICE_TYPE,
         TB_KEY_ALIAS : DEVICE_ALIAS,
-        TB_KEY_MODEL : app.config.get("PLATFORM")
+        TB_KEY_MODEL : platform 
     }
 
     header = "http://"
