@@ -1,0 +1,27 @@
+Get the list of labels
+---
+tags:
+  - task
+produces: application/json
+parameters:
+  - name: uuid
+    in: path
+    type: string
+    required: true
+responses:
+  200:
+    description: A list of labels
+    schema:
+      type: array
+      items:
+        type: string
+      example:
+        {
+          "status_code": 200, 
+          "data": [
+            "cat", 
+            "dog"
+          ], 
+          "message": "", 
+          "type": ""
+        }

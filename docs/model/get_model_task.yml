@@ -1,0 +1,30 @@
+Get model information.
+---
+tags:
+  - model
+responses:
+  200:
+    name: data
+    type: object
+    description: the relation between model and task (uuid)
+    schema:
+      example:
+        {
+          "status_code": 200, 
+          "data": {
+            "yolo-v4-tiny-tf": [
+              "cffadbf8", 
+              "85abd584", 
+              "3fd8fccf", 
+              "58d0e48e"
+            ], 
+            "yolo-v3-tf": [
+              "4cd20f7e"
+            ], 
+            "resnet-v1": [
+              "0dc720ab"
+            ]
+          }, 
+          "message": "", 
+          "type": ""
+        }

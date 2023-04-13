@@ -1,0 +1,30 @@
+Get model parameters.
+---
+tags:
+  - model
+responses:
+  200:
+    name: data
+    type: object
+    description: the relation between model and task (uuid)
+    schema:
+      example:
+        {
+          "status_code": 200, 
+          "data": {
+            "yolo-v4-tiny-tf.xml": [
+              "4f2d414a", 
+              "519161d3", 
+              "d97aee18", 
+              "40191b10"
+            ], 
+            "yolo-v3-tf.xml": [
+              "1179043a"
+            ], 
+            "resnet_v1_50_inference.xml": [
+              "9166b83a"
+            ]
+          }, 
+          "message": "", 
+          "type": ""
+        }

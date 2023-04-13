@@ -379,6 +379,9 @@ def update_model_task():
                 model_name: []
             })
         
+        if (task_uuid in current_app.config[MODEL_TASK_KEY][model_name] ):
+            return
+        
         current_app.config[MODEL_TASK_KEY][model_name].append(task_uuid)
 
 

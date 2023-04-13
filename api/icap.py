@@ -365,6 +365,7 @@ class ICAP_DEPLOY:
         logging.error("\nError: ", content)
         self.push_to_icap(state=S_FAIL, error=content)            
 
+
 def register_tb_device(tb_url):
     """ Register Thingsboard Device
     
@@ -534,6 +535,7 @@ def attr_event(data):
         logging.warning('Current Deploying Event: ')
         for event in app.config['deploy']:
             logging.warning('{}: {}: {}'.format(event, event.is_finish, event.deploy_status))
+
 
 def register_mqtt_event():
 

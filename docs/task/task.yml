@@ -8,6 +8,9 @@ responses:
     schema:
       type: object
       example:
+      {
+        "status_code": 200,
+        "data": 
         {
           "ready":
             [
@@ -31,4 +34,7 @@ responses:
                 "status": "error",
               }
             ]
-        }
+        },
+        "message": "",
+        "type": ""
+      }

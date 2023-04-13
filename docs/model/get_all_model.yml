@@ -1,0 +1,81 @@
+Get model information.
+---
+tags:
+  - model
+responses:
+  200:
+    name: data
+    type: object
+    description: the relation between model and task (uuid)
+    schema:
+      example:
+        {
+          "status_code": 200, 
+          "data": {
+            "guns_gray": {
+              "tag": "obj", 
+              "name": "guns_gray", 
+              "arch": "yolov4", 
+              "framework": "intel", 
+              "model_dir": "/workspace/model/guns_gray", 
+              "model_path": "/workspace/model/guns_gray/guns_gray.xml", 
+              "label_path": "/workspace/model/guns_gray/classes.txt", 
+              "json_path": "/workspace/model/guns_gray/yolo.json", 
+              "config_path": "", 
+              "meta_data": [
+                "/workspace/model/guns_gray/guns_gray.mapping", 
+                "/workspace/model/guns_gray/guns_gray.bin"
+              ], 
+              "anchors": [
+                39, 
+                45, 
+                54, 
+                84, 
+                85, 
+                53, 
+                91, 
+                107, 
+                55, 
+                177, 
+                173, 
+                77, 
+                120, 
+                155, 
+                207, 
+                127, 
+                200, 
+                216
+              ], 
+              "input_size": [
+                320, 
+                320, 
+                3
+              ], 
+              "preprocess": "caffe"
+            },
+            "resnet-v1": {
+              "tag": "cls", 
+              "name": "resnet-v1", 
+              "arch": "resnet_50", 
+              "framework": "intel", 
+              "model_dir": "/workspace/model/resnet-v1", 
+              "model_path": "/workspace/model/resnet-v1/resnet_v1_50_inference.xml", 
+              "label_path": "/workspace/model/resnet-v1/imagenet.names", 
+              "json_path": "/workspace/model/resnet-v1/classification.json", 
+              "config_path": "", 
+              "meta_data": [
+                "/workspace/model/resnet-v1/resnet_v1_50_inference.mapping", 
+                "/workspace/model/resnet-v1/resnet_v1_50_inference.bin"
+              ], 
+              "anchors": [], 
+              "input_size": [
+                224, 
+                224, 
+                3
+              ], 
+              "preprocess": "caffe"
+            }
+          },
+          "message": "", 
+          "type": ""
+        }

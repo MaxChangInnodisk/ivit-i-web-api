@@ -38,11 +38,13 @@ def get_model_key(name, key):
 
 
 @bp_model.route("/model", methods=["GET"])
+@swag_from(f'{YAML_PATH}/{"get_all_model.yml"}')
 def get_model():
     return http_msg( current_app.config[MODEL_KEY], PASS_CODE )
 
 
 @bp_model.route("/model/<name>", methods=["GET"])
+@swag_from("{}/{}".format(YAML_PATH, "get_model.yml"))
 def get_target_model_info(name):
 
     try:
@@ -53,11 +55,11 @@ def get_target_model_info(name):
 
 
 @bp_model.route("/model/<name>/<key>", methods=["GET"])
+@swag_from("{}/{}".format(YAML_PATH, "get_model_param.yml"))
 def get_target_model_param(name, key):
 
     try:
         return http_msg( get_model_key(name, key), PASS_CODE )
-    
     except Exception as e:
         return http_msg(e, FAIL_CODE)    
 
@@ -80,7 +82,7 @@ def get_model_label(name):
 
 
 @bp_model.route("/model_task", methods=["GET"])
-@swag_from(f'{YAML_PATH}/{"get_model.yml"}')
+@swag_from(f'{YAML_PATH}/{"get_model_task.yml"}')
 def get_model_task():
     try:
         update_model_relation()
@@ -90,6 +92,7 @@ def get_model_task():
 
     
 @bp_model.route("/model_app", methods=['GET'])
+@swag_from(f'{YAML_PATH}/get_model_app.yml')
 def get_model_app():
 
     try:

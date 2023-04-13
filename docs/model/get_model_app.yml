@@ -1,0 +1,48 @@
+Get model information.
+---
+tags:
+  - model
+responses:
+  200:
+    name: data
+    type: object
+    description: the relation between model and task (uuid)
+    schema:
+      example:
+        {
+          "status_code": 200, 
+          "data": {
+            "fire_detection": [
+              "default", 
+              "area_detection", 
+              "counting", 
+              "heatmap", 
+              "moving_direction", 
+              "tracking"
+            ], 
+            "dog_cat_classification": [
+              "default"
+            ], 
+            "resnet-v1": [
+              "default"
+            ], 
+            "safety_helmet": [
+              "default", 
+              "area_detection", 
+              "counting", 
+              "heatmap", 
+              "moving_direction", 
+              "tracking"
+            ], 
+            "yolo-v4-tiny-tf": [
+              "default", 
+              "area_detection", 
+              "counting", 
+              "heatmap", 
+              "moving_direction", 
+              "tracking"
+            ]
+          }, 
+          "message": "", 
+          "type": ""
+        }

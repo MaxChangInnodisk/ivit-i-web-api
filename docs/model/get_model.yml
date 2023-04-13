@@ -12,18 +12,26 @@ responses:
         {
           "status_code": 200, 
           "data": {
-            "yolo-v4-tiny-tf.xml": [
-              "4f2d414a", 
-              "519161d3", 
-              "d97aee18", 
-              "40191b10"
+            "tag": "cls", 
+            "name": "dog_cat_classification", 
+            "arch": "resnet_50", 
+            "framework": "intel", 
+            "model_dir": "/workspace/model/dog_cat_classification", 
+            "model_path": "/workspace/model/dog_cat_classification/dog_cat_classification.xml", 
+            "label_path": "/workspace/model/dog_cat_classification/classes.txt", 
+            "json_path": "/workspace/model/dog_cat_classification/classification.json", 
+            "config_path": "", 
+            "meta_data": [
+              "/workspace/model/dog_cat_classification/dog_cat_classification.bin", 
+              "/workspace/model/dog_cat_classification/dog_cat_classification.mapping"
             ], 
-            "yolo-v3-tf.xml": [
-              "1179043a"
+            "anchors": [], 
+            "input_size": [
+              608, 
+              800, 
+              3
             ], 
-            "resnet_v1_50_inference.xml": [
-              "9166b83a"
-            ]
+            "preprocess": "caffe"
           }, 
           "message": "", 
           "type": ""
