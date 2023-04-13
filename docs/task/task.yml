@@ -7,11 +7,9 @@ responses:
     description: dictionaray with available and unavailable application
     schema:
       type: object
-      example:
-      {
+      example: {
         "status_code": 200,
-        "data": 
-        {
+        "data": {
           "ready":
             [
               {
