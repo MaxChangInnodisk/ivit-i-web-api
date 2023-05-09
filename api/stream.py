@@ -381,7 +381,7 @@ def stream_task(task_uuid, src, namespace):
     except Exception as e:
         err_mesg = handle_exception(e)
         stop_task_thread(task_uuid, err_mesg)
-        raise RuntimeError(err_mesg)
+        # raise RuntimeError(err_mesg)
     
     finally:
         trg.release()
